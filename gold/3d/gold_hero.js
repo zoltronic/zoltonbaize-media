@@ -45,14 +45,25 @@ async function init() {
     new THREE.TextureLoader().loadAsync(BASE + 'wf_normal_2k.png'),
     new THREE.TextureLoader().loadAsync(BASE + 'wf_letters_2k.png'),
   ]);
-  envTex.mapping = THREE.EquirectangularReflectionMapping; envTex.colorSpace = THREE.SRGBColorSpace;
+  // warmth dial (0..1): tints the environment toward orange before it becomes the reflection map, and shifts the base gold the same way
+  const WARM = Math.max(0, Math.min(1, CFG.warmth ?? 0.3));
+  let envSrc = envTex;
+  if (WARM > 0 && envTex.image && envTex.image.width) {
+    const cv = document.createElement('canvas'); cv.width = envTex.image.width; cv.height = envTex.image.height;
+    const cx = cv.getContext('2d'); cx.drawImage(envTex.image, 0, 0);
+    const id = cx.getImageData(0, 0, cv.width, cv.height), d = id.data, gm = 1 - 0.10 * WARM, bm = 1 - 0.30 * WARM;
+    for (let i = 0; i < d.length; i += 4) { d[i + 1] = d[i + 1] * gm; d[i + 2] = d[i + 2] * bm; }
+    cx.putImageData(id, 0, 0);
+    envSrc = new THREE.CanvasTexture(cv);
+  }
+  envSrc.mapping = THREE.EquirectangularReflectionMapping; envSrc.colorSpace = THREE.SRGBColorSpace;
   normalTex.colorSpace = THREE.NoColorSpace; lettersTex.colorSpace = THREE.NoColorSpace;
   normalTex.flipY = false; lettersTex.flipY = false; // glTF UVs have V pointing down; the maps were authored in Blender's V-up space
   for (const t of [normalTex, lettersTex]) { t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; }
 
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer); pmrem.compileEquirectangularShader();
-  scene.environment = pmrem.fromEquirectangular(envTex).texture; envTex.dispose(); pmrem.dispose();
+  scene.environment = pmrem.fromEquirectangular(envSrc).texture; envTex.dispose(); if (envSrc !== envTex) envSrc.dispose(); pmrem.dispose();
   scene.environmentIntensity = CFG.envIntensity || 0.85; // Blender's world strength
 
   // scene graph from glTF: pivot > cube, camera
@@ -65,7 +76,7 @@ async function init() {
   // ---------- material ----------
   const base = matJ.base;
   const mat = new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color(base.color[0], base.color[1], base.color[2]), metalness: 1, roughness: base.roughness,
+    color: new THREE.Color(base.color[0], base.color[1], base.color[2]).lerp(new THREE.Color(0.93, 0.52, 0.19), WARM * 0.45), metalness: 1, roughness: base.roughness,
     clearcoat: base.coat, clearcoatRoughness: base.coatRoughness, anisotropy: base.anisotropy,
     normalMap: normalTex, normalScale: new THREE.Vector2(CFG.normalScale || 1, -(CFG.normalScale || 1)), // negative Y: the green channel was derived in V-up space
     envMapIntensity: scene.environmentIntensity,
