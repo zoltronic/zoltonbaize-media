@@ -87,12 +87,13 @@ async function init() {
   const zup = new THREE.Matrix4().set(1,0,0,0, 0,0,1,0, 0,-1,0,0, 0,0,0,1); // Blender Z-up → three Y-up
   for (const L of sceneJ.lights) {
     const w = L.size, h = L.size_y || L.size;
-    const light = new THREE.RectAreaLight(new THREE.Color(L.color[0], L.color[1], L.color[2]), L.energy / (w * h * Math.PI) * K, w, h);
+    const light = new THREE.RectAreaLight(new THREE.Color(L.color[0], L.color[1], L.color[2]), 1, w, h);
     const m = new THREE.Matrix4().set(...L.matrix_world.flat());
     // columns of C·M are the lamp's local axes expressed in three's Y-up world: X = width, Y = height, -Z = emission, same as Blender's area lamp
     light.matrixAutoUpdate = false; light.matrix.copy(zup).multiply(m); light.matrixWorldNeedsUpdate = true;
     // per-lamp trims against the render: the rake reads too hot in three, and the big front softbox is what lifts the resting face to a lighter gold
-    const trim = L.name === 'Emboss_Rake' ? 0.6 : (L.name === 'Front_Fill' ? (CFG.frontFill || 5) : 1);
+    const trim = L.name === 'Emboss_Rake' ? (CFG.rake || 0.35) : (L.name === 'Front_Fill' ? (CFG.frontFill || 3.2) : (L.name === 'Spec_Bokeh' ? 0.5 : (L.name === 'Key_Main' ? 0.8 : 1)));
+    if (L.name === 'Front_Fill') light.color.setRGB(1.0, 0.86, 0.72); // warmer softbox so the lifted face stays gold, not yellow
     light.userData.base = L.energy / (w * h * Math.PI) * trim; light.name = L.name; light.intensity = light.userData.base * K;
     scene.add(light); rectLights.push(light);
   }
@@ -165,9 +166,14 @@ async function init() {
   function goLive() { state = 'live'; landed(); Object.assign(view, slotTarget()); lastChange = performance.now(); }
 
   skip.addEventListener('click', () => { if (state === 'intro') { t = END_T; beginSettle(performance.now()); } });
-  let lastChange = 0;
-  replay.addEventListener('click', e => { if (state !== 'live' || !e.isTrusted || performance.now() - lastChange < 800) return; startIntro(); });
-  addEventListener('pointermove', e => { pointer.tx = (e.clientX / vw) * 2 - 1; pointer.ty = (e.clientY / vh) * 2 - 1; }, { passive: true });
+  let lastChange = 0, lastTap = 0, drag = null;
+  function tryReplay() { if (state !== 'live' || performance.now() - lastChange < 800) return; startIntro(); }
+  replay.addEventListener('click', e => { if (!e.isTrusted) return; if (e.pointerType === 'touch' || (drag && drag.touch)) return; tryReplay(); }); // mouse: a click on the logo replays
+  replay.addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; drag = { touch: true, x: e.clientX, y: e.clientY, moved: false }; }, { passive: true });
+  replay.addEventListener('pointermove', e => { if (!drag || e.pointerType !== 'touch') return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) > 6 || Math.abs(dy) > 6) drag.moved = true; pointer.tx = THREE.MathUtils.clamp(dx / 140, -1, 1); pointer.ty = THREE.MathUtils.clamp(dy / 140, -1, 1); }, { passive: true }); // touch: swipe over the logo tilts it
+  const endTouch = e => { if (!drag) return; const moved = drag.moved; drag = null; pointer.tx = 0; pointer.ty = 0; if (moved) return; const now = performance.now(); if (now - lastTap < 320) { lastTap = 0; tryReplay(); } else lastTap = now; }; // touch: quick double-tap replays
+  replay.addEventListener('pointerup', endTouch, { passive: true }); replay.addEventListener('pointercancel', endTouch, { passive: true });
+  addEventListener('pointermove', e => { if (e.pointerType === 'touch') return; pointer.tx = (e.clientX / vw) * 2 - 1; pointer.ty = (e.clientY / vh) * 2 - 1; }, { passive: true });
   addEventListener('scroll', () => { scrollRot = scrollY; }, { passive: true });
   const sweep = rectLights.find(l => l.name === 'Spec_Bokeh'); const sweepBase = sweep ? sweep.matrix.clone() : null;
   addEventListener('resize', () => { resize(); if (state === 'live') Object.assign(view, slotTarget()); });
@@ -192,7 +198,7 @@ async function init() {
     const sy = scrollRot * (CFG.scrollRate || 0.0016) * liveAmt;
     scene.environmentRotation.set(ENV_BASE.x + sy * 0.9, ENV_BASE.y + sy * 0.35, 0);
     // flat lockup: blend in as the slot approaches the top of the viewport, fully flat just before it leaves
-    if (state === 'live') { const r = slot.getBoundingClientRect(); const p = THREE.MathUtils.clamp(1 - (r.bottom - vh * 0.10) / (vh * 0.45), 0, 1); glow.flat.value = p * p * (3 - 2 * p); } else glow.flat.value = 0;
+    if (state === 'live') { const r = slot.getBoundingClientRect(); const nav = document.querySelector('.nav_top'); const navBottom = nav ? nav.getBoundingClientRect().bottom : 90; const cubeTop = r.top + r.height / 2 - (view.zoom * cubeFrac() * vh) / 2; const p = THREE.MathUtils.clamp(1 - (cubeTop - navBottom) / (vh * 0.30), 0, 1); glow.flat.value = p * p * (3 - 2 * p); } else glow.flat.value = 0;
     if (sweep) { sweep.matrix.copy(sweepBase).premultiply(new THREE.Matrix4().makeRotationZ(sy * 1.6)); sweep.matrixWorldNeedsUpdate = true; }
     applyCamera();
     renderer.setRenderTarget(baseRT); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null);
