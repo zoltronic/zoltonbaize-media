@@ -71,7 +71,7 @@ async function init() {
     envMapIntensity: scene.environmentIntensity,
   });
   const glow = { gain: { value: 0 }, strength: { value: 1 }, mask: { value: lettersTex }, flat: { value: 0 } };
-  const FLAT_BROWN = new THREE.Color(0.2961, 0.1559, 0.0423); // the two-colour lockup ground, #946E3A from the brand lockup (linear)
+  const FLAT_BROWN = new THREE.Color(CFG.flatColor || '#a87e44'); // lockup ground; the brand swatch #946E3A read too dark unlit, so it sits a step lighter by default (sRGB hex, converted to linear)
   mat.onBeforeCompile = sh => {
     sh.uniforms.uGlowGain = glow.gain; sh.uniforms.uGlowStrength = glow.strength; sh.uniforms.uLetters = glow.mask; sh.uniforms.uFlat = glow.flat; sh.uniforms.uFlatColor = { value: FLAT_BROWN };
     sh.fragmentShader = sh.fragmentShader
@@ -111,13 +111,13 @@ async function init() {
   }
   const mixer = null;
   const curves = matJ.frames; // [frame, gainWhite, whiteStrength]
-  const STEADY = CFG.steadyWhite || 1.0;
-  function glowAt(t) { const f = Math.max(0, Math.min(206, t * FPS)); const i = Math.floor(f), k = f - i; const a = curves[Math.min(i, 206)], b = curves[Math.min(i + 1, 206)]; const g = a[1] + (b[1] - a[1]) * k; let s = a[2] + (b[2] - a[2]) * k; s = Math.max(STEADY, s - (1.15 - STEADY)); return [g, s]; } // the render settled at 1.15; remap so it settles at STEADY
+  const STEADY = CFG.steadyWhite || 1.0, PEAK = CFG.glowPeak ?? 0.5; // glowPeak scales how far the light-up overshoots the steady white (1 = as rendered)
+  function glowAt(t) { const f = Math.max(0, Math.min(206, t * FPS)); const i = Math.floor(f), k = f - i; const a = curves[Math.min(i, 206)], b = curves[Math.min(i + 1, 206)]; const g = a[1] + (b[1] - a[1]) * k; let s = a[2] + (b[2] - a[2]) * k; s = Math.max(STEADY, s - (1.15 - STEADY)); s = STEADY + (s - STEADY) * PEAK; return [g, s]; } // the render settled at 1.15; remap so it settles at STEADY
 
   // ---------- post: bloom that keeps the alpha channel ----------
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }));
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), CFG.bloomStrength || 0.3, 0.6, CFG.bloomThreshold || 1.0); // only the glow peak (strength up to 5) crosses the threshold; the settled white sits at 1.0 and stays flat
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), CFG.bloomStrength || 0.2, 0.6, CFG.bloomThreshold || 1.0); // only the glow peak (strength up to 5) crosses the threshold; the settled white sits at 1.0 and stays flat
   composer.addPass(bloom);
   const alphaPass = new ShaderPass({
     uniforms: { tDiffuse: { value: null }, tBase: { value: null } },
