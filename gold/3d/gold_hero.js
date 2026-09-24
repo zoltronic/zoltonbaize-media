@@ -53,7 +53,7 @@ async function init() {
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer); pmrem.compileEquirectangularShader();
   scene.environment = pmrem.fromEquirectangular(envTex).texture; envTex.dispose(); pmrem.dispose();
-  scene.environmentIntensity = CFG.envIntensity || 1.1; // Blender used 0.85; three's LDR PMREM reads a touch darker
+  scene.environmentIntensity = CFG.envIntensity || 0.85; // Blender's world strength
 
   // scene graph from glTF: pivot > cube, camera
   const root = gltf.scene; scene.add(root);
@@ -92,8 +92,8 @@ async function init() {
     // columns of C·M are the lamp's local axes expressed in three's Y-up world: X = width, Y = height, -Z = emission, same as Blender's area lamp
     light.matrixAutoUpdate = false; light.matrix.copy(zup).multiply(m); light.matrixWorldNeedsUpdate = true;
     // per-lamp trims against the render: the rake reads too hot in three, and the big front softbox is what lifts the resting face to a lighter gold
-    const trim = L.name === 'Emboss_Rake' ? (CFG.rake || 0.35) : (L.name === 'Front_Fill' ? (CFG.frontFill || 3.2) : (L.name === 'Spec_Bokeh' ? 0.5 : (L.name === 'Key_Main' ? 0.8 : 1)));
-    if (L.name === 'Front_Fill') light.color.setRGB(1.0, 0.86, 0.72); // warmer softbox so the lifted face stays gold, not yellow
+    const trim = L.name === 'Emboss_Rake' ? (CFG.rake ?? 0.5) : (L.name === 'Front_Fill' ? (CFG.frontFill ?? 1) : (L.name === 'Spec_Bokeh' ? (CFG.bokeh ?? 0.5) : (L.name === 'Key_Main' ? (CFG.key ?? 1) : 1)));
+    if (L.name === 'Front_Fill' && CFG.frontWarm !== false) light.color.setRGB(1.0, 0.9, 0.8); // slightly warmer softbox
     light.userData.base = L.energy / (w * h * Math.PI) * trim; light.name = L.name; light.intensity = light.userData.base * K;
     scene.add(light); rectLights.push(light);
   }
@@ -122,7 +122,8 @@ async function init() {
   const alphaPass = new ShaderPass({
     uniforms: { tDiffuse: { value: null }, tBase: { value: null } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: 'uniform sampler2D tDiffuse; uniform sampler2D tBase; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); float a0 = texture2D(tBase, vUv).a; float lum = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722)); float a = max(a0, clamp(lum * 1.6, 0.0, 1.0)); gl_FragColor = vec4(c.rgb, a); }'
+    // the composer works in linear light; this last pass writes to the canvas, so it must encode to the output colour space itself (a plain ShaderPass gets no automatic sRGB conversion)
+    fragmentShader: 'uniform sampler2D tDiffuse; uniform sampler2D tBase; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); float a0 = texture2D(tBase, vUv).a; float lum = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722)); float a = max(a0, clamp(lum * 1.6, 0.0, 1.0)); gl_FragColor = vec4(c.rgb, a);\n#include <colorspace_fragment>\n}'
   });
   composer.addPass(alphaPass);
   const baseRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
