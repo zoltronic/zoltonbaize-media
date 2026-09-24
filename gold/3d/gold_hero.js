@@ -70,12 +70,13 @@ async function init() {
     normalMap: normalTex, normalScale: new THREE.Vector2(CFG.normalScale || 1, -(CFG.normalScale || 1)), // negative Y: the green channel was derived in V-up space
     envMapIntensity: scene.environmentIntensity,
   });
-  const glow = { gain: { value: 0 }, strength: { value: 1 }, mask: { value: lettersTex } };
+  const glow = { gain: { value: 0 }, strength: { value: 1 }, mask: { value: lettersTex }, flat: { value: 0 } };
+  const FLAT_BROWN = new THREE.Color(0.2747, 0.1499, 0.0423); // the two-colour lockup ground from the Blender material (linear)
   mat.onBeforeCompile = sh => {
-    sh.uniforms.uGlowGain = glow.gain; sh.uniforms.uGlowStrength = glow.strength; sh.uniforms.uLetters = glow.mask;
+    sh.uniforms.uGlowGain = glow.gain; sh.uniforms.uGlowStrength = glow.strength; sh.uniforms.uLetters = glow.mask; sh.uniforms.uFlat = glow.flat; sh.uniforms.uFlatColor = { value: FLAT_BROWN };
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uGlowGain; uniform float uGlowStrength; uniform sampler2D uLetters;')
-      .replace('#include <opaque_fragment>', 'float zbMask = texture2D(uLetters, vNormalMapUv).r * uGlowGain;\noutgoingLight = mix(outgoingLight, vec3(uGlowStrength), zbMask);\n#include <opaque_fragment>');
+      .replace('#include <common>', '#include <common>\nuniform float uGlowGain; uniform float uGlowStrength; uniform sampler2D uLetters; uniform float uFlat; uniform vec3 uFlatColor;')
+      .replace('#include <opaque_fragment>', 'float zbLetters = texture2D(uLetters, vNormalMapUv).r; float zbMask = zbLetters * uGlowGain;\noutgoingLight = mix(outgoingLight, vec3(uGlowStrength), zbMask);\noutgoingLight = mix(outgoingLight, mix(uFlatColor, vec3(1.0), zbLetters), uFlat); /* flat two-colour lockup as the hero scrolls out */\n#include <opaque_fragment>');
   };
   cube.material = mat;
 
@@ -90,7 +91,9 @@ async function init() {
     const m = new THREE.Matrix4().set(...L.matrix_world.flat());
     // columns of C·M are the lamp's local axes expressed in three's Y-up world: X = width, Y = height, -Z = emission, same as Blender's area lamp
     light.matrixAutoUpdate = false; light.matrix.copy(zup).multiply(m); light.matrixWorldNeedsUpdate = true;
-    light.userData.base = L.energy / (w * h * Math.PI) * (L.name === 'Emboss_Rake' ? 0.6 : 1); light.name = L.name; light.intensity = light.userData.base * K;
+    // per-lamp trims against the render: the rake reads too hot in three, and the big front softbox is what lifts the resting face to a lighter gold
+    const trim = L.name === 'Emboss_Rake' ? 0.6 : (L.name === 'Front_Fill' ? (CFG.frontFill || 5) : 1);
+    light.userData.base = L.energy / (w * h * Math.PI) * trim; light.name = L.name; light.intensity = light.userData.base * K;
     scene.add(light); rectLights.push(light);
   }
 
@@ -107,12 +110,13 @@ async function init() {
   }
   const mixer = null;
   const curves = matJ.frames; // [frame, gainWhite, whiteStrength]
-  function glowAt(t) { const f = Math.max(0, Math.min(206, t * FPS)); const i = Math.floor(f), k = f - i; const a = curves[Math.min(i, 206)], b = curves[Math.min(i + 1, 206)]; return [a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k]; }
+  const STEADY = CFG.steadyWhite || 1.0;
+  function glowAt(t) { const f = Math.max(0, Math.min(206, t * FPS)); const i = Math.floor(f), k = f - i; const a = curves[Math.min(i, 206)], b = curves[Math.min(i + 1, 206)]; const g = a[1] + (b[1] - a[1]) * k; let s = a[2] + (b[2] - a[2]) * k; s = Math.max(STEADY, s - (1.15 - STEADY)); return [g, s]; } // the render settled at 1.15; remap so it settles at STEADY
 
   // ---------- post: bloom that keeps the alpha channel ----------
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }));
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), CFG.bloomStrength || 0.3, 0.6, CFG.bloomThreshold || 0.85);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), CFG.bloomStrength || 0.3, 0.6, CFG.bloomThreshold || 1.0); // only the glow peak (strength up to 5) crosses the threshold; the settled white sits at 1.0 and stays flat
   composer.addPass(bloom);
   const alphaPass = new ShaderPass({
     uniforms: { tDiffuse: { value: null }, tBase: { value: null } },
@@ -153,6 +157,7 @@ async function init() {
   // ---------- state machine ----------
   let state = 'idle', t = 0, settleStart = 0, settleFrom = null, settleTo = null, last = performance.now();
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 }; let scrollRot = 0;
+  const ENV_BASE = { x: CFG.envBaseX ?? 0.55, y: CFG.envBaseY ?? -2.7 }; // turn the bright sky of the HDRI into the face so the resting gold reads lighter
   function takeover() { hero.classList.remove('is-static'); if (img) img.hidden = true; replay.hidden = true; if (sec) sec.classList.add('is-waiting'); document.documentElement.classList.add('zb-intro'); hero.classList.add('is-live'); skip.style.opacity = ''; }
   function landed() { if (sec) sec.classList.remove('is-waiting'); document.documentElement.classList.remove('zb-intro'); replay.hidden = false; skip.style.opacity = '0'; }
   function startIntro() { window.__lastStart = new Error('startIntro').stack; takeover(); state = 'intro'; t = 0; view.zoom = 1; view.dx = 0; view.dy = 0; lastChange = performance.now(); }
@@ -182,10 +187,12 @@ async function init() {
     const liveAmt = state === 'live' ? 1 : (state === 'settle' ? 0.5 : 0);
     pointer.x += (pointer.tx - pointer.x) * 0.06; pointer.y += (pointer.ty - pointer.y) * 0.06;
     pivot.rotation.x += 0; // keep Blender animation; add tilt on the cube itself
-    cube.rotation.set(-pointer.y * 0.08 * liveAmt, pointer.x * 0.12 * liveAmt, 0);
+    cube.rotation.set(-pointer.y * 0.088 * liveAmt, pointer.x * 0.132 * liveAmt, 0);
     // scroll: the environment tilts vertically and drifts sideways, and the small specular light orbits the face so highlights catch the carve edges
     const sy = scrollRot * (CFG.scrollRate || 0.0016) * liveAmt;
-    scene.environmentRotation.set(sy * 0.9, sy * 0.35, 0);
+    scene.environmentRotation.set(ENV_BASE.x + sy * 0.9, ENV_BASE.y + sy * 0.35, 0);
+    // flat lockup: blend in as the slot approaches the top of the viewport, fully flat just before it leaves
+    if (state === 'live') { const r = slot.getBoundingClientRect(); const p = THREE.MathUtils.clamp(1 - (r.bottom - vh * 0.10) / (vh * 0.45), 0, 1); glow.flat.value = p * p * (3 - 2 * p); } else glow.flat.value = 0;
     if (sweep) { sweep.matrix.copy(sweepBase).premultiply(new THREE.Matrix4().makeRotationZ(sy * 1.6)); sweep.matrixWorldNeedsUpdate = true; }
     applyCamera();
     renderer.setRenderTarget(baseRT); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null);
@@ -198,5 +205,5 @@ async function init() {
   if (seen) { t = END_T; goLive(); hero.classList.add('is-live'); if (img) img.hidden = true; }
   else { startIntro(); }
   requestAnimationFrame(loop);
-  window.__goldHero = { THREE, setLightScale(k) { for (const l of rectLights) l.intensity = l.userData.base * k; }, setExposure(x) { renderer.toneMappingExposure = x; }, setEnv(x) { scene.environmentIntensity = x; mat.envMapIntensity = x; }, rectLights, seek(x) { t = x; render(t); }, get state() { return state; }, set state(s) { state = s; }, view, slotTarget, settle(n) { beginSettle(n || performance.now()); }, live() { goLive(); }, start() { startIntro(); }, frame: n => frame(n), setScroll(y) { scrollRot = y; }, setPointer(x, y) { pointer.tx = x; pointer.ty = y; }, renderer, scene, camera, mat, bloom, composer, baseRT, alphaPass, cube, pivot, mixer, glow, get t() { return t; } };
+  window.__goldHero = { THREE, ENV_BASE, glow, setLightScale(k) { for (const l of rectLights) l.intensity = l.userData.base * k; }, setExposure(x) { renderer.toneMappingExposure = x; }, setEnv(x) { scene.environmentIntensity = x; mat.envMapIntensity = x; }, rectLights, seek(x) { t = x; render(t); }, get state() { return state; }, set state(s) { state = s; }, view, slotTarget, settle(n) { beginSettle(n || performance.now()); }, live() { goLive(); }, start() { startIntro(); }, frame: n => frame(n), setScroll(y) { scrollRot = y; }, setPointer(x, y) { pointer.tx = x; pointer.ty = y; }, renderer, scene, camera, mat, bloom, composer, baseRT, alphaPass, cube, pivot, mixer, glow, get t() { return t; } };
 }
