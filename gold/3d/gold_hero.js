@@ -71,7 +71,7 @@ async function init() {
     envMapIntensity: scene.environmentIntensity,
   });
   const glow = { gain: { value: 0 }, strength: { value: 1 }, mask: { value: lettersTex }, flat: { value: 0 } };
-  const FLAT_BROWN = new THREE.Color(0.2747, 0.1499, 0.0423); // the two-colour lockup ground from the Blender material (linear)
+  const FLAT_BROWN = new THREE.Color(0.2961, 0.1559, 0.0423); // the two-colour lockup ground, #946E3A from the brand lockup (linear)
   mat.onBeforeCompile = sh => {
     sh.uniforms.uGlowGain = glow.gain; sh.uniforms.uGlowStrength = glow.strength; sh.uniforms.uLetters = glow.mask; sh.uniforms.uFlat = glow.flat; sh.uniforms.uFlatColor = { value: FLAT_BROWN };
     sh.fragmentShader = sh.fragmentShader
@@ -198,7 +198,7 @@ async function init() {
     const sy = scrollRot * (CFG.scrollRate || 0.0016) * liveAmt;
     scene.environmentRotation.set(ENV_BASE.x + sy * 0.9, ENV_BASE.y + sy * 0.35, 0);
     // flat lockup: blend in as the slot approaches the top of the viewport, fully flat just before it leaves
-    if (state === 'live') { const r = slot.getBoundingClientRect(); const nav = document.querySelector('.nav_top'); const navBottom = nav ? nav.getBoundingClientRect().bottom : 90; const cubeTop = r.top + r.height / 2 - (view.zoom * cubeFrac() * vh) / 2; const p = THREE.MathUtils.clamp(1 - (cubeTop - navBottom) / (vh * 0.30), 0, 1); glow.flat.value = p * p * (3 - 2 * p); } else glow.flat.value = 0;
+    if (state === 'live') { const r = slot.getBoundingClientRect(); const nav = document.querySelector('.nav_top'); const navBottom = nav ? nav.getBoundingClientRect().bottom : 90; const cubeTop = r.top + r.height / 2 - (view.zoom * cubeFrac() * vh) / 2; const p = THREE.MathUtils.clamp(1 - (cubeTop - navBottom) / (vh * (CFG.flatRamp || 0.12)), 0, 1); glow.flat.value = p * p * (3 - 2 * p); } else glow.flat.value = 0; // short ramp: the cube rests well above the nav, so it stays fully lit until it starts to slide under
     if (sweep) { sweep.matrix.copy(sweepBase).premultiply(new THREE.Matrix4().makeRotationZ(sy * 1.6)); sweep.matrixWorldNeedsUpdate = true; }
     applyCamera();
     renderer.setRenderTarget(baseRT); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null);
