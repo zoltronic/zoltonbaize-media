@@ -126,19 +126,18 @@ async function init() {
   function glowAt(t) { const f = Math.max(0, Math.min(206, t * FPS)); const i = Math.floor(f), k = f - i; const a = curves[Math.min(i, 206)], b = curves[Math.min(i + 1, 206)]; const g = a[1] + (b[1] - a[1]) * k; let s = a[2] + (b[2] - a[2]) * k; s = Math.max(STEADY, s - (1.15 - STEADY)); s = STEADY + (s - STEADY) * PEAK; return [g, s]; } // the render settled at 1.15; remap so it settles at STEADY
 
   // ---------- post: bloom that keeps the alpha channel ----------
-  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }));
-  composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), CFG.bloomStrength || 0.2, 0.6, CFG.bloomThreshold || 1.0); // only the glow peak (strength up to 5) crosses the threshold; the settled white sits at 1.0 and stays flat
-  composer.addPass(bloom);
-  const alphaPass = new ShaderPass({
+  // bloom is off by default: it spilled a halo of light around the cube; the letters still flash to a clipped white without it
+  const useBloom = (CFG.bloomStrength ?? 0) > 0;
+  const composer = useBloom ? new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType })) : null;
+  const bloom = useBloom ? new UnrealBloomPass(new THREE.Vector2(1, 1), CFG.bloomStrength, 0.6, CFG.bloomThreshold || 1.0) : null; // only the glow peak (strength up to 5) crosses the threshold; the settled white sits at 1.0 and stays flat
+  const alphaPass = useBloom ? new ShaderPass({
     uniforms: { tDiffuse: { value: null }, tBase: { value: null } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     // the composer works in linear light; this last pass writes to the canvas, so it must encode to the output colour space itself (a plain ShaderPass gets no automatic sRGB conversion)
     fragmentShader: 'uniform sampler2D tDiffuse; uniform sampler2D tBase; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); float a0 = texture2D(tBase, vUv).a; float lum = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722)); float a = max(a0, clamp(lum * 1.6, 0.0, 1.0)); gl_FragColor = vec4(c.rgb, a);\n#include <colorspace_fragment>\n}'
-  });
-  composer.addPass(alphaPass);
-  const baseRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
-  alphaPass.uniforms.tBase.value = baseRT.texture;
+  }) : null;
+  const baseRT = useBloom ? new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }) : null;
+  if (useBloom) { composer.addPass(new RenderPass(scene, camera)); composer.addPass(bloom); composer.addPass(alphaPass); alphaPass.uniforms.tBase.value = baseRT.texture; }
 
   // ---------- framing ----------
   const view = { zoom: 1, dx: 0, dy: 0 };    // NDC offset + zoom applied on top of the Blender camera
@@ -153,7 +152,7 @@ async function init() {
   }
   function resize() {
     vw = innerWidth; vh = innerHeight; renderer.setSize(vw, vh, false); canvas.style.width = vw + 'px'; canvas.style.height = vh + 'px';
-    const pr = renderer.getPixelRatio(); composer.setSize(vw, vh); baseRT.setSize(vw * pr, vh * pr); bloom.setSize(vw, vh); applyCamera();
+    const pr = renderer.getPixelRatio(); if (useBloom) { composer.setSize(vw, vh); baseRT.setSize(vw * pr, vh * pr); bloom.setSize(vw, vh); } applyCamera();
   }
   // cube on-screen height as a fraction of viewport height for the landed camera at zoom 1
   function cubeFrac() { const hfov = 2 * Math.atan(18 / lens()), vfov = 2 * Math.atan(Math.tan(hfov / 2) / (vw / vh)); return 1.09 * (1 / 10.1) / Math.tan(vfov / 2); }
@@ -168,14 +167,14 @@ async function init() {
   }
 
   // ---------- state machine ----------
-  let state = 'idle', t = 0, settleStart = 0, settleFrom = null, settleTo = null, last = performance.now();
+  let state = 'idle', t = 0, settleStart = 0, settleFrom = null, settleTo = null, last = performance.now(), liveStart = 0;
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 }; let scrollRot = 0;
   const ENV_BASE = { x: CFG.envBaseX ?? 0.55, y: CFG.envBaseY ?? -2.7 }; // turn the bright sky of the HDRI into the face so the resting gold reads lighter
   function takeover() { hero.classList.remove('is-static'); if (img) img.hidden = true; replay.hidden = true; if (sec) sec.classList.add('is-waiting'); document.documentElement.classList.add('zb-intro'); hero.classList.add('is-live'); skip.style.opacity = ''; }
   function landed() { if (sec) sec.classList.remove('is-waiting'); document.documentElement.classList.remove('zb-intro'); replay.hidden = false; skip.style.opacity = '0'; }
-  function startIntro() { window.__lastStart = new Error('startIntro').stack; takeover(); state = 'intro'; t = 0; view.zoom = 1; view.dx = 0; view.dy = 0; lastChange = performance.now(); }
+  function startIntro() { last = performance.now(); takeover(); state = 'intro'; t = 0; view.zoom = 1; view.dx = 0; view.dy = 0; lastChange = performance.now(); }
   function beginSettle(now) { state = 'settle'; settleStart = now; settleFrom = { ...view }; settleTo = slotTarget(); skip.style.opacity = '0'; try { sessionStorage.setItem('zb-gold-intro', '1'); } catch (e) {} }
-  function goLive() { state = 'live'; landed(); Object.assign(view, slotTarget()); lastChange = performance.now(); }
+  function goLive() { state = 'live'; liveStart = performance.now(); landed(); Object.assign(view, slotTarget()); lastChange = liveStart; }
 
   skip.addEventListener('click', () => { if (state === 'intro') { t = END_T; beginSettle(performance.now()); } });
   let lastChange = 0, lastTap = 0, drag = null;
@@ -202,7 +201,7 @@ async function init() {
     setAnimTime(time);
     const [g, s] = glowAt(time); glow.gain.value = g; glow.strength.value = s;
     // pointer tilt + scroll-driven environment, only once landed
-    const liveAmt = state === 'live' ? 1 : (state === 'settle' ? 0.5 : 0);
+    const liveAmt = state === 'live' ? EASE(Math.min(1, (performance.now() - liveStart) / (CFG.liveRampMs || 1200))) : 0; // nothing nudges the cube until it has landed; then the tilt and scroll influence ease in so it does not move again after settling
     pointer.x += (pointer.tx - pointer.x) * 0.06; pointer.y += (pointer.ty - pointer.y) * 0.06;
     pivot.rotation.x += 0; // keep Blender animation; add tilt on the cube itself
     cube.rotation.set(-pointer.y * 0.088 * liveAmt, pointer.x * 0.132 * liveAmt, 0);
@@ -210,11 +209,11 @@ async function init() {
     const sy = scrollRot * (CFG.scrollRate || 0.0016) * liveAmt;
     scene.environmentRotation.set(ENV_BASE.x + sy * 0.9, ENV_BASE.y + sy * 0.35, 0);
     // flat lockup: blend in as the slot approaches the top of the viewport, fully flat just before it leaves
-    if (state === 'live') { const r = slot.getBoundingClientRect(); const nav = document.querySelector('.nav_top'); const navBottom = nav ? nav.getBoundingClientRect().bottom : 90; const cubeTop = r.top + r.height / 2 - (view.zoom * cubeFrac() * vh) / 2; const p = THREE.MathUtils.clamp(1 - (cubeTop - navBottom) / (vh * (CFG.flatRamp || 0.12)), 0, 1); glow.flat.value = p * p * (3 - 2 * p); } else glow.flat.value = 0; // short ramp: the cube rests well above the nav, so it stays fully lit until it starts to slide under
+    if (state === 'live') { const r = slot.getBoundingClientRect(); const nav = document.querySelector('.nav_top'); const navBottom = nav ? nav.getBoundingClientRect().bottom : 90; const cubeTop = r.top + r.height / 2 - (view.zoom * cubeFrac() * vh) / 2; const gapRest = cubeTop + scrollY - navBottom; const ramp = Math.min(vh * (CFG.flatRamp || 0.12), Math.max(1, gapRest)); const p = THREE.MathUtils.clamp(1 - (cubeTop - navBottom) / ramp, 0, 1); /* the ramp never exceeds the resting gap, so the cube is fully lit at rest on short viewports too */ glow.flat.value = p * p * (3 - 2 * p); } else glow.flat.value = 0; // short ramp: the cube rests well above the nav, so it stays fully lit until it starts to slide under
     if (sweep) { sweep.matrix.copy(sweepBase).premultiply(new THREE.Matrix4().makeRotationZ(sy * 1.6)); sweep.matrixWorldNeedsUpdate = true; }
     applyCamera();
-    renderer.setRenderTarget(baseRT); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null);
-    composer.render();
+    if (useBloom) { renderer.setRenderTarget(baseRT); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null); composer.render(); }
+    else renderer.render(scene, camera);
   }
   function loop(now) { frame(now); requestAnimationFrame(loop); }
 
@@ -222,6 +221,10 @@ async function init() {
   resize();
   if (seen) { t = END_T; goLive(); hero.classList.add('is-live'); if (img) img.hidden = true; }
   else { startIntro(); }
+  // warm-up: compile the shaders and upload the textures before the first visible frame, so the intro does not hitch on its opening frames
+  setAnimTime(t); applyCamera();
+  try { await renderer.compileAsync(scene, camera); } catch (e) {}
+  render(t); last = performance.now(); if (state === 'live') liveStart = last;
   requestAnimationFrame(loop);
   window.__goldHero = { THREE, ENV_BASE, glow, setLightScale(k) { for (const l of rectLights) l.intensity = l.userData.base * k; }, setExposure(x) { renderer.toneMappingExposure = x; }, setEnv(x) { scene.environmentIntensity = x; mat.envMapIntensity = x; }, rectLights, seek(x) { t = x; render(t); }, get state() { return state; }, set state(s) { state = s; }, view, slotTarget, settle(n) { beginSettle(n || performance.now()); }, live() { goLive(); }, start() { startIntro(); }, frame: n => frame(n), setScroll(y) { scrollRot = y; }, setPointer(x, y) { pointer.tx = x; pointer.ty = y; }, renderer, scene, camera, mat, bloom, composer, baseRT, alphaPass, cube, pivot, mixer, glow, get t() { return t; } };
 }
