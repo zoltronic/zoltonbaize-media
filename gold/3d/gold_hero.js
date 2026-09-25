@@ -42,7 +42,7 @@ async function init() {
     fetch(BASE + 'scene.json').then(r => r.json()), fetch(BASE + 'material.json').then(r => r.json()),
     new GLTFLoader().loadAsync(BASE + 'wf_cube.glb'),
     new THREE.TextureLoader().loadAsync(BASE + 'env_roof_1k.png'),
-    new THREE.TextureLoader().loadAsync(BASE + 'wf_normal_2k.png'),
+    new THREE.TextureLoader().loadAsync(BASE + (CFG.normalMap || 'wf_normal_2k.png')),
     new THREE.TextureLoader().loadAsync(BASE + 'wf_letters_2k.png'),
   ]);
   // warmth dial (0..1): tints the environment toward orange before it becomes the reflection map, and shifts the base gold the same way
@@ -187,6 +187,10 @@ async function init() {
   addEventListener('pointermove', e => { if (e.pointerType === 'touch') return; pointer.tx = (e.clientX / vw) * 2 - 1; pointer.ty = (e.clientY / vh) * 2 - 1; }, { passive: true });
   addEventListener('scroll', () => { scrollRot = scrollY; }, { passive: true });
   const sweep = rectLights.find(l => l.name === 'Spec_Bokeh'); const sweepBase = sweep ? sweep.matrix.clone() : null;
+  // the pointer tilt rotates the cube about the centre of its front face, not its volume centre, so the lockup stays anchored while the body swings behind it
+  const faceLocal = (() => { setAnimTime(END_T); cube.rotation.set(0, 0, 0); root.updateMatrixWorld(true); const geo = cube.geometry; if (!geo.boundingBox) geo.computeBoundingBox(); const c = geo.boundingBox.getCenter(new THREE.Vector3()), h = geo.boundingBox.getSize(new THREE.Vector3()).multiplyScalar(0.5); const camW = camera.getWorldPosition(new THREE.Vector3()); let best = null, bd = -2; for (const ax of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]) { const n = new THREE.Vector3(...ax); const p = c.clone().add(n.clone().multiply(h)); const pw = cube.localToWorld(p.clone()); const nw = n.clone().transformDirection(cube.matrixWorld); const d = nw.dot(camW.clone().sub(pw).normalize()); if (d > bd) { bd = d; best = p; } } return best; })();
+  const _sf = new THREE.Vector3(), _rf = new THREE.Vector3();
+  const cubeHasPosTrack = samplers.some(s => s.node === cube && s.prop === 'position'); setAnimTime(END_T); const cubeBasePos = cube.position.clone();
   addEventListener('resize', () => { resize(); if (state === 'live') Object.assign(view, slotTarget()); });
 
   // ---------- frame ----------
@@ -205,6 +209,7 @@ async function init() {
     pointer.x += (pointer.tx - pointer.x) * 0.06; pointer.y += (pointer.ty - pointer.y) * 0.06;
     pivot.rotation.x += 0; // keep Blender animation; add tilt on the cube itself
     cube.rotation.set(-pointer.y * 0.088 * liveAmt, pointer.x * 0.132 * liveAmt, 0);
+    if (cubeHasPosTrack) cubeBasePos.copy(cube.position); _sf.copy(faceLocal).multiply(cube.scale); _rf.copy(_sf).applyQuaternion(cube.quaternion); cube.position.copy(cubeBasePos).add(_sf).sub(_rf); // keep the front-face centre where the animation put it
     // scroll: the environment tilts vertically and drifts sideways, and the small specular light orbits the face so highlights catch the carve edges
     const sy = scrollRot * (CFG.scrollRate || 0.0016) * liveAmt;
     scene.environmentRotation.set(ENV_BASE.x + sy * 0.9, ENV_BASE.y + sy * 0.35, 0);
