@@ -11,8 +11,11 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 
 const BASE = (document.currentScript && document.currentScript.dataset.base) || (window.GOLD_HERO_BASE || './');
 const CFG = window.GOLD_HERO_CONFIG || {};
-const SETTLE_MS = CFG.settleMs || 900, FPS = 60, END_T = 206 / FPS, LAND_T = 138 / FPS;
+const SETTLE_MS = CFG.settleMs || 700, FPS = 60, END_T = 206 / FPS, LAND_T = 138 / FPS;
+const SETTLE_AT = (CFG.settleAtFrame ?? 96) / FPS; // the camera dolly ends at frame 138 (2.3s) and the glow runs 145-200: the settle runs inside the dolly's ease-out and ends with it, so the cube arrives in the slot in one motion and then lights up in place
 const EASE = t => 1 - Math.pow(1 - t, 3);           // ease-out cubic, close to the site's (.2,0,0,1)
+const EASE_IO = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2, EASE_IN = t => t * t * t;
+const SETTLE_EASE = { out: EASE, inout: EASE_IO, 'in': EASE_IN }[CFG.settleEase || 'in']; // ease-in by default: the settle's pull grows as the dolly's push ends, so the two cancel into a soft landing instead of a hard stop
 const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
 
 const hero = document.getElementById('gold-hero');
@@ -176,7 +179,7 @@ async function init() {
   function beginSettle(now) { state = 'settle'; settleStart = now; settleFrom = { ...view }; settleTo = slotTarget(); skip.style.opacity = '0'; try { sessionStorage.setItem('zb-gold-intro', '1'); } catch (e) {} }
   function goLive() { state = 'live'; liveStart = performance.now(); landed(); Object.assign(view, slotTarget()); lastChange = liveStart; }
 
-  skip.addEventListener('click', () => { if (state === 'intro') { t = END_T; beginSettle(performance.now()); } });
+  skip.addEventListener('click', () => { if (state === 'intro') { t = Math.max(t, SETTLE_AT); beginSettle(performance.now()); } }); // skip jumps to the landing run-in rather than snapping
   let lastChange = 0, lastTap = 0, drag = null;
   function tryReplay() { if (state !== 'live' || performance.now() - lastChange < 800) return; startIntro(); }
   replay.addEventListener('click', e => { if (!e.isTrusted) return; if (e.pointerType === 'touch' || (drag && drag.touch)) return; tryReplay(); }); // mouse: a click on the logo replays
@@ -196,9 +199,9 @@ async function init() {
   // ---------- frame ----------
   function frame(now) {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
-    if (state === 'intro') { t = Math.min(END_T, t + dt); if (t >= END_T) beginSettle(now); }
-    else if (state === 'settle') { const k = EASE(Math.min(1, (now - settleStart) / SETTLE_MS)); view.zoom = settleFrom.zoom + (settleTo.zoom - settleFrom.zoom) * k; view.dx = settleFrom.dx + (settleTo.dx - settleFrom.dx) * k; view.dy = settleFrom.dy + (settleTo.dy - settleFrom.dy) * k; if (k >= 1) goLive(); }
-    else if (state === 'live') { Object.assign(view, slotTarget()); }
+    if (state === 'intro') { t = Math.min(END_T, t + dt); if (t >= SETTLE_AT) beginSettle(now); }
+    else if (state === 'settle') { t = Math.min(END_T, t + dt); const k = SETTLE_EASE(THREE.MathUtils.clamp((t - SETTLE_AT) / (LAND_T - SETTLE_AT), 0, 1)); /* on the animation clock, so it ends exactly on the dolly's last frame */ view.zoom = settleFrom.zoom + (settleTo.zoom - settleFrom.zoom) * k; view.dx = settleFrom.dx + (settleTo.dx - settleFrom.dx) * k; view.dy = settleFrom.dy + (settleTo.dy - settleFrom.dy) * k; if (k >= 1) goLive(); }
+    else if (state === 'live') { t = Math.min(END_T, t + dt); Object.assign(view, slotTarget()); }
     render(t);
   }
   function render(time) {
