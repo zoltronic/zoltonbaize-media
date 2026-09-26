@@ -5,9 +5,11 @@
 import * as THREE from 'three';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+RectAreaLightUniformsLib.init();
 
 const BASE = window.GOLD_HERO_BASE || './';
-const CFG = Object.assign({ font: 'fonts/helvetiker_bold.typeface.json', color: '#f4d094', roughness: 0.14, envIntensity: 1.25, envBaseX: 0.55, envBaseY: -2.7, tilt: 0.5, envSpin: 0.12, bevel: 0.035, depth: 0.32, placeholder: 'type something here' }, window.GOLD_TYPE_CONFIG || {});
+const CFG = Object.assign({ font: 'fonts/helvetiker_bold.typeface.json', color: '#f4d094', roughness: 0.14, envIntensity: 1.6, lightScale: 1.0, envBaseX: 0.55, envBaseY: -2.7, tilt: 0.5, envSpin: 0.12, bevel: 0.035, depth: 0.32, placeholder: 'type something here' }, window.GOLD_TYPE_CONFIG || {});
 const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
 let shared = null; // { envTex, font } — the PMREM is built per renderer, a GPU texture cannot be shared across WebGL contexts
 async function assets() {
@@ -26,8 +28,9 @@ function makeScene(el, opts = {}) {
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setClearColor(0, 0); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
   const scene = new THREE.Scene(); scene.environmentIntensity = CFG.envIntensity; const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100); camera.position.set(0, 0, 9);
   const group = new THREE.Group(); scene.add(group);
-  const key = new THREE.DirectionalLight(0xfff1dc, 1.2); key.position.set(-3, 4, 5); scene.add(key);
-  const rim = new THREE.DirectionalLight(0xffd9a0, 0.6); rim.position.set(4, -2, -3); scene.add(rim);
+  // area lights in the spirit of the hero's rig: a warm softbox from the front-left, a key from the upper right, a low rim
+  const L = CFG.lightScale;
+  for (const [c, i, w, h, x, y, z] of [[0xfff3e2, 2.3 * L, 26, 12, 0, 2.2, 9.5], [0xffe2b8, 3 * L, 6, 6, 7, 5, 5], [0xffd39a, 2.5 * L, 14, 3, 0, -6, 6]]) { const l = new THREE.RectAreaLight(c, i, w, h); l.position.set(x, y, z); l.lookAt(0, 0, 0); scene.add(l); }
   const mat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(CFG.color), metalness: 1, roughness: CFG.roughness, clearcoat: 0.3, clearcoatRoughness: 0.1, envMapIntensity: CFG.envIntensity });
   let mesh = null, font = null;
   function setText(text) {
