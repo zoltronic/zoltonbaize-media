@@ -15,7 +15,7 @@ async function assets(renderer) {
   if (shared) return shared;
   const [envTex, font] = await Promise.all([
     new THREE.TextureLoader().loadAsync(BASE + 'env_roof_1k.png'),
-    new FontLoader().loadAsync(BASE + CFG.font),
+    new FontLoader().loadAsync(/^https?:/.test(CFG.font) ? CFG.font : BASE + CFG.font),
   ]);
   envTex.mapping = THREE.EquirectangularReflectionMapping; envTex.colorSpace = THREE.SRGBColorSpace;
   const pmrem = new THREE.PMREMGenerator(renderer); const env = pmrem.fromEquirectangular(envTex).texture; pmrem.dispose(); envTex.dispose();
