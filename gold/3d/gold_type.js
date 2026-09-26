@@ -1,64 +1,90 @@
-/* Gold type — reflective 3D letters in three.js.
-   Teaser: <div class="gold_type" data-text="GOLD"></div> renders extruded letters that turn toward the pointer.
-   Modal:  any element with data-gold-type-open opens a full-screen modal (page glass language) with a text field; the letters re-render as you type.
-   Uses the hero's environment map (window.GOLD_HERO_BASE + env_roof_1k.png) and the same base gold. */
+/* Gold type — reflective 3D letters in three.js, matched to the hosted demo's look:
+   studio HDRI (sunset key) turning slowly around the letters, ACES tone mapping, a touch of bloom for the glimmer.
+   Teaser: <div class="gold_type" data-text="GOLD"></div>. Modal: any [data-gold-type-open] opens a glass modal with a text field.
+   Knobs: window.GOLD_TYPE_CONFIG { hdr, font, color, roughness, envIntensity, exposure, bloomStrength, bloomRadius, bloomThreshold,
+   envSpinSeconds, envElevationDegrees, yawAmount, pitchAmount, spin, fitWidth, depth, bevel, placeholder } */
 import * as THREE from 'three';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
-import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
-RectAreaLightUniformsLib.init();
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 const BASE = window.GOLD_HERO_BASE || './';
-const CFG = Object.assign({ font: 'fonts/helvetiker_bold.typeface.json', color: '#f4d094', roughness: 0.14, envIntensity: 1.6, lightScale: 1.0, envBaseX: 0.55, envBaseY: -2.7, tilt: 0.5, envSpin: 0.12, bevel: 0.035, depth: 0.32, placeholder: 'type something here' }, window.GOLD_TYPE_CONFIG || {});
+const CFG = Object.assign({
+  font: 'fonts/helvetiker_bold.typeface.json', hdr: 'hdr/studio.hdr',
+  color: [1, 0.766, 0.336], roughness: 0.12, metalness: 1, envIntensity: 0.6, exposure: 1,
+  bloomStrength: 0.26, bloomRadius: 0.36, bloomThreshold: 0.86,
+  envSpinSeconds: 35, envElevationDegrees: 14, spin: 0.22, yawAmount: 0.16, pitchAmount: 0.05,
+  fitWidth: 0.8, fitHeight: 0.55, size: 1, depth: 0.34, bevel: 0.034, bevelSegments: 14, curveSegments: 16,
+  placeholder: 'type something here',
+}, window.GOLD_TYPE_CONFIG || {});
 const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
-let shared = null; // { envTex, font } — the PMREM is built per renderer, a GPU texture cannot be shared across WebGL contexts
+const abs = p => /^https?:/.test(p) ? p : BASE + p;
+let shared = null;
 async function assets() {
   if (shared) return shared;
-  const [envTex, font] = await Promise.all([
-    new THREE.TextureLoader().loadAsync(BASE + 'env_roof_1k.png'),
-    new FontLoader().loadAsync(/^https?:/.test(CFG.font) ? CFG.font : BASE + CFG.font),
-  ]);
-  envTex.mapping = THREE.EquirectangularReflectionMapping; envTex.colorSpace = THREE.SRGBColorSpace;
-  return (shared = { envTex, font });
+  const [hdr, font] = await Promise.all([new RGBELoader().loadAsync(abs(CFG.hdr)), new FontLoader().loadAsync(abs(CFG.font))]);
+  hdr.mapping = THREE.EquirectangularReflectionMapping;
+  return (shared = { hdr, font });
 }
 
 function makeScene(el, opts = {}) {
   const canvas = document.createElement('canvas'); canvas.style.cssText = 'display:block;width:100%;height:100%'; el.appendChild(canvas);
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setClearColor(0, 0); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
-  const scene = new THREE.Scene(); scene.environmentIntensity = CFG.envIntensity; const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100); camera.position.set(0, 0, 9);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, premultipliedAlpha: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setClearColor(0, 0); renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = CFG.exposure;
+  const scene = new THREE.Scene(); scene.environmentIntensity = CFG.envIntensity;
+  const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100); camera.position.set(0, 0, 9);
   const group = new THREE.Group(); scene.add(group);
-  // area lights in the spirit of the hero's rig: a warm softbox from the front-left, a key from the upper right, a low rim
-  const L = CFG.lightScale;
-  for (const [c, i, w, h, x, y, z] of [[0xfff3e2, 2.3 * L, 26, 12, 0, 2.2, 9.5], [0xffe2b8, 3 * L, 6, 6, 7, 5, 5], [0xffd39a, 2.5 * L, 14, 3, 0, -6, 6]]) { const l = new THREE.RectAreaLight(c, i, w, h); l.position.set(x, y, z); l.lookAt(0, 0, 0); scene.add(l); }
-  const mat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(CFG.color), metalness: 1, roughness: CFG.roughness, clearcoat: 0.3, clearcoatRoughness: 0.1, envMapIntensity: CFG.envIntensity });
-  let mesh = null, font = null;
+  const mat = new THREE.MeshPhysicalMaterial({ color: new THREE.Color().setRGB(CFG.color[0], CFG.color[1], CFG.color[2], THREE.LinearSRGBColorSpace), metalness: CFG.metalness, roughness: CFG.roughness, envMapIntensity: 1 });
+  // post: bloom for the glimmer, then a final pass that tone-maps, encodes and keeps the alpha of the transparent canvas
+  const baseRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }));
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), CFG.bloomStrength, CFG.bloomRadius, CFG.bloomThreshold); composer.addPass(bloom);
+  const out = new ShaderPass({
+    uniforms: { tDiffuse: { value: null }, tBase: { value: baseRT.texture } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: 'uniform sampler2D tDiffuse; uniform sampler2D tBase; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); float a0 = texture2D(tBase, vUv).a; float lum = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722)); float a = max(a0, clamp(lum * 1.4, 0.0, 1.0)); gl_FragColor = vec4(c.rgb, a);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}',
+  });
+  out.material.toneMapped = true; composer.addPass(out);
+  let mesh = null, font = null, current = opts.text || 'GOLD';
   function setText(text) {
     if (!font) return;
     if (mesh) { group.remove(mesh); mesh.geometry.dispose(); }
-    const t = (text || '').trim() || (opts.empty ?? ' ');
-    const geo = new TextGeometry(t, { font, size: 1, depth: CFG.depth, curveSegments: 10, bevelEnabled: true, bevelThickness: CFG.bevel, bevelSize: CFG.bevel * 0.7, bevelSegments: 4 });
+    const t = (text || '').trim() || (opts.empty ?? 'GOLD');
+    const geo = new TextGeometry(t, { font, size: CFG.size, depth: CFG.depth, curveSegments: CFG.curveSegments, bevelEnabled: true, bevelThickness: CFG.bevel, bevelSize: CFG.bevel * 0.85, bevelSegments: CFG.bevelSegments });
     geo.computeBoundingBox(); const bb = geo.boundingBox; const w = bb.max.x - bb.min.x, h = bb.max.y - bb.min.y; geo.translate(-(bb.min.x + w / 2), -(bb.min.y + h / 2), -CFG.depth / 2);
     mesh = new THREE.Mesh(geo, mat); group.add(mesh);
-    // fit: scale so the text spans ~78% of the view width
-    const aspect = camera.aspect; const viewH = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z; const viewW = viewH * aspect;
-    const s = Math.min((viewW * 0.78) / Math.max(w, 0.01), (viewH * 0.5) / Math.max(h, 0.01)); group.scale.setScalar(s);
+    const viewH = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z, viewW = viewH * camera.aspect;
+    group.scale.setScalar(Math.min((viewW * CFG.fitWidth) / Math.max(w, 0.01), (viewH * CFG.fitHeight) / Math.max(h, 0.01)));
   }
-  function resize() { const w = el.clientWidth || 300, h = el.clientHeight || 200; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); if (mesh) setText(current); }
-  let current = opts.text || 'GOLD';
+  function resize() { const w = el.clientWidth || 300, h = el.clientHeight || 200, pr = renderer.getPixelRatio(); renderer.setSize(w, h, false); composer.setSize(w, h); baseRT.setSize(w * pr, h * pr); bloom.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); if (mesh) setText(current); }
   new ResizeObserver(resize).observe(el); resize();
-  const pointer = { x: 0, y: 0, tx: 0, ty: 0 }; let running = true, t0 = performance.now();
-  const onMove = e => { if (e.pointerType === 'touch') return; const r = (opts.pointerRoot || window) === window ? { left: 0, top: 0, width: innerWidth, height: innerHeight } : el.getBoundingClientRect(); pointer.tx = ((e.clientX - r.left) / r.width) * 2 - 1; pointer.ty = ((e.clientY - r.top) / r.height) * 2 - 1; };
-  (opts.pointerRoot || window).addEventListener('pointermove', onMove, { passive: true });
-  function loop(now) { if (!running) return; requestAnimationFrame(loop); const t = (now - t0) / 1000; pointer.x += (pointer.tx - pointer.x) * 0.06; pointer.y += (pointer.ty - pointer.y) * 0.06; group.rotation.y = pointer.x * CFG.tilt + (reduce ? 0 : Math.sin(t * 0.4) * 0.06); group.rotation.x = -pointer.y * CFG.tilt * 0.6; scene.environmentRotation.set(CFG.envBaseX, CFG.envBaseY + (reduce ? 0 : t * CFG.envSpin), 0); renderer.render(scene, camera); }
+  const pointer = { x: 0, y: 0, tx: 0, ty: 0 }; let running = true; const t0 = performance.now();
+  const onMove = e => { if (e.pointerType === 'touch') return; pointer.tx = (e.clientX / innerWidth) * 2 - 1; pointer.ty = (e.clientY / innerHeight) * 2 - 1; };
+  addEventListener('pointermove', onMove, { passive: true });
+  function loop(now) {
+    if (!running) return; requestAnimationFrame(loop);
+    const t = (now - t0) / 1000;
+    pointer.x += (pointer.tx - pointer.x) * 0.05; pointer.y += (pointer.ty - pointer.y) * 0.05;
+    group.rotation.y = pointer.x * CFG.yawAmount + (reduce ? 0 : Math.sin(t * 0.35) * CFG.spin * 0.4);
+    group.rotation.x = -pointer.y * CFG.pitchAmount + (reduce ? 0 : Math.sin(t * 0.23) * 0.03);
+    // the HDRI turns slowly around the letters, so the highlight travels across their faces
+    scene.environmentRotation.set(THREE.MathUtils.degToRad(CFG.envElevationDegrees), reduce ? 0 : (t * Math.PI * 2) / CFG.envSpinSeconds, 0);
+    renderer.setRenderTarget(baseRT); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null);
+    composer.render();
+  }
   return {
-    async start() { const a = await assets(); const pmrem = new THREE.PMREMGenerator(renderer); scene.environment = pmrem.fromEquirectangular(a.envTex).texture; pmrem.dispose(); font = a.font; setText(current); requestAnimationFrame(loop); },
+    async start() { const a = await assets(); const pmrem = new THREE.PMREMGenerator(renderer); scene.environment = pmrem.fromEquirectangular(a.hdr).texture; pmrem.dispose(); font = a.font; setText(current); requestAnimationFrame(loop); },
     setText(t) { current = t; setText(t); },
-    dispose() { running = false; renderer.dispose(); (opts.pointerRoot || window).removeEventListener('pointermove', onMove); canvas.remove(); },
+    dispose() { running = false; removeEventListener('pointermove', onMove); composer.dispose(); baseRT.dispose(); renderer.dispose(); canvas.remove(); },
   };
 }
 
-// ---------- teaser(s) ----------
 const probe = document.createElement('canvas'); const hasGL = !!(probe.getContext('webgl2') || probe.getContext('webgl'));
 for (const el of document.querySelectorAll('.gold_type')) {
   if (!hasGL) { el.classList.add('is-static'); continue; }
@@ -66,7 +92,6 @@ for (const el of document.querySelectorAll('.gold_type')) {
   const s = makeScene(el, { text: el.dataset.text || 'GOLD' }); s.start().catch(err => { console.warn('[gold-type]', err); el.classList.add('is-static'); });
 }
 
-// ---------- modal ----------
 let modal = null;
 function openModal() {
   if (modal) return;
@@ -78,14 +103,14 @@ function openModal() {
       <div class="gold_modal-stage"></div>
       <label class="gold_modal-field"><span class="gold_modal-label">Your text</span><input class="gold_modal-input" type="text" maxlength="24" autocomplete="off" spellcheck="false" placeholder="${CFG.placeholder}"></label>
     </div>`;
-  document.body.appendChild(wrap); document.documentElement.classList.add('gold_modal-open');
+  const y = scrollY; document.body.appendChild(wrap); document.documentElement.classList.add('gold_modal-open');
   const stage = wrap.querySelector('.gold_modal-stage'), input = wrap.querySelector('.gold_modal-input');
-  const s = makeScene(stage, { text: 'GOLD', pointerRoot: window, empty: 'GOLD' }); s.start().catch(() => {});
+  const s = makeScene(stage, { text: 'GOLD', empty: 'GOLD' }); s.start().catch(() => {});
   let timer = 0; input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => s.setText(input.value), 120); });
-  const close = () => { s.dispose(); wrap.remove(); document.documentElement.classList.remove('gold_modal-open'); modal = null; removeEventListener('keydown', onKey); };
+  const close = () => { s.dispose(); wrap.remove(); document.documentElement.classList.remove('gold_modal-open'); scrollTo(0, y); modal = null; removeEventListener('keydown', onKey); };
   const onKey = e => { if (e.key === 'Escape') close(); };
   wrap.querySelector('.gold_modal-close').addEventListener('click', close); wrap.querySelector('.gold_modal-backdrop').addEventListener('click', close); addEventListener('keydown', onKey);
   modal = { close }; requestAnimationFrame(() => { wrap.classList.add('is-open'); input.focus(); });
 }
-for (const b of document.querySelectorAll('[data-gold-type-open]')) b.addEventListener('click', e => { e.preventDefault(); if (hasGL) openModal(); else window.open(b.getAttribute('href') || 'https://cheery-zuccutto-125e43.netlify.app/', '_blank'); });
+document.addEventListener('click', e => { const b = e.target.closest('[data-gold-type-open]'); if (!b) return; e.preventDefault(); if (hasGL) openModal(); else window.open(b.getAttribute('href') || 'https://cheery-zuccutto-125e43.netlify.app/', '_blank'); });
 window.__goldType = { openModal, close: () => modal && modal.close() };
