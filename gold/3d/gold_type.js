@@ -7,26 +7,24 @@ import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 
 const BASE = window.GOLD_HERO_BASE || './';
-const CFG = Object.assign({ font: 'fonts/Inter_SemiBold.typeface.json', color: '#f4d094', roughness: 0.14, envIntensity: 1.0, tilt: 0.5, envSpin: 0.12, bevel: 0.035, depth: 0.32, placeholder: 'type something here' }, window.GOLD_TYPE_CONFIG || {});
+const CFG = Object.assign({ font: 'fonts/helvetiker_bold.typeface.json', color: '#f4d094', roughness: 0.14, envIntensity: 1.25, envBaseX: 0.55, envBaseY: -2.7, tilt: 0.5, envSpin: 0.12, bevel: 0.035, depth: 0.32, placeholder: 'type something here' }, window.GOLD_TYPE_CONFIG || {});
 const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
-let shared = null; // { envTexture, font }
-
-async function assets(renderer) {
+let shared = null; // { envTex, font } — the PMREM is built per renderer, a GPU texture cannot be shared across WebGL contexts
+async function assets() {
   if (shared) return shared;
   const [envTex, font] = await Promise.all([
     new THREE.TextureLoader().loadAsync(BASE + 'env_roof_1k.png'),
     new FontLoader().loadAsync(/^https?:/.test(CFG.font) ? CFG.font : BASE + CFG.font),
   ]);
   envTex.mapping = THREE.EquirectangularReflectionMapping; envTex.colorSpace = THREE.SRGBColorSpace;
-  const pmrem = new THREE.PMREMGenerator(renderer); const env = pmrem.fromEquirectangular(envTex).texture; pmrem.dispose(); envTex.dispose();
-  return (shared = { env, font });
+  return (shared = { envTex, font });
 }
 
 function makeScene(el, opts = {}) {
   const canvas = document.createElement('canvas'); canvas.style.cssText = 'display:block;width:100%;height:100%'; el.appendChild(canvas);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setClearColor(0, 0); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
-  const scene = new THREE.Scene(); const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100); camera.position.set(0, 0, 9);
+  const scene = new THREE.Scene(); scene.environmentIntensity = CFG.envIntensity; const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100); camera.position.set(0, 0, 9);
   const group = new THREE.Group(); scene.add(group);
   const key = new THREE.DirectionalLight(0xfff1dc, 1.2); key.position.set(-3, 4, 5); scene.add(key);
   const rim = new THREE.DirectionalLight(0xffd9a0, 0.6); rim.position.set(4, -2, -3); scene.add(rim);
@@ -49,9 +47,9 @@ function makeScene(el, opts = {}) {
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 }; let running = true, t0 = performance.now();
   const onMove = e => { if (e.pointerType === 'touch') return; const r = (opts.pointerRoot || window) === window ? { left: 0, top: 0, width: innerWidth, height: innerHeight } : el.getBoundingClientRect(); pointer.tx = ((e.clientX - r.left) / r.width) * 2 - 1; pointer.ty = ((e.clientY - r.top) / r.height) * 2 - 1; };
   (opts.pointerRoot || window).addEventListener('pointermove', onMove, { passive: true });
-  function loop(now) { if (!running) return; requestAnimationFrame(loop); const t = (now - t0) / 1000; pointer.x += (pointer.tx - pointer.x) * 0.06; pointer.y += (pointer.ty - pointer.y) * 0.06; group.rotation.y = pointer.x * CFG.tilt + (reduce ? 0 : Math.sin(t * 0.4) * 0.06); group.rotation.x = -pointer.y * CFG.tilt * 0.6; scene.environmentRotation.set(0, reduce ? 0 : t * CFG.envSpin, 0); renderer.render(scene, camera); }
+  function loop(now) { if (!running) return; requestAnimationFrame(loop); const t = (now - t0) / 1000; pointer.x += (pointer.tx - pointer.x) * 0.06; pointer.y += (pointer.ty - pointer.y) * 0.06; group.rotation.y = pointer.x * CFG.tilt + (reduce ? 0 : Math.sin(t * 0.4) * 0.06); group.rotation.x = -pointer.y * CFG.tilt * 0.6; scene.environmentRotation.set(CFG.envBaseX, CFG.envBaseY + (reduce ? 0 : t * CFG.envSpin), 0); renderer.render(scene, camera); }
   return {
-    async start() { const a = await assets(renderer); scene.environment = a.env; font = a.font; setText(current); requestAnimationFrame(loop); },
+    async start() { const a = await assets(); const pmrem = new THREE.PMREMGenerator(renderer); scene.environment = pmrem.fromEquirectangular(a.envTex).texture; pmrem.dispose(); font = a.font; setText(current); requestAnimationFrame(loop); },
     setText(t) { current = t; setText(t); },
     dispose() { running = false; renderer.dispose(); (opts.pointerRoot || window).removeEventListener('pointermove', onMove); canvas.remove(); },
   };
