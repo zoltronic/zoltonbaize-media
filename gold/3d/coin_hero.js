@@ -5,8 +5,10 @@
      endMargin   how close to the top the element gets when the sequence completes, as a fraction of viewport height (default 0.08)
      lead        fraction of viewport height the sequence starts before the element is fully in view (default 0; negative delays it)
      split       last frame driven by scroll; frames after it are driven by the pointer (default: last frame)
+     tail        'play': frames after split play forward on their own once scroll reaches split, so the landing
+                 settles at real speed instead of costing scroll (data-tail="play"); fps sets that speed (default 15)
      tilt        max CSS tilt in degrees on hover (default 0 = none) */
-const CFG = Object.assign({ endMargin: 0.08, lead: 0, tilt: 0, ease: 0.12 }, window.COIN_HERO_CONFIG || {});
+const CFG = Object.assign({ endMargin: 0.08, lead: 0, tilt: 0, ease: 0.12, tail: 'pointer', fps: 15 }, window.COIN_HERO_CONFIG || {});
 const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
 for (const el of document.querySelectorAll('.coin_hero')) setup(el);
 
@@ -14,6 +16,8 @@ function setup(el) {
   const pattern = el.dataset.frames, count = parseInt(el.dataset.count, 10) || 1, aspect = parseFloat(el.dataset.aspect) || 2.5;
   const split = Math.min(count - 1, parseInt(el.dataset.split ?? CFG.split ?? (count - 1), 10));
   const endMargin = parseFloat(el.dataset.endMargin ?? CFG.endMargin), lead = parseFloat(el.dataset.lead ?? CFG.lead), tiltMax = parseFloat(el.dataset.tilt ?? CFG.tilt);
+  const tailMode = el.dataset.tail ?? CFG.tail, fps = parseFloat(el.dataset.fps ?? CFG.fps);
+  let tailStart = 0;
   el.style.position = el.style.position || 'relative'; el.style.aspectRatio = String(aspect); el.style.width = '100%';
   const canvas = document.createElement('canvas'); canvas.style.cssText = 'display:block;width:100%;height:100%;will-change:transform'; el.appendChild(canvas);
   if (tiltMax) el.style.perspective = '900px';
@@ -38,18 +42,29 @@ function setup(el) {
   function tick() {
     raf = 0;
     const p = reduce ? 1 : progress();
-    const tail = (count - 1 - split) * hoverT;
-    target = p * split + (p >= 0.999 ? tail : 0);
-    current += (target - current) * (reduce ? 1 : 0.35);
+    let tailPlaying = false;
+    if (tailMode === 'play') {
+      const tailLen = count - 1 - split;
+      if (reduce) target = count - 1;
+      else if (p >= 0.999) {
+        if (!tailStart) tailStart = performance.now();
+        const f = Math.min(tailLen, ((performance.now() - tailStart) / 1000) * fps);
+        tailPlaying = f < tailLen; target = split + f;
+      } else { tailStart = 0; target = p * split; }
+    } else {
+      const tail = (count - 1 - split) * hoverT;
+      target = p * split + (p >= 0.999 ? tail : 0);
+    }
+    current += (target - current) * (reduce ? 1 : (tailPlaying ? 0.6 : 0.35));
     if (tiltMax) { tiltX += ((hover ? -pointer.y * tiltMax : 0) - tiltX) * CFG.ease; tiltY += ((hover ? pointer.x * tiltMax : 0) - tiltY) * CFG.ease; canvas.style.transform = `rotateX(${tiltX.toFixed(2)}deg) rotateY(${tiltY.toFixed(2)}deg)`; }
     draw();
-    if (Math.abs(target - current) > 0.05 || Math.abs(tiltX) + Math.abs(tiltY) > 0.05 || hover) raf = requestAnimationFrame(tick);
+    if (tailPlaying || Math.abs(target - current) > 0.05 || Math.abs(tiltX) + Math.abs(tiltY) > 0.05 || hover) raf = requestAnimationFrame(tick);
   }
   const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
   const pointer = { x: 0, y: 0 };
   addEventListener('scroll', kick, { passive: true }); addEventListener('resize', () => { draw(); kick(); });
-  el.addEventListener('pointerenter', () => { hover = 1; kick(); });
-  el.addEventListener('pointermove', e => { const r = el.getBoundingClientRect(); pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1; pointer.y = ((e.clientY - r.top) / r.height) * 2 - 1; hoverT = Math.max(0, Math.min(1, (pointer.x + 1) / 2)); kick(); });
+  el.addEventListener('pointerenter', () => { if (tailMode !== 'play') { hover = 1; kick(); } });
+  el.addEventListener('pointermove', e => { if (tailMode === 'play') return; const r = el.getBoundingClientRect(); pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1; pointer.y = ((e.clientY - r.top) / r.height) * 2 - 1; hoverT = Math.max(0, Math.min(1, (pointer.x + 1) / 2)); kick(); });
   el.addEventListener('pointerleave', () => { hover = 0; hoverT = 0; kick(); });
   new IntersectionObserver(kick, { threshold: [0, 0.25, 0.5, 0.75, 1] }).observe(el);
   kick();
