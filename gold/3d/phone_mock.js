@@ -18,6 +18,13 @@ RectAreaLightUniformsLib.init();
 const mocks = [...document.querySelectorAll('.phone_mock')];
 if (mocks.length) init().catch(err => { console.warn('[phone-mock]', err); mocks.forEach(fallback); });
 
+let replayStyled = false;
+function injectReplayStyle() {
+  if (replayStyled) return; replayStyled = true;
+  const st = document.createElement('style');
+  st.textContent = '.phone_mock-replay{position:absolute;left:50%;bottom:0;transform:translate(-50%,calc(100% + 14px));z-index:2;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;border:1px solid currentColor;background:transparent;color:inherit;font:500 14px/1 "Schibsted Grotesk",-apple-system,sans-serif;cursor:pointer;opacity:.8;transition:opacity .2s}.phone_mock-replay:hover{opacity:1}.phone_mock-replay[hidden]{display:none}';
+  document.head.appendChild(st);
+}
 function fallback(el) { el.classList.add('is-static'); const v = el.querySelector('video'); if (v) v.style.opacity = '1'; }
 
 async function init() {
@@ -38,9 +45,11 @@ function shapeGeo(w, h, r) { const g = new THREE.ShapeGeometry(roundedRect(w, h,
 function shadowTexture() { const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); const g = x.createRadialGradient(128, 128, 20, 128, 128, 128); g.addColorStop(0, 'rgba(0,0,0,0.85)'); g.addColorStop(0.55, 'rgba(0,0,0,0.35)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, 256, 256); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
 
 function build(el, envTex) {
+  // data-once: a confirmation, not a loader. It plays through once when the phone is in view, holds its last frame, and offers Replay.
+  const once = 'once' in el.dataset;
   let video = el.querySelector('video');
   if (!video) {
-    video = document.createElement('video'); video.muted = true; video.loop = true; video.playsInline = true; video.autoplay = true; video.preload = 'auto'; video.crossOrigin = 'anonymous';
+    video = document.createElement('video'); video.muted = true; video.loop = !once; video.playsInline = true; video.autoplay = !once; video.preload = 'auto'; video.crossOrigin = 'anonymous';
     if (el.dataset.poster) video.poster = el.dataset.poster;
     for (const [k, t] of [['webm', 'video/webm'], ['mp4', 'video/mp4']]) if (el.dataset[k]) { const s = document.createElement('source'); s.src = el.dataset[k]; s.type = t; video.appendChild(s); }
     video.setAttribute('aria-label', el.dataset.label || 'Phone screen recording'); el.appendChild(video);
@@ -91,8 +100,20 @@ function build(el, envTex) {
   video.addEventListener('loadedmetadata', () => { if (video.videoWidth && video.videoHeight) { const r = video.videoWidth / video.videoHeight; if (Math.abs(r - ratio) > 0.002) { ratio = r; buildPhone(); } } });
   buildPhone();
 
-  let visible = true; new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) video.play().catch(() => {}); }, { rootMargin: '200px' }).observe(el);
-  video.play().catch(() => {});
+  let visible = true;
+  if (once) {
+    let played = false;
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'phone_mock-replay'; btn.hidden = true;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Replay</span>';
+    el.appendChild(btn); injectReplayStyle();
+    const start = () => { btn.hidden = true; video.currentTime = 0; video.play().catch(() => {}); };
+    btn.addEventListener('click', start);
+    video.addEventListener('ended', () => { btn.hidden = false; });
+    new IntersectionObserver(es => { visible = es[0].isIntersecting; if (!played && es[0].intersectionRatio >= 0.6) { played = true; start(); } }, { threshold: [0, 0.6] }).observe(el);
+  } else {
+    new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) video.play().catch(() => {}); }, { rootMargin: '200px' }).observe(el);
+    video.play().catch(() => {});
+  }
   const t0 = performance.now();
   function loop(now) {
     requestAnimationFrame(loop); if (!visible) return;
