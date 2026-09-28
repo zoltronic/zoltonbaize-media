@@ -160,7 +160,8 @@ function openModal() {
   input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
   const close = () => { s.dispose(); wrap.remove(); document.documentElement.classList.remove('gold_modal-open'); unlock(); modal = null; removeEventListener('keydown', onKey); };
   const onKey = e => { if (e.key === 'Escape') close(); };
-  wrap.querySelector('.gold_modal-close').addEventListener('click', close); wrap.querySelector('.gold_modal-backdrop').addEventListener('click', close); addEventListener('keydown', onKey);
+  // only the X and Escape close it: the whole screen is the stage, so a stray tap shouldn't throw the visitor out
+  wrap.querySelector('.gold_modal-close').addEventListener('click', close); addEventListener('keydown', onKey);
   modal = { close }; requestAnimationFrame(() => { wrap.classList.add('is-open'); if (!matchMedia('(pointer:coarse)').matches) input.focus({ preventScroll: true }); });
 }
 document.addEventListener('click', e => {
