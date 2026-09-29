@@ -19,7 +19,7 @@ const SETTLE_EASE = { out: EASE, inout: EASE_IO, 'in': EASE_IN }[CFG.settleEase 
 const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
 
 const hero = document.getElementById('gold-hero');
-if (hero) init().catch(err => { console.warn('[gold-hero]', err); fallback(); });
+if (hero) init().catch(err => { console.warn('[gold-hero]', err); window.__goldHeroFail = String(err && err.message || err); fallback(); });
 
 function fallback() { hero.classList.add('is-static'); const img = document.getElementById('gold-hero-poster'); if (img) img.hidden = false; document.documentElement.classList.remove('zb-intro'); const sec = hero.closest('.layout_hero'); if (sec) sec.classList.remove('is-waiting'); }
 
@@ -29,13 +29,17 @@ async function init() {
   let seen = false; try { seen = sessionStorage.getItem('zb-gold-intro') === '1'; } catch (e) {}
   // WebGL check
   const probe = document.createElement('canvas'); const gl = probe.getContext('webgl2') || probe.getContext('webgl');
-  if (!gl || reduce) { fallback(); return; }
+  if (!gl || reduce) { window.__goldHeroFail = !gl ? 'no webgl' : 'reduced motion'; fallback(); return; }
 
   // ---------- renderer / canvas ----------
   const canvas = document.createElement('canvas'); canvas.className = 'gold_hero-gl'; canvas.setAttribute('aria-hidden', 'true');
   hero.appendChild(canvas);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, premultipliedAlpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: !!CFG.debug });
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  // phones: 1.5x is visually identical at this size and keeps iOS well under its GPU memory ceiling
+  const coarse = matchMedia('(pointer:coarse)').matches;
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, coarse ? 1.5 : 2));
+  // if iOS reclaims the context (memory pressure, backgrounding), drop to the still poster instead of a frozen frame
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); window.__goldHeroFail = 'context lost'; canvas.remove(); fallback(); }, { once: true });
   renderer.setClearColor(0x000000, 0);
   renderer.toneMapping = THREE.NoToneMapping; renderer.toneMappingExposure = CFG.exposure || 1.0; // Blender's view transform was Standard: plain sRGB, highlights clip
   renderer.outputColorSpace = THREE.SRGBColorSpace;

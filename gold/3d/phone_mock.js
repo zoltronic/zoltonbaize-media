@@ -15,7 +15,9 @@ const MM = 2 / 145.4;
 const CFG = Object.assign({ envIntensity: 1.1, sweepSeconds: 9, sweepStrength: 1.0, shadow: 0.3, bezel: 2.3 * MM, radius: 9.15 * MM, depth: 8.25 * MM, edge: 0.9 * MM, squircle: 4.2, fit: 0.9 }, window.PHONE_MOCK_CONFIG || {});
 const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
 RectAreaLightUniformsLib.init();
-const mocks = [...document.querySelectorAll('.phone_mock')];
+// phones get the HTML takeover version (phone_dom.js); this WebGL version is for wider screens
+const MOBILE = matchMedia('(max-width: 767px)').matches;
+const mocks = MOBILE ? [] : [...document.querySelectorAll('.phone_mock')];
 if (mocks.length) init().catch(err => { console.warn('[phone-mock]', err); mocks.forEach(fallback); });
 
 let replayStyled = false;
@@ -25,7 +27,8 @@ function injectReplayStyle() {
   st.textContent = '.phone_mock-replay{position:absolute;left:50%;bottom:0;transform:translate(-50%,calc(100% + 14px));z-index:2;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;border:1px solid currentColor;background:transparent;color:inherit;font:500 14px/1 "Schibsted Grotesk",-apple-system,sans-serif;cursor:pointer;opacity:.8;transition:opacity .2s}.phone_mock-replay:hover{opacity:1}.phone_mock-replay[hidden]{display:none}';
   document.head.appendChild(st);
 }
-function fallback(el) { el.classList.add('is-static'); const v = el.querySelector('video'); if (v) v.style.opacity = '1'; }
+// no WebGL: hand the mockup to the HTML version rather than leaving an empty box
+function fallback(el) { if (window.__phoneDom) { el.querySelectorAll('canvas').forEach(c => c.remove()); window.__phoneDom.build(el, {}); return; } el.classList.add('is-static'); const v = el.querySelector('video'); if (v) v.style.opacity = '1'; }
 
 async function init() {
   const probe = document.createElement('canvas'); if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) { mocks.forEach(fallback); return; }
