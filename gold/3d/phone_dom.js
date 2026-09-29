@@ -10,7 +10,12 @@
   var BEZEL = 2.3 / 145.4, RADIUS = 9.15 / 66.9;
   var css = [
     '.phone_mock.is-dom{height:auto;min-height:0}',
-    '.phone_mock.is-dom.is-takeover{height:250svh;height:250vh}',
+    '.phone_mock.is-dom.is-takeover{height:290svh;height:290vh}',
+    '.pm-dim{position:absolute;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%);background:#0d0b0a;opacity:0;pointer-events:none}',
+    '.pm-hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 92px);transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 16px 8px;border-radius:999px;background:rgba(20,17,15,.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fff;font:500 12px/1 "Schibsted Grotesk",-apple-system,sans-serif;letter-spacing:.04em;opacity:0;pointer-events:none}',
+        '.pm-hint.is-on{animation:pmHint 2.6s cubic-bezier(.4,0,.2,1) both}',
+    '@keyframes pmHint{0%{opacity:0;transform:translate(-50%,-10px)}18%{opacity:1;transform:translate(-50%,0)}34%{transform:translate(-50%,10px)}50%{transform:translate(-50%,0)}66%{transform:translate(-50%,10px)}82%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,6px)}}',
+    '@media (prefers-reduced-motion:reduce){.pm-hint.is-on{animation:none;opacity:1}}',
     '.pm-sticky{position:relative;display:flex;align-items:center;justify-content:center;padding:24px 0}',
     '.is-takeover .pm-sticky{position:sticky;top:0;height:100svh;height:100vh;padding:0;overflow:visible}',
     '.pm-phone{position:relative;background:#050505;will-change:transform;transform-origin:50% 50%;box-shadow:0 0 0 1.5px #8e8983,0 0 0 2.5px #5d5955,0 30px 60px -30px rgba(0,0,0,.45)}',
@@ -18,6 +23,7 @@
     '.pm-island{position:absolute;left:50%;transform:translateX(-50%);background:#050505;border-radius:999px;z-index:2}',
     '.pm-replay{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translateX(-50%);z-index:3;display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.7);background:rgba(20,17,15,.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fff;font:500 14px/1 "Schibsted Grotesk",-apple-system,sans-serif;cursor:pointer;transition:opacity .25s}',
     '.pm-replay[hidden]{display:none}',
+    '.is-takeover .pm-sticky.is-full{cursor:pointer;-webkit-tap-highlight-color:transparent}',
     '.phone_mock.is-dom:not(.is-takeover) .pm-replay{position:relative;left:auto;bottom:auto;transform:none;margin-top:18px;border-color:currentColor;background:transparent;color:inherit;-webkit-backdrop-filter:none;backdrop-filter:none}',
     '.phone_mock.is-dom:not(.is-takeover) .pm-sticky{flex-direction:column}'
   ].join('');
@@ -45,7 +51,10 @@
     var island = document.createElement('div'); island.className = 'pm-island';
     phone.appendChild(video); phone.appendChild(island); sticky.appendChild(phone);
     var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'pm-replay'; btn.hidden = true; btn.innerHTML = ICON + '<span>Replay</span>';
-    sticky.appendChild(btn); el.appendChild(sticky);
+    var dim = document.createElement('div'); dim.className = 'pm-dim'; dim.setAttribute('aria-hidden', 'true');
+    var hint = document.createElement('div'); hint.className = 'pm-hint'; hint.setAttribute('aria-hidden', 'true');
+    hint.innerHTML = '<span>Keep scrolling</span><svg viewBox="0 0 24 24" width="26" height="26"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    sticky.insertBefore(dim, phone); sticky.appendChild(btn); sticky.appendChild(hint); el.appendChild(sticky);
 
     var ratio = 0.4615, Ws = 0, Hs = 0, played = false, full = 1;
     function layout() {
@@ -60,26 +69,36 @@
       full = Math.max(vw / Ws, vh / Hs) * 1.03;
       tick();
     }
-    function start() { btn.hidden = true; try { video.currentTime = 0; } catch (e) {} var p = video.play(); if (p && p.catch) p.catch(function () { btn.hidden = false; }); }
+    var label = btn.querySelector('span');
+    function start() { btn.hidden = !takeover; if (takeover) label.textContent = 'Replay'; try { video.currentTime = 0; } catch (e) {} var p = video.play(); if (p && p.catch) p.catch(function () { btn.hidden = false; label.textContent = 'Play'; }); }
     video.addEventListener('ended', function () { btn.hidden = false; });
-    btn.addEventListener('click', start);
+    btn.addEventListener('click', function (e) { e.stopPropagation(); start(); });
+    // in full screen the whole screen is the replay control
+    sticky.addEventListener('click', function () { if (inFull) start(); });
     video.addEventListener('loadedmetadata', function () { if (video.videoWidth && video.videoHeight) { ratio = video.videoWidth / video.videoHeight; layout(); } });
 
-    // scroll phases over the tall track: 0-.22 scale up, .22-.72 full screen (plays once), .72-1 scale back down
-    var raf = 0;
+    // scroll phases over the tall track: 0-.3 scale up while the page dims, .3-.72 full screen (plays once), .72-1 scale back down
+    var raf = 0, inFull = false, idleTimer = 0, hintTimer = 0;
     function progress() { var r = el.getBoundingClientRect(), vh = innerHeight; return Math.max(0, Math.min(1, -r.top / Math.max(1, r.height - vh))); }
+    // someone parked on the full screen: every 10 s without scrolling, a swipe-down hint plays
+    function armHint() { clearTimeout(idleTimer); hint.classList.remove('is-on'); if (inFull) idleTimer = setTimeout(showHint, 10000); }
+    function showHint() { if (!inFull) return; hint.classList.remove('is-on'); void hint.offsetWidth; hint.classList.add('is-on'); idleTimer = setTimeout(showHint, 10000); }
     function tick() {
       raf = 0; if (!takeover) return;
       var p = progress(), k;
-      if (p < 0.22) k = ease(p / 0.22); else if (p <= 0.72) k = 1; else k = 1 - ease((p - 0.72) / 0.28);
+      if (p < 0.3) k = ease(p / 0.3); else if (p <= 0.72) k = 1; else k = 1 - ease((p - 0.72) / 0.28);
       var s = 1 + (full - 1) * k;
       phone.style.transform = 'scale(' + s.toFixed(4) + ')';
-      var inFull = p >= 0.2 && p <= 0.74;
+      dim.style.opacity = (0.72 * k).toFixed(3);
+      var was = inFull; inFull = p >= 0.27 && p <= 0.75;
+      sticky.classList.toggle('is-full', inFull);
       if (inFull && !played) { played = true; start(); }
+      if (inFull) btn.hidden = false; // Replay stays reachable the whole time the screen is taken over
       btn.style.opacity = inFull ? '1' : '0'; btn.style.pointerEvents = inFull ? 'auto' : 'none';
+      if (inFull !== was) armHint();
     }
     function kick() { if (!raf) raf = requestAnimationFrame(tick); }
-    if (takeover) { addEventListener('scroll', kick, { passive: true }); }
+    if (takeover) { addEventListener('scroll', function () { kick(); if (inFull) armHint(); }, { passive: true }); }
     else if (once) {
       new IntersectionObserver(function (es) { if (!played && es[0].intersectionRatio >= 0.6) { played = true; start(); } }, { threshold: [0, 0.6] }).observe(el);
     } else { var pp = video.play(); if (pp && pp.catch) pp.catch(function () {}); }
