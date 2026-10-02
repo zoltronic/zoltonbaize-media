@@ -2,10 +2,11 @@
    The letters stay put; the studio HDRI turns around them, so the highlight travels across still faces.
    Flat-shaded caps, ACES, exposure 1, bloom only on the hot edges, a rim light that orbits with the environment.
    Pointer (desktop) and device tilt (mobile, after permission) steer the environment, not the letters.
+   On touch screens a swipe turns the letters a little (sideways on the page, both axes full screen) and they ease back.
    Teaser: <div class="gold_type" data-text="GOLD"></div>. Any [data-gold-type-open] opens the full-screen view.
    Knobs: window.GOLD_TYPE_CONFIG { hdr, font, color, roughness, envIntensity, exposure, bloomStrength, bloomRadius,
    bloomThreshold, halo, envSpinSeconds, envElevationDegrees, envBaseDegrees, envBobDegrees, envBobSeconds, pointerYawDegrees, pointerPitchDegrees,
-   tiltYawDegrees, tiltPitchDegrees, letterParallaxDegrees, rim, fitWidth, fitHeight, placeholder, label,
+   tiltYawDegrees, tiltPitchDegrees, letterParallaxDegrees, swipeYawDegrees, swipePitchDegrees, swipeDegreesPerPx, swipeSpring, swipeDamping, rim, fitWidth, fitHeight, placeholder, label,
    light: { ...overrides applied while the page is in light mode } } */
 import * as THREE from 'three';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
@@ -24,6 +25,7 @@ const DEFAULTS = {
   bloomStrength: 0.22, bloomRadius: 0.36, bloomThreshold: 0.9, halo: 0.9,
   envSpinSeconds: 35, envElevationDegrees: -12, envBaseDegrees: 150, envBobDegrees: 8, envBobSeconds: 20,
   pointerYawDegrees: 40, pointerPitchDegrees: 10, tiltYawDegrees: 60, tiltPitchDegrees: 18, letterParallaxDegrees: 1.5,
+  swipeYawDegrees: 32, swipePitchDegrees: 14, swipeDegreesPerPx: 0.28, swipeSpring: 0.006, swipeDamping: 0.88,
   rim: 1.2, fov: 35, fitWidth: 0.86, fitHeight: 0.62, size: 1, depth: 0.34, bevel: 0.034, bevelSegments: 14, curveSegments: 16,
   maxChars: 24, placeholder: 'type something here', label: 'Type your text here',
   light: { bloomStrength: 0, halo: 0 },
@@ -111,6 +113,37 @@ function makeScene(el, opts = {}) {
   }
   function resize() { const w = el.clientWidth || 300, h = el.clientHeight || 200; renderer.setSize(w, h, false); composer.setPixelRatio(pr); composer.setSize(w, h); baseRT.setSize(w * pr, h * pr); bloom.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); fit(); }
   const ro = new ResizeObserver(resize); ro.observe(el); resize();
+
+  // touch screens: a swipe turns the letters a little, they carry a touch of momentum, then ease back to face front.
+  // On the page only sideways swipes are taken (vertical still scrolls); in the full-screen view both axes tilt.
+  const spin = { yaw: 0, pitch: 0, vy: 0, vp: 0, drag: null };
+  const both = opts.swipe === 'xy';
+  canvas.style.touchAction = both ? 'none' : 'pan-y';
+  // past the limit the letters stretch a little further and stop at about 1.4x, however hard the swipe
+  const rubber = (v, lim) => { const a = Math.abs(v), s = lim * 0.4; return a <= lim ? v : Math.sign(v) * (lim + s * (1 - Math.exp(-(a - lim) / s))); };
+  canvas.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' || reduce) return;
+    spin.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, yaw: spin.yaw, pitch: spin.pitch, t: performance.now(), lx: e.clientX, ly: e.clientY };
+    spin.vy = spin.vp = 0; canvas.setPointerCapture?.(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', e => {
+    const d = spin.drag; if (!d || e.pointerId !== d.id) return;
+    const k = CFG.swipeDegreesPerPx * D2R, now = performance.now(), dt = Math.max(1, now - d.t);
+    spin.yaw = rubber(d.yaw + (e.clientX - d.x) * k, CFG.swipeYawDegrees * D2R);
+    if (both) spin.pitch = rubber(d.pitch + (e.clientY - d.y) * k, CFG.swipePitchDegrees * D2R);
+    spin.vy = ((e.clientX - d.lx) * k) / dt * 16.7; spin.vp = both ? ((e.clientY - d.ly) * k) / dt * 16.7 : 0;
+    d.lx = e.clientX; d.ly = e.clientY; d.t = now;
+  });
+  const release = e => { if (spin.drag && e.pointerId === spin.drag.id) spin.drag = null; };
+  canvas.addEventListener('pointerup', release); canvas.addEventListener('pointercancel', release);
+  function settleSpin() {
+    if (spin.drag) return;
+    // momentum, a spring back to rest, and damping: a short glide, then the letters face front again
+    spin.vy += -spin.yaw * CFG.swipeSpring; spin.vp += -spin.pitch * CFG.swipeSpring;
+    spin.vy *= CFG.swipeDamping; spin.vp *= CFG.swipeDamping;
+    spin.yaw = rubber(spin.yaw + spin.vy, CFG.swipeYawDegrees * D2R); spin.pitch = rubber(spin.pitch + spin.vp, CFG.swipePitchDegrees * D2R);
+  }
+
   let running = true, visible = true; const t0 = performance.now();
   const io = new IntersectionObserver(es => { visible = es[0].isIntersecting; }, { rootMargin: '100px' }); io.observe(el);
   function loop(now) {
@@ -124,11 +157,13 @@ function makeScene(el, opts = {}) {
     const bob = reduce ? 0 : Math.sin((t / CFG.envBobSeconds) * Math.PI * 2) * CFG.envBobDegrees;
     scene.environmentRotation.set((CFG.envElevationDegrees + bob + steer.y * pitchK) * D2R, yaw, 0);
     rim.position.set(Math.cos(RIM_PH + yaw) * RIM_R, 3, Math.sin(RIM_PH + yaw) * RIM_R);
-    // the letters hold still; at most a degree or two of parallax so they read as an object
-    group.rotation.set(steer.y * CFG.letterParallaxDegrees * D2R, steer.x * CFG.letterParallaxDegrees * D2R, 0);
+    // the letters hold still; at most a degree or two of parallax so they read as an object, plus whatever a swipe adds
+    settleSpin();
+    group.rotation.set(steer.y * CFG.letterParallaxDegrees * D2R + spin.pitch, steer.x * CFG.letterParallaxDegrees * D2R + spin.yaw, 0);
     renderer.setRenderTarget(baseRT); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null);
     composer.render();
   }
+  (window.__goldTypeScenes ||= []).push({ el, group, spin, frame: () => loop(performance.now()) });
   return {
     async start() { const a = await assets(); const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromEquirectangular(a.hdr).texture; pm.dispose(); font = a.font; setText(current); requestAnimationFrame(loop); el.classList.add('is-live'); },
     setText(t) { current = t; setText(t); },
@@ -155,7 +190,7 @@ function openModal() {
     <div class="gold_modal-field"><input class="gold_modal-input" type="text" maxlength="${CFG.maxChars}" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" placeholder="${CFG.placeholder}" aria-label="${CFG.label}"><span class="gold_modal-label">${CFG.label}</span></div>`;
   lock(); document.body.appendChild(wrap); document.documentElement.classList.add('gold_modal-open');
   const stage = wrap.querySelector('.gold_modal-stage'), input = wrap.querySelector('.gold_modal-input');
-  const s = makeScene(stage, { text: 'GOLD', empty: 'GOLD', fitHeight: 0.42 }); s.start().catch(() => {});
+  const s = makeScene(stage, { text: 'GOLD', empty: 'GOLD', fitHeight: 0.42, swipe: 'xy' }); s.start().catch(() => {});
   let timer = 0; input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => s.setText(input.value), 160); });
   input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
   const close = () => { s.dispose(); wrap.remove(); document.documentElement.classList.remove('gold_modal-open'); unlock(); modal = null; removeEventListener('keydown', onKey); };
