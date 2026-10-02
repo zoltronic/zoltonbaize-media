@@ -9,7 +9,9 @@
    Markup: <div class="gold_coin"></div>
    Knobs: window.GOLD_COIN_CONFIG { model, env, period, fill, exposure, tilt, angle, capture,
    floatAmount, floatSeconds, wobbleDegrees, wobbleSeconds, bloomStrength, bloomRadius, bloomThreshold, halo,
-   sweepIntensity, sweepWidth, sweepEvery, sweepSeconds, sparkleEvery, sparkleSize, light: {...overrides in light mode} } — angle (deg) freezes the turn. */
+   sweepIntensity, sweepWidth, sweepEvery, sweepSeconds, sparkleEvery, sparkleSize, flingGain, flingMax, flingEase, dragDegreesPerPx,
+   light: {...overrides in light mode} } — angle (deg) freezes the turn.
+   Swipe: a sideways swipe (or mouse drag) spins the coin; release speed sets the spin, which then eases back to the normal turn. */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
@@ -34,6 +36,10 @@ const CFG = Object.assign({
   bloomStrength: 0.32, bloomRadius: 0.35, bloomThreshold: 1.5, halo: 0.5,   // only true hot spots bloom
   sweepIntensity: 3.5, sweepWidth: 0.25, sweepEvery: 6.5, sweepSeconds: 1.8,   // the light bar that passes over the face
   sparkleEvery: 1.3, sparkleSize: 0.5,                        // star glints on the rim
+  flingGain: 1.0,      // swipe: release speed (rad/s) per finger speed (radians of turn per second of drag)
+  flingMax: 30,        // cap on the extra spin, rad/s (~5 turns a second)
+  flingEase: 1.4,      // seconds for the extra spin to fall to ~37% (it always settles back to the normal turn)
+  dragDegreesPerPx: 0.6,
   light: { halo: 0, bloomStrength: 0.26 },                  // light pages: glow stays on the coin, no haze around it
   angle: null, capture: false,
 }, Object.fromEntries(Object.entries(window.GOLD_COIN_CONFIG || {}).filter(([, v]) => v !== undefined)));
@@ -191,10 +197,51 @@ function setup(el) {
   }
   let running = false, visible = true, ready = false;
   const t0 = performance.now();
+  // the turn is integrated rather than read off the clock, so a swipe can add speed and the extra can decay smoothly
+  let phase = 0, extra = 0, lastNow = 0;
+  const fling = { id: null, x: 0, phase: 0, lx: 0, lt: 0, v: 0, moved: 0 };
   function angle(now) {
     if (CFG.angle != null) return CFG.angle * D2R;
-    if (reduce) return CFG.rest * D2R;
-    return ((now - t0) / 1000 / CFG.period) * Math.PI * 2;
+    if (reduce && fling.id == null && !extra) return CFG.rest * D2R + phase;
+    const dt = lastNow ? Math.min(0.1, (now - lastNow) / 1000) : 0; lastNow = now;
+    if (fling.id == null) {
+      if (!reduce) phase += (Math.PI * 2 / CFG.period) * dt;
+      phase += extra * dt;
+      extra *= Math.exp(-dt / CFG.flingEase); if (Math.abs(extra) < 0.01) extra = 0;
+    }
+    return (reduce ? CFG.rest * D2R : 0) + phase;
+  }
+  // swipe to spin: the coin follows the finger while held, then keeps the release speed and eases back
+  canvas.style.touchAction = 'pan-y'; canvas.style.cursor = 'grab';
+  canvas.addEventListener('pointerdown', e => {
+    if (!ready || CFG.angle != null) return;
+    fling.id = e.pointerId; fling.x = fling.lx = e.clientX; fling.phase = phase; fling.lt = performance.now(); fling.v = 0; fling.moved = 0;
+    extra = 0; canvas.setPointerCapture?.(e.pointerId); canvas.style.cursor = 'grabbing';
+    if (!running) start();
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (e.pointerId !== fling.id) return;
+    const k = CFG.dragDegreesPerPx * D2R, now = performance.now(), dt = Math.max(8, now - fling.lt) / 1000;
+    phase = fling.phase + (e.clientX - fling.x) * k;
+    const v = ((e.clientX - fling.lx) * k) / dt; fling.v = fling.v * 0.4 + v * 0.6;   // smoothed finger speed, rad/s
+    fling.moved = Math.max(fling.moved, Math.abs(e.clientX - fling.x)); fling.lx = e.clientX; fling.lt = now;
+  });
+  const letGo = e => {
+    if (e.pointerId !== fling.id) return;
+    // a finger that stopped before lifting shouldn't fling
+    const idle = performance.now() - fling.lt > 90;
+    extra = idle ? 0 : Math.max(-CFG.flingMax, Math.min(CFG.flingMax, fling.v * CFG.flingGain));
+    fling.id = null; lastNow = 0; canvas.style.cursor = 'grab';
+    if (fling.moved > 6) suppressClick = performance.now();
+  };
+  canvas.addEventListener('pointerup', letGo); canvas.addEventListener('pointercancel', letGo);
+  // the tile is a link: a drag must not open the case study, and the browser's link-drag ghost is off
+  let suppressClick = 0;
+  const link = el.closest('a');
+  if (link) {
+    link.addEventListener('click', e => { if (performance.now() - suppressClick < 400) { e.preventDefault(); e.stopPropagation(); } }, true);
+    link.addEventListener('dragstart', e => { if (e.target === canvas || canvas.contains(e.target)) e.preventDefault(); });
+    link.setAttribute('draggable', 'false');
   }
   // the export faces the ₵ toward -Z; the extra half turn brings it to the camera
   function draw(now) {
@@ -211,8 +258,9 @@ function setup(el) {
     composer.render();
     if (stars.some(x => x.visible)) { renderer.autoClear = false; renderer.render(fx, camera); renderer.autoClear = true; }
   }
-  function frame(now) { if (!visible) { running = false; return; } draw(now); requestAnimationFrame(frame); }
-  function start() { if (running || !ready) return; if (reduce || CFG.angle != null) { draw(performance.now()); return; } running = true; requestAnimationFrame(frame); }
+  // reduced motion: no idle turn, but a swipe still spins it and the loop stops once the spin has settled
+  function frame(now) { if (!visible || (reduce && fling.id == null && !extra)) { running = false; draw(now); return; } draw(now); requestAnimationFrame(frame); }
+  function start() { if (running || !ready) return; if (CFG.angle != null || (reduce && fling.id == null && !extra)) { draw(performance.now()); return; } running = true; requestAnimationFrame(frame); }
 
   assets(renderer).then(([gltf, env]) => {
     const coin = gltf.scene.clone(true);
@@ -224,7 +272,7 @@ function setup(el) {
   new ResizeObserver(resize).observe(el); resize();
   new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) start(); }, { rootMargin: '100px' }).observe(el);
   canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); el.classList.add('is-static'); });
-  (window.__goldCoins ||= []).push({ el, renderer, scene, camera, spin, bob, bar, stars, CFG, render: (ms) => draw(ms ?? performance.now()) });
+  (window.__goldCoins ||= []).push({ el, renderer, scene, camera, spin, bob, bar, stars, CFG, render: (ms) => draw(ms ?? performance.now()), state: () => ({ phase, extra, dragging: fling.id != null }) });
 }
 
 const probe = document.createElement('canvas');

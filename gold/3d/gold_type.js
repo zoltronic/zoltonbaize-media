@@ -52,10 +52,10 @@ function onOrient(e) {
   steer.tx = Math.max(-1, Math.min(1, e.gamma / 35));
   steer.ty = Math.max(-1, Math.min(1, ((e.beta ?? 45) - 45) / 35));
 }
-let orientOn = false;
+let orientOn = false; const tiltWaiters = new Set();
 function enableTilt() {
   if (orientOn || !('DeviceOrientationEvent' in window)) return;
-  const on = () => { orientOn = true; addEventListener('deviceorientation', onOrient, { passive: true }); };
+  const on = () => { orientOn = true; addEventListener('deviceorientation', onOrient, { passive: true }); tiltWaiters.forEach(f => f()); };
   const ask = DeviceOrientationEvent.requestPermission;
   if (typeof ask === 'function') ask.call(DeviceOrientationEvent).then(r => { if (r === 'granted') on(); }).catch(() => {});
   else if (matchMedia('(pointer:coarse)').matches) on();
@@ -179,22 +179,43 @@ for (const el of document.querySelectorAll('.gold_type')) {
   makeScene(el, { text: el.dataset.text || 'GOLD' }).start().catch(err => { console.warn('[gold-type]', err); el.classList.add('is-static'); });
 }
 
+const HINT_CSS = `.gold_modal-hint{position:fixed;left:50%;top:calc(max(14px,env(safe-area-inset-top)) + 62px);transform:translate(-50%,-6px);z-index:3;display:flex;align-items:center;gap:9px;max-width:min(86vw,360px);padding:10px 16px;border-radius:999px;font:500 13px/1.35 "Schibsted Grotesk",-apple-system,sans-serif;letter-spacing:.01em;color:inherit;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);opacity:0;transition:opacity .45s ease,transform .45s ease;pointer-events:none}
+.gold_modal-hint.is-on{opacity:1;transform:translate(-50%,0)}.gold_modal-hint.is-done{opacity:0}
+.gold_modal-hint svg{flex:none;animation:gmTilt 2.4s ease-in-out infinite}
+@keyframes gmTilt{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(10deg)}}
+@media (prefers-reduced-motion:reduce){.gold_modal-hint svg{animation:none}}
+html[data-mode="light"] .gold_modal-hint{background:rgba(59,51,49,.05);border-color:rgba(59,51,49,.18)}`;
+let hintStyled = false;
+function styleHint() { if (hintStyled) return; hintStyled = true; const st = document.createElement('style'); st.textContent = HINT_CSS; document.head.appendChild(st); }
+
 // Full-screen view: no panel. The page blurs behind, the letters float over it, the field sits at the bottom.
 let modal = null;
 function lock() { const y = scrollY; const b = document.body; b.dataset.gtY = y; Object.assign(b.style, { position: 'fixed', top: -y + 'px', left: '0', right: '0', width: '100%' }); }
 function unlock() { const b = document.body, y = +b.dataset.gtY || 0; Object.assign(b.style, { position: '', top: '', left: '', right: '', width: '' }); scrollTo(0, y); }
 function openModal() {
-  if (modal) return;
+  if (modal) return; styleHint();
   const wrap = document.createElement('div'); wrap.className = 'gold_modal'; wrap.setAttribute('role', 'dialog'); wrap.setAttribute('aria-modal', 'true'); wrap.setAttribute('aria-label', 'Type your own gold letters');
   wrap.innerHTML = `<div class="gold_modal-backdrop"></div><div class="gold_modal-stage"></div>
     <button type="button" class="gold_modal-close" aria-label="Close"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    <div class="gold_modal-hint" role="status" hidden><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.5" transform="rotate(-14 12 12)"/><path d="M3.5 9.5a9 9 0 0 0 0 5M20.5 9.5a9 9 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Reflections follow your phone\u2019s motion sensor. Tilt it around.</span></div>
     <div class="gold_modal-field"><input class="gold_modal-input" type="text" maxlength="${CFG.maxChars}" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" placeholder="${CFG.placeholder}" aria-label="${CFG.label}"><span class="gold_modal-label">${CFG.label}</span></div>`;
   lock(); document.body.appendChild(wrap); document.documentElement.classList.add('gold_modal-open');
   const stage = wrap.querySelector('.gold_modal-stage'), input = wrap.querySelector('.gold_modal-input');
   const s = makeScene(stage, { text: 'GOLD', empty: 'GOLD', fitHeight: 0.42, swipe: 'xy' }); s.start().catch(() => {});
+  // once motion access is granted (iOS asks on the tap that opened this), say what it does, briefly
+  const hint = wrap.querySelector('.gold_modal-hint'); let hintTimer = 0, hintWatch = 0;
+  const showHint = () => {
+    if (!hint || hint.classList.contains('is-on')) return; hint.hidden = false; requestAnimationFrame(() => hint.classList.add('is-on'));
+    const x0 = steer.tx, y0 = steer.ty, t0 = performance.now();
+    const fade = () => { hint.classList.remove('is-on'); hint.classList.add('is-done'); };
+    // fade once they've tilted a little (they got it), or after 8 s either way
+    hintWatch = setInterval(() => { if (Math.hypot(steer.tx - x0, steer.ty - y0) > 0.35 && performance.now() - t0 > 1500) { clearInterval(hintWatch); hintTimer = setTimeout(fade, 1200); } }, 200);
+    hintTimer = setTimeout(() => { clearInterval(hintWatch); fade(); }, 8000);
+  };
+  if (orientOn) showHint(); else tiltWaiters.add(showHint);
   let timer = 0; input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => s.setText(input.value), 160); });
   input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
-  const close = () => { s.dispose(); wrap.remove(); document.documentElement.classList.remove('gold_modal-open'); unlock(); modal = null; removeEventListener('keydown', onKey); };
+  const close = () => { clearTimeout(hintTimer); clearInterval(hintWatch); tiltWaiters.delete(showHint); s.dispose(); wrap.remove(); document.documentElement.classList.remove('gold_modal-open'); unlock(); modal = null; removeEventListener('keydown', onKey); };
   const onKey = e => { if (e.key === 'Escape') close(); };
   // only the X and Escape close it: the whole screen is the stage, so a stray tap shouldn't throw the visitor out
   wrap.querySelector('.gold_modal-close').addEventListener('click', close); addEventListener('keydown', onKey);
