@@ -24,7 +24,7 @@ const DEFAULTS = {
   color: [1, 0.766, 0.336], roughness: 0.12, metalness: 1, envIntensity: 0.6, exposure: 1,
   bloomStrength: 0.22, bloomRadius: 0.36, bloomThreshold: 0.9, halo: 0.9,
   envSpinSeconds: 35, envElevationDegrees: -12, envBaseDegrees: 150, envBobDegrees: 8, envBobSeconds: 20,
-  pointerYawDegrees: 40, pointerPitchDegrees: 10, tiltYawDegrees: 60, tiltPitchDegrees: 18, letterParallaxDegrees: 1.5,
+  pointerYawDegrees: 40, pointerPitchDegrees: 10, tiltYawDegrees: 60, tiltPitchDegrees: 18, letterParallaxDegrees: 1.65,
   swipeYawDegrees: 32, swipePitchDegrees: 22, swipeDegreesPerPx: 0.28, swipeSpring: 0.008, swipeDamping: 0.9,
   rim: 1.2, fov: 35, fitWidth: 0.86, fitHeight: 0.62, size: 1, depth: 0.34, bevel: 0.034, bevelSegments: 14, curveSegments: 16,
   maxChars: 24, placeholder: 'type something here', label: 'Type your text here',
@@ -47,15 +47,19 @@ function assets() {
 // one input stream shared by every scene: pointer on desktop, device tilt on phones (once permitted)
 const steer = { x: 0, y: 0, tx: 0, ty: 0, tilt: false };
 addEventListener('pointermove', e => { if (e.pointerType === 'touch' || steer.tilt) return; steer.tx = (e.clientX / innerWidth) * 2 - 1; steer.ty = (e.clientY / innerHeight) * 2 - 1; }, { passive: true });
+// the motion hint is gated on an actual sensor reading, not on permission or screen size: desktop browsers can grant
+// motion access (or fire empty events) without having a sensor, so only real beta/gamma values count
+let sensorLive = false;
 function onOrient(e) {
-  if (e.gamma == null) return; steer.tilt = true;
+  if (e.gamma == null || e.beta == null) return; steer.tilt = true;
+  if (!sensorLive) { sensorLive = true; tiltWaiters.forEach(f => f()); tiltWaiters.clear(); }
   steer.tx = Math.max(-1, Math.min(1, e.gamma / 35));
   steer.ty = Math.max(-1, Math.min(1, ((e.beta ?? 45) - 45) / 35));
 }
 let orientOn = false; const tiltWaiters = new Set();
 function enableTilt() {
   if (orientOn || !('DeviceOrientationEvent' in window)) return;
-  const on = () => { orientOn = true; addEventListener('deviceorientation', onOrient, { passive: true }); tiltWaiters.forEach(f => f()); };
+  const on = () => { orientOn = true; addEventListener('deviceorientation', onOrient, { passive: true }); };
   const ask = DeviceOrientationEvent.requestPermission;
   if (typeof ask === 'function') ask.call(DeviceOrientationEvent).then(r => { if (r === 'granted') on(); }).catch(() => {});
   else if (matchMedia('(pointer:coarse)').matches) on();
@@ -202,7 +206,7 @@ function openModal() {
   lock(); document.body.appendChild(wrap); document.documentElement.classList.add('gold_modal-open');
   const stage = wrap.querySelector('.gold_modal-stage'), input = wrap.querySelector('.gold_modal-input');
   const s = makeScene(stage, { text: 'GOLD', empty: 'GOLD', fitHeight: 0.42, swipe: 'xy' }); s.start().catch(() => {});
-  // once motion access is granted (iOS asks on the tap that opened this), say what it does, briefly
+  // once a real motion sensor is reporting (iOS asks for access on the tap that opened this), say what it does, briefly
   const hint = wrap.querySelector('.gold_modal-hint'); let hintTimer = 0, hintWatch = 0;
   const showHint = () => {
     if (!hint || hint.classList.contains('is-on')) return; hint.hidden = false; requestAnimationFrame(() => hint.classList.add('is-on'));
@@ -212,7 +216,7 @@ function openModal() {
     hintWatch = setInterval(() => { if (Math.hypot(steer.tx - x0, steer.ty - y0) > 0.35 && performance.now() - t0 > 1500) { clearInterval(hintWatch); hintTimer = setTimeout(fade, 1200); } }, 200);
     hintTimer = setTimeout(() => { clearInterval(hintWatch); fade(); }, 8000);
   };
-  if (orientOn) showHint(); else tiltWaiters.add(showHint);
+  if (sensorLive) showHint(); else tiltWaiters.add(showHint); // appears with the first real motion reading; never on a device without a sensor
   let timer = 0; input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => s.setText(input.value), 160); });
   input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
   const close = () => { clearTimeout(hintTimer); clearInterval(hintWatch); tiltWaiters.delete(showHint); s.dispose(); wrap.remove(); document.documentElement.classList.remove('gold_modal-open'); unlock(); modal = null; removeEventListener('keydown', onKey); };
