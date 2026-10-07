@@ -77,9 +77,16 @@ void main(){ vec4 c = texture2D(tDiffuse, vUv); float a0 = texture2D(tBase, vUv)
 }`;
 
 function makeScene(el, opts = {}) {
-  const canvas = document.createElement('canvas'); canvas.style.cssText = 'display:block;width:100%;height:100%'; el.appendChild(canvas);
+  // opts.fixed (the in-page letters): the canvas is a fixed, full-viewport layer behind the page text instead of a box the
+  // size of the container, so the reflection, bloom and halo spill past the container with no edge; a camera view offset
+  // keeps the letters framed exactly where the container is. (z-index -1 inside .page_root: above the page background,
+  // under the copy.) The full-screen view is already full-viewport and keeps the plain canvas.
+  const fixed = !!opts.fixed;
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = fixed ? 'position:fixed;left:0;top:0;width:100vw;height:100vh;display:block;pointer-events:none;z-index:-1' : 'display:block;width:100%;height:100%';
+  el.appendChild(canvas);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, premultipliedAlpha: true, powerPreference: 'high-performance' });
-  const pr = Math.min(Math.max(devicePixelRatio || 1, 1), 2);
+  const pr = Math.min(Math.max(devicePixelRatio || 1, 1), fixed ? 1.5 : 2); // the full-viewport layer is many more pixels: cap it
   renderer.setPixelRatio(pr); renderer.setClearColor(0, 0); renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   const scene = new THREE.Scene();
@@ -115,23 +122,38 @@ function makeScene(el, opts = {}) {
     const viewH = 2 * Math.tan(camera.fov * D2R / 2) * camera.position.z, viewW = viewH * camera.aspect;
     group.scale.setScalar(Math.min((viewW * CFG.fitWidth) / Math.max(w, 0.01), (viewH * (opts.fitHeight ?? CFG.fitHeight)) / Math.max(h, 0.01)));
   }
-  function resize() { const w = el.clientWidth || 300, h = el.clientHeight || 200; renderer.setSize(w, h, false); composer.setPixelRatio(pr); composer.setSize(w, h); baseRT.setSize(w * pr, h * pr); bloom.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); fit(); }
+  function resize() {
+    const w = el.clientWidth || 300, h = el.clientHeight || 200;
+    // the drawing surface: the container, or the whole viewport for the fixed layer
+    const cw = fixed ? (document.documentElement.clientWidth || innerWidth) : w, ch = fixed ? innerHeight : h;
+    renderer.setSize(cw, ch, false); composer.setPixelRatio(pr); composer.setSize(cw, ch); baseRT.setSize(cw * pr, ch * pr); bloom.setSize(cw, ch);
+    camera.aspect = w / h; frame(); fit();
+  }
+  // fixed layer: the camera's "full view" is the container; the viewport is drawn as an offset window around it
+  function frame() {
+    if (!fixed) { camera.clearViewOffset(); camera.updateProjectionMatrix(); return; }
+    const r = el.getBoundingClientRect(), w = el.clientWidth || 300, h = el.clientHeight || 200;
+    camera.setViewOffset(w, h, -r.left, -r.top, document.documentElement.clientWidth || innerWidth, innerHeight);
+  }
   const ro = new ResizeObserver(resize); ro.observe(el); resize();
+  if (fixed) addEventListener('resize', resize);
 
   // touch screens: a swipe turns the letters a little on both axes, they carry a touch of momentum, then bounce back to face front.
   // On the page a swipe that STARTS vertical still scrolls (touch-action pan-y); one that starts sideways is ours and
   // then tilts on both axes for the rest of the gesture. Full screen takes every swipe.
   const spin = { yaw: 0, pitch: 0, vy: 0, vp: 0, drag: null };
   const both = opts.swipe === 'xy';
-  canvas.style.touchAction = both ? 'none' : 'pan-y';
+  // the fixed layer ignores pointer input, so swipes are read from the container itself
+  const touchEl = fixed ? el : canvas;
+  touchEl.style.touchAction = both ? 'none' : 'pan-y';
   // past the limit the letters stretch a little further and stop at about 1.4x, however hard the swipe
   const rubber = (v, lim) => { const a = Math.abs(v), s = lim * 0.4; return a <= lim ? v : Math.sign(v) * (lim + s * (1 - Math.exp(-(a - lim) / s))); };
-  canvas.addEventListener('pointerdown', e => {
+  touchEl.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' || reduce) return;
     spin.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, yaw: spin.yaw, pitch: spin.pitch, t: performance.now(), lx: e.clientX, ly: e.clientY };
-    spin.vy = spin.vp = 0; canvas.setPointerCapture?.(e.pointerId);
+    spin.vy = spin.vp = 0; touchEl.setPointerCapture?.(e.pointerId);
   });
-  canvas.addEventListener('pointermove', e => {
+  touchEl.addEventListener('pointermove', e => {
     const d = spin.drag; if (!d || e.pointerId !== d.id) return;
     const k = CFG.swipeDegreesPerPx * D2R, now = performance.now(), dt = Math.max(1, now - d.t);
     spin.yaw = rubber(d.yaw + (e.clientX - d.x) * k, CFG.swipeYawDegrees * D2R);
@@ -140,7 +162,7 @@ function makeScene(el, opts = {}) {
     d.lx = e.clientX; d.ly = e.clientY; d.t = now;
   });
   const release = e => { if (spin.drag && e.pointerId === spin.drag.id) spin.drag = null; };
-  canvas.addEventListener('pointerup', release); canvas.addEventListener('pointercancel', release);
+  touchEl.addEventListener('pointerup', release); touchEl.addEventListener('pointercancel', release);
   function settleSpin() {
     if (spin.drag) return;
     // momentum, a spring back to rest, and damping: a short glide, then the letters face front again
@@ -150,9 +172,11 @@ function makeScene(el, opts = {}) {
   }
 
   let running = true, visible = true; const t0 = performance.now();
-  const io = new IntersectionObserver(es => { visible = es[0].isIntersecting; }, { rootMargin: '100px' }); io.observe(el);
+  // the fixed layer covers the whole viewport, so when the letters scroll away it is wiped rather than left holding a frame
+  const io = new IntersectionObserver(es => { visible = es[0].isIntersecting; if (!visible && fixed) { renderer.setRenderTarget(null); renderer.clear(); } }, { rootMargin: '100px' }); io.observe(el);
   function loop(now) {
     if (!running) return; requestAnimationFrame(loop); if (!visible) return;
+    if (fixed) frame(); // the container moves with the page; keep the letters on it
     const t = (now - t0) / 1000;
     steer.x += (steer.tx - steer.x) * 0.06; steer.y += (steer.ty - steer.y) * 0.06;
     const yawK = steer.tilt ? CFG.tiltYawDegrees : CFG.pointerYawDegrees, pitchK = steer.tilt ? CFG.tiltPitchDegrees : CFG.pointerPitchDegrees;
@@ -180,7 +204,7 @@ const probe = document.createElement('canvas'); const hasGL = !!(probe.getContex
 for (const el of document.querySelectorAll('.gold_type')) {
   if (!hasGL) { el.classList.add('is-static'); continue; }
   el.style.position = el.style.position || 'relative';
-  makeScene(el, { text: el.dataset.text || 'GOLD' }).start().catch(err => { console.warn('[gold-type]', err); el.classList.add('is-static'); });
+  makeScene(el, { text: el.dataset.text || 'GOLD', fixed: true }).start().catch(err => { console.warn('[gold-type]', err); el.classList.add('is-static'); });
 }
 
 const HINT_CSS = `.gold_modal-hint{position:fixed;left:50%;top:calc(max(14px,env(safe-area-inset-top)) + 62px);transform:translate(-50%,-6px);z-index:3;display:flex;align-items:center;gap:9px;max-width:min(86vw,360px);padding:10px 16px;border-radius:999px;font:500 13px/1.35 "Schibsted Grotesk",-apple-system,sans-serif;letter-spacing:.01em;color:inherit;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);opacity:0;transition:opacity .45s ease,transform .45s ease;pointer-events:none}
