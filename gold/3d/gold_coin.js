@@ -26,6 +26,7 @@ const CFG = Object.assign({
   model: 'coin/coin_d1.glb', env: 'hdr/env_coin_d1_1k.hdr',
   period: 28,          // seconds per full turn
   fill: 0.62,          // coin diameter as a fraction of the stage's shorter side
+  fixedLayer: true,    // draw on a fixed full-viewport layer behind the copy so glow, light bar and sparkles spill past the tile
   exposure: 1.0,       // the source render used Blender's Standard view, so no tone mapping
   tilt: 0,             // degrees the coin leans back toward the camera
   rest: 24,            // still angle (deg) for reduced motion
@@ -116,10 +117,15 @@ function assets(renderer) {
 }
 
 function setup(el) {
-  const canvas = document.createElement('canvas'); canvas.style.cssText = 'display:block;width:100%;height:100%'; el.appendChild(canvas);
+  // fixed layer: the canvas covers the viewport (z-index -1 inside .page_root: above the sky / page background, under the copy)
+  // and a camera view offset keeps the coin framed on its tile, so nothing it draws is cut at the tile's edge
+  const fixed = !!CFG.fixedLayer;
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = fixed ? 'position:fixed;left:0;top:0;width:100vw;height:100vh;display:block;pointer-events:none;z-index:-1' : 'display:block;width:100%;height:100%';
+  el.appendChild(canvas);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: !!CFG.capture });
   const coarse = matchMedia('(pointer:coarse)').matches;
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, coarse ? 1.5 : 2)); renderer.setClearColor(0, 0);
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, coarse || fixed ? 1.5 : 2)); renderer.setClearColor(0, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping; renderer.toneMappingExposure = CFG.exposure;
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(24, 1, 0.1, 100);
@@ -188,13 +194,22 @@ function setup(el) {
   theme(); new MutationObserver(theme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-mode'] });
 
   function resize() {
-    const w = el.clientWidth || 300, h = el.clientHeight || 300; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
-    composer.setPixelRatio(pr); composer.setSize(w, h); baseRT.setSize(w * pr, h * pr); bloom.setSize(w, h);
+    const w = el.clientWidth || 300, h = el.clientHeight || 300;
+    const cw = fixed ? (document.documentElement.clientWidth || innerWidth) : w, ch = fixed ? innerHeight : h;
+    renderer.setSize(cw, ch, false); camera.aspect = w / h; place();
+    composer.setPixelRatio(pr); composer.setSize(cw, ch); baseRT.setSize(cw * pr, ch * pr); bloom.setSize(cw, ch);
     // the coin's radius is 1: fit its diameter to `fill` of the shorter side
     // (the float needs a little headroom, so the fit counts the bob travel too)
     const t = Math.tan(camera.fov * D2R / 2), r = 1 + (still ? 0 : CFG.floatAmount); camera.position.set(0, 0, Math.max(r / (CFG.fill * t), r / (CFG.fill * t * camera.aspect)));
     if (!running) draw(performance.now());
   }
+  // the camera's "full view" is the tile; the viewport is drawn as an offset window around it (re-read every frame: the tile scrolls)
+  function place() {
+    if (!fixed) { camera.clearViewOffset(); camera.updateProjectionMatrix(); return; }
+    const r = el.getBoundingClientRect();
+    camera.setViewOffset(el.clientWidth || 300, el.clientHeight || 300, -r.left, -r.top, document.documentElement.clientWidth || innerWidth, innerHeight);
+  }
+  if (fixed) addEventListener('resize', () => resize());
   let running = false, visible = true, ready = false;
   const t0 = performance.now();
   // the turn is integrated rather than read off the clock, so a swipe can add speed and the extra can decay smoothly
@@ -212,14 +227,16 @@ function setup(el) {
     return (reduce ? CFG.rest * D2R : 0) + phase;
   }
   // swipe to spin: the coin follows the finger while held, then keeps the release speed and eases back
-  canvas.style.touchAction = 'pan-y'; canvas.style.cursor = 'grab';
-  canvas.addEventListener('pointerdown', e => {
+  // the fixed layer takes no input, so the swipe is read from the tile's stage
+  const touchEl = fixed ? el : canvas;
+  touchEl.style.touchAction = 'pan-y'; touchEl.style.cursor = 'grab';
+  touchEl.addEventListener('pointerdown', e => {
     if (!ready || CFG.angle != null) return;
     fling.id = e.pointerId; fling.x = fling.lx = e.clientX; fling.phase = phase; fling.lt = performance.now(); fling.v = 0; fling.moved = 0;
-    extra = 0; canvas.setPointerCapture?.(e.pointerId); canvas.style.cursor = 'grabbing';
+    extra = 0; touchEl.setPointerCapture?.(e.pointerId); touchEl.style.cursor = 'grabbing';
     if (!running) start();
   });
-  canvas.addEventListener('pointermove', e => {
+  touchEl.addEventListener('pointermove', e => {
     if (e.pointerId !== fling.id) return;
     const k = CFG.dragDegreesPerPx * D2R, now = performance.now(), dt = Math.max(8, now - fling.lt) / 1000;
     phase = fling.phase + (e.clientX - fling.x) * k;
@@ -231,16 +248,16 @@ function setup(el) {
     // a finger that stopped before lifting shouldn't fling
     const idle = performance.now() - fling.lt > 90;
     extra = idle ? 0 : Math.max(-CFG.flingMax, Math.min(CFG.flingMax, fling.v * CFG.flingGain));
-    fling.id = null; lastNow = 0; canvas.style.cursor = 'grab';
+    fling.id = null; lastNow = 0; touchEl.style.cursor = 'grab';
     if (fling.moved > 6) suppressClick = performance.now();
   };
-  canvas.addEventListener('pointerup', letGo); canvas.addEventListener('pointercancel', letGo);
+  touchEl.addEventListener('pointerup', letGo); touchEl.addEventListener('pointercancel', letGo);
   // the tile is a link: a drag must not open the case study, and the browser's link-drag ghost is off
   let suppressClick = 0;
   const link = el.closest('a');
   if (link) {
     link.addEventListener('click', e => { if (performance.now() - suppressClick < 400) { e.preventDefault(); e.stopPropagation(); } }, true);
-    link.addEventListener('dragstart', e => { if (e.target === canvas || canvas.contains(e.target)) e.preventDefault(); });
+    link.addEventListener('dragstart', e => { if (el.contains(e.target)) e.preventDefault(); });
     link.setAttribute('draggable', 'false');
   }
   // the export faces the ₵ toward -Z; the extra half turn brings it to the camera
@@ -253,6 +270,7 @@ function setup(el) {
       bob.rotation.x = Math.sin((t / CFG.wobbleSeconds) * Math.PI * 2) * CFG.wobbleDegrees * D2R;
       bob.rotation.z = Math.sin((t / (CFG.wobbleSeconds * 1.37)) * Math.PI * 2 + 1) * CFG.wobbleDegrees * 0.5 * D2R;
     }
+    if (fixed) place();
     scene.updateMatrixWorld(); sweep(t); sparkle(t);
     renderer.setRenderTarget(baseRT); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null);
     composer.render();
@@ -270,7 +288,8 @@ function setup(el) {
   }).catch(err => { console.warn('[gold-coin]', err); el.classList.add('is-static'); });
 
   new ResizeObserver(resize).observe(el); resize();
-  new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) start(); }, { rootMargin: '100px' }).observe(el);
+  // off screen the fixed layer is wiped rather than left holding the last frame over the page
+  new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) start(); else if (fixed) { renderer.setRenderTarget(null); renderer.clear(); } }, { rootMargin: '100px' }).observe(el);
   canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); el.classList.add('is-static'); });
   (window.__goldCoins ||= []).push({ el, renderer, scene, camera, spin, bob, bar, stars, CFG, render: (ms) => draw(ms ?? performance.now()), state: () => ({ phase, extra, dragging: fling.id != null }) });
 }
