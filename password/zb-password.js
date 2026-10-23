@@ -58,6 +58,10 @@
   .zb-chat-form input { flex: 1; min-width: 0; font: 14px system-ui, sans-serif; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(7,40,61,.14); background: rgba(255,255,255,.8); color: var(--zb-ink); }
   .zb-chat-form button { border: 0; border-radius: 12px; padding: 0 14px; background: #06222F; color: #EAFBF6; font: 600 13px system-ui, sans-serif; cursor: pointer; }
   .zb-chat button:focus-visible, .zb-chat input:focus-visible { outline: 2px solid #0A5C86; outline-offset: 2px; }
+  @keyframes zb-shake { 0%,100% { transform: translateX(0); } 15% { transform: translateX(-11px); } 30% { transform: translateX(9px); } 45% { transform: translateX(-7px); } 60% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+  .zb-shake { animation: zb-shake 520ms var(--zb-ease); }
+  .zb-wrong { box-shadow: 0 0 0 3px rgba(220,60,40,.4) !important; border-color: rgba(200,50,30,.75) !important; }
+  @media (prefers-reduced-motion: reduce) { .zb-shake { animation: none; } }
   .zb-pw-sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(178deg,#1E7FC4 0%,#7FD0F0 46%,#CFEBF9 74%,#F6E9D2 100%); }
   .zb-pw-sky canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   @media (max-width: 819px) {
@@ -131,7 +135,7 @@
   }
 
   // ---------- Shared state between the bot and the chat ----------
-  const bus = { mood: failed ? 'sad' : 'idle', moodUntil: failed ? 2.2 : 0, talkUntil: 0, chatOpen: false, poke: -1 };
+  const bus = { mood: failed ? 'sad' : 'idle', moodUntil: failed ? 2.8 : 0, talkUntil: 0, chatOpen: false, poke: -1 };
 
   // ---------- Chat UI ----------
   let chat = null;
@@ -281,12 +285,12 @@
 
     // ---------- Expressions ----------
     const MOODS = {
-      idle:    { open: 1.0, squint: 0, sad: 0, pupil: 1.0, mouth: 0.55, mouthOpen: 0 },
-      curious: { open: 1.12, squint: 0, sad: 0, pupil: 1.18, mouth: 0.15, mouthOpen: 0.25 },
-      shy:     { open: 1.0, squint: 1, sad: 0, pupil: 1.0, mouth: 0.75, mouthOpen: 0 },
-      happy:   { open: 1.0, squint: 1, sad: 0, pupil: 1.0, mouth: 1.0, mouthOpen: 0.7 },
-      sad:     { open: 0.82, squint: 0, sad: 1, pupil: 0.9, mouth: -0.75, mouthOpen: 0 },
-      listen:  { open: 1.06, squint: 0, sad: 0, pupil: 1.08, mouth: 0.45, mouthOpen: 0 }
+      idle:    { open: 1.0, squint: 0, closed: 0, sad: 0, pupil: 1.0, mouth: 0.55, mouthOpen: 0 },
+      curious: { open: 1.12, squint: 0, closed: 0, sad: 0, pupil: 1.18, mouth: 0.15, mouthOpen: 0.25 },
+      shy:     { open: 1.0, squint: 0, closed: 1, sad: 0, pupil: 1.0, mouth: 0.45, mouthOpen: 0 },
+      happy:   { open: 1.0, squint: 1, closed: 0, sad: 0, pupil: 1.0, mouth: 1.0, mouthOpen: 0.7 },
+      sad:     { open: 0.82, squint: 0, closed: 0, sad: 1, pupil: 0.9, mouth: -0.75, mouthOpen: 0 },
+      listen:  { open: 1.06, squint: 0, closed: 0, sad: 0, pupil: 1.08, mouth: 0.45, mouthOpen: 0 }
     };
     const F = Object.assign({}, MOODS[bus.mood]);
     const col = { r: 95, g: 244, b: 255 };
@@ -297,6 +301,10 @@
       sctx.strokeStyle = c; sctx.fillStyle = c; sctx.lineCap = 'round'; sctx.lineJoin = 'round';
       [-1, 1].forEach(s => {
         const ex = cx + s * 112, ey = 140, R = 70, ry = R * F.open * blink;
+        if (F.closed > 0.5) {
+          sctx.lineWidth = 20; sctx.beginPath(); sctx.arc(ex, ey - 22, 56, Math.PI * 0.18, Math.PI * 0.82); sctx.stroke();
+          return;
+        }
         if (F.squint > 0.5 || blink < 0.12) {
           // closed, happy ^ ^ arcs (or a blink line)
           sctx.lineWidth = 22; sctx.beginPath();
@@ -321,7 +329,7 @@
         // sad lids: slant down toward the outer corners
         if (F.sad > 0.02) {
           sctx.globalCompositeOperation = 'destination-out';
-          const lift = 42 * F.sad;
+          const lift = 62 * F.sad;
           sctx.beginPath(); sctx.moveTo(ex - s * R - 4, ey - ry - 4); sctx.lineTo(ex - s * R - 4, ey - ry * 0.2 + lift * 0.1); sctx.lineTo(ex + s * R + 4, ey - ry + lift * 1.4); sctx.lineTo(ex + s * R + 4, ey - ry - 4); sctx.closePath(); sctx.fill();
           sctx.globalCompositeOperation = 'source-over';
         }
@@ -347,7 +355,11 @@
 
     // ---------- Input wiring ----------
     const look = new THREE.Vector2(), lookT = new THREE.Vector2();
-    let focused = false, typing = 0, hop = -1, shake = failed ? 0 : -1;
+    let focused = false, typing = 0, hop = -1, shake = -1;
+    const towards = (el) => { const a = dock.getBoundingClientRect(), b = el.getBoundingClientRect(); return new THREE.Vector2(Math.max(-1, Math.min(1, ((b.left + b.width * 0.45) - (a.left + a.width / 2)) / (innerWidth / 2.2))), Math.max(-1, Math.min(1, -((b.top + b.height / 2) - (a.top + a.height / 2)) / (innerHeight / 2.2)))); };
+    // wrong password: look at the field, shake the head while the field shakes
+    if (failed && input) setTimeout(() => { shake = 0; input.classList.add('zb-wrong'); input.classList.remove('zb-shake'); void input.offsetWidth; input.classList.add('zb-shake'); }, 700);
+    if (input) input.addEventListener('input', () => input.classList.remove('zb-wrong'));
     addEventListener('pointermove', e => {
       const r = dock.getBoundingClientRect();
       lookT.set(Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (innerWidth / 2.2))), Math.max(-1, Math.min(1, -(e.clientY - (r.top + r.height / 2)) / (innerHeight / 2.2))));
@@ -365,6 +377,7 @@
 
     const clock = new THREE.Clock();
     const ease = x => x * x * (3 - 2 * x);
+    if (failed) { bus.mood = 'sad'; bus.moodUntil = performance.now() / 1000 + 2.6; }
     let cover = 0, nextBlink = 2.5, blinkT = -1;
     const target = { r: 95, g: 244, b: 255 };
     function frame() {
@@ -384,7 +397,7 @@
 
       // where to look: cursor, the password field when focused, the chat panel when open
       let tgt = lookT;
-      if (focused) tgt = new THREE.Vector2(-0.55, -0.6);
+      if (input && (focused || shake >= 0 || mood === 'sad')) tgt = towards(input);
       else if (bus.chatOpen && innerWidth >= 820) tgt = new THREE.Vector2(0.35, -0.45);
       look.lerp(tgt, 1 - Math.pow(0.004, dt));
 
@@ -404,7 +417,8 @@
       if (shake >= 0) { shake += dt; head.rotation.y += Math.sin(shake * 26) * 0.32 * Math.max(0, 1 - shake / 1.0); if (shake > 1.0) shake = -1; }
       if (hop >= 0) { hop += dt; const h = Math.min(1, hop / 0.55); bot.position.y += Math.sin(h * Math.PI) * 0.22; head.rotation.y += ease(h) * Math.PI * 2; if (hop > 0.55) hop = -1; }
       if (bus.poke >= 0) { bus.poke += dt; bot.position.y += Math.sin(Math.min(1, bus.poke / 0.4) * Math.PI) * 0.08; if (bus.poke > 0.4) bus.poke = -1; }
-      hands.forEach(({ h, s }) => { h.position.set(s * (0.36 - 0.25 * c), -0.16 + 0.17 * c, 0.1 + 0.24 * c); h.visible = c > 0.02; });
+      hands.forEach(({ h }) => { h.visible = false; });
+      head.rotation.y += c * 0.35; head.rotation.x -= c * 0.32;   // eyes shut, chin up, politely looking away
       rotors.forEach((r, i) => r.rotation.y += dt * (i ? -38 : 38));
       ringMat.emissiveIntensity = 0.9 + 0.4 * Math.sin(t * 3);
       renderer.render(scene, camera);
