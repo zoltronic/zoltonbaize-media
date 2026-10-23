@@ -175,7 +175,8 @@
     const de = document.documentElement, other = [...document.querySelectorAll('zb-sky')].find(x => x !== ownSky);
     if (other && other.hasAttribute('night')) return !/^(0|false)$/.test(other.getAttribute('night'));
     if (de.classList.contains('dark') || de.dataset.theme === 'dark' || document.body.classList.contains('dark')) return true;
-    return mqDark.matches;
+    try { const t = localStorage.getItem('zbTheme'); if (t) return t === 'dark'; } catch (e) {}
+    return false;   // the site is a day sky by default; night only when the visitor picks it with the toggle
   }
   function applyNight() {
     const n = isNight(); document.documentElement.classList.toggle('zb-night', n);
@@ -348,7 +349,9 @@
     let shift = 0, raf = 0;
     function layout() {
       raf = 0;
-      const open = document.activeElement === input && (innerHeight - vv.height) > 120;
+      // iOS reports innerHeight as the visible height, so the keyboard can't be detected by size alone:
+      // on a touch device, a focused password field means the keyboard is up.
+      const open = document.activeElement === input && (touch || (innerHeight - vv.height) > 120);
       document.documentElement.classList.toggle('zb-kb', open);
       let want = 0;
       if (open) {
