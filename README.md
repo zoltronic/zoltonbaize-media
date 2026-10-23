@@ -12,4 +12,4 @@ URL pattern: `https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@main/<path
 
 - `password/zb-password.js` — password page: replaces the avatar image with a live 3D Zoltbot (cursor follow, looks at the field on focus, covers his eyes while you type, hops on submit, shakes his head after a wrong password) and puts the form on a glass card over the sky. Uses the site's `<zb-sky>` when present, else its own cloud sky. Loads three.js 0.152.2 from jsDelivr.
 
-- `transitions/zb-spatial.html` — sky-world page transitions (cross-document View Transitions): Work center, About right, Contact further right; case studies (`/project/*`, `/gold`) push forward and pull back. Lives inline in Site settings > Custom code > Head; this file is the source copy.
+- `transitions/zb-spatial.js` — sky-world page transitions (cross-document View Transitions): Work center, About right, Contact further right; case studies (`/project/*`, `/gold`) push forward and pull back; unlocking a password page flies forward through the glass with an "Unlocked" note. Load in the site head without `defer`. `zb-spatial.html` is the readable source of the same CSS and JS.
