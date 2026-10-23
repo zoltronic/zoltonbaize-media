@@ -67,7 +67,18 @@
   .zb-wrong { box-shadow: 0 0 0 3px rgba(220,60,40,.4) !important; border-color: rgba(200,50,30,.75) !important; }
   @media (prefers-reduced-motion: reduce) { .zb-shake { animation: none; } }
   .zb-pw-sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(178deg,#1E7FC4 0%,#7FD0F0 46%,#CFEBF9 74%,#F6E9D2 100%); }
-  .zb-pw-sky canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .zb-pw-sky canvas { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 420ms; }
+  .zb-pw-sky { transition: background 420ms; }
+  /* Night (dark mode): deep sky, smoky glass, light ink */
+  .zb-night { --zb-ink: #EAF6FD; --zb-muted: #9CC3DC; }
+  .zb-night .zb-pw-sky { background: linear-gradient(178deg,#040D1C 0%,#0B2340 44%,#13375C 76%,#1E4E72 100%); }
+  .zb-night .zb-pw-sky canvas { opacity: .09; }
+  .zb-night .zb-glass:not(.zb-on-sky) { background: linear-gradient(135deg, rgba(148,196,232,.16), rgba(148,196,232,.04) 55%, rgba(148,196,232,.1)); border-color: rgba(180,220,248,.3); box-shadow: inset 0 1.5px 0 rgba(215,238,255,.32), 0 30px 60px -30px rgba(0,0,0,.7); }
+  .zb-night .zb-pw-card { color: var(--zb-ink); }
+  .zb-night .zb-chat { background: rgba(10,30,50,.62); }
+  .zb-night .zb-msg.bot, .zb-night .zb-chip, .zb-night .zb-chat-x, .zb-night .zb-chat-form input { background: rgba(255,255,255,.1); border-color: rgba(180,220,248,.22); color: var(--zb-ink); }
+  .zb-night .zb-chat-head, .zb-night .zb-chat-form { border-color: rgba(180,220,248,.16); }
+  .zb-night .zb-msg.me, .zb-night .zb-chat-form button { background: #EAF6FD; color: #07283D; }
   @media (max-width: 819px) {
     .zb-pw-card { margin-top: 210px; }
     .zb-pw-dock { width: 260px; height: 260px; }
@@ -76,20 +87,38 @@
     .zb-chat.zb-peek .zb-chat-form, .zb-chat.zb-peek .zb-chat-head span { display: none; }
     .zb-chat.zb-peek .zb-chat-log { flex: none; }
     .zb-chat { left: 12px !important; right: 12px; bottom: 12px; top: auto !important; width: auto; height: min(60vh, 480px) !important; background: rgba(238,247,253,.88); }
+    .zb-night .zb-chat { background: rgba(10,30,50,.9); }
   }`;
   document.head.appendChild(css);
 
   // ---------- Sky, glass card ----------
   wrap.classList.add('zb-pw-raise');
   card.classList.add('zb-glass', 'zb-pw-card');
+  // Dark mode: follows the site's night sky (zb-sky[night]) or a dark theme class, else the system setting.
+  let forcedNight = null, ownSky = null;
+  const mqDark = matchMedia('(prefers-color-scheme: dark)');
+  function isNight() {
+    if (forcedNight !== null) return forcedNight;
+    const de = document.documentElement, other = [...document.querySelectorAll('zb-sky')].find(x => x !== ownSky);
+    if (other && other.hasAttribute('night')) return !/^(0|false)$/.test(other.getAttribute('night'));
+    if (de.classList.contains('dark') || de.dataset.theme === 'dark' || document.body.classList.contains('dark')) return true;
+    return mqDark.matches;
+  }
+  function applyNight() {
+    const n = isNight(); document.documentElement.classList.toggle('zb-night', n);
+    if (ownSky) ownSky.setAttribute('night', n ? '1' : '0');
+  }
+  window.zbPasswordNight = (on) => { forcedNight = on == null ? null : !!on; applyNight(); };
+  if (mqDark.addEventListener) mqDark.addEventListener('change', applyNight);
   if (hasSky) {
-    const sky = document.createElement('zb-sky'); sky.setAttribute('fixed', '');
+    const sky = document.createElement('zb-sky'); sky.setAttribute('fixed', ''); ownSky = sky;
     document.body.insertBefore(sky, document.body.firstChild);
     card.classList.add('zb-on-sky');
     card.setAttribute('data-zb-glass', ''); card.setAttribute('data-zb-radius', '28');
   } else {
     paintSky();
   }
+  applyNight();
   function paintSky() {
     const sky = document.createElement('div'); sky.className = 'zb-pw-sky';
     const c = document.createElement('canvas'); sky.appendChild(c);
@@ -346,6 +375,7 @@
     const metalDark = new THREE.MeshStandardMaterial({ color: '#4D5862', metalness: 0.9, roughness: 0.32 });
     const ringMat = new THREE.MeshStandardMaterial({ color: '#00D0F0', emissive: '#00BEFF', emissiveIntensity: 1.2, roughness: 0.3 });
     const thrustMat = new THREE.MeshBasicMaterial({ color: '#8FF6FF' });
+    const tipMat = new THREE.MeshStandardMaterial({ color: '#00E0B8', emissive: '#00BEFF', emissiveIntensity: 1.1 });
 
     const bot = new THREE.Group(); scene.add(bot);
     const head = new THREE.Group(); bot.add(head);
@@ -386,6 +416,10 @@
     const dots = document.createElement('canvas'); dots.width = FW; dots.height = FH;
     { const d = dots.getContext('2d'); d.fillStyle = '#fff'; for (let y = 4; y < FH; y += 8) for (let x = 4; x < FW; x += 8) { d.beginPath(); d.arc(x, y, 3.1, 0, Math.PI * 2); d.fill(); } }
     const faceTex = new THREE.CanvasTexture(face); faceTex.colorSpace = THREE.SRGBColorSpace;
+    const GW = 256, GH = 160, glowC = document.createElement('canvas'); glowC.width = GW; glowC.height = GH; const gctx = glowC.getContext('2d');
+    const glowTex = new THREE.CanvasTexture(glowC); glowTex.colorSpace = THREE.SRGBColorSpace;
+    const glowMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+    let nightF = 0, faceMat = null, thrustLight = null;
     // Visor: a rounded-rectangle patch that follows the shell, with a raised bezel around it
     {
       const HA = 0.98, HE = 0.6, EC = 0.0, N = 56, Q = 4;
@@ -398,7 +432,13 @@
       for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const k = j * (N + 1) + i; idx.push(k, k + 1, k + N + 1, k + 1, k + N + 2, k + N + 1); }
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(vs, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); g.setIndex(idx); g.computeVertexNormals();
-      head.add(new THREE.Mesh(g, new THREE.MeshPhysicalMaterial({ color: '#06131D', roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.02, emissive: '#ffffff', emissiveMap: faceTex, emissiveIntensity: 1.5 })));
+      faceMat = new THREE.MeshPhysicalMaterial({ color: '#06131D', roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.02, emissive: '#ffffff', emissiveMap: faceTex, emissiveIntensity: 1.7 });
+      head.add(new THREE.Mesh(g, faceMat));
+      // glow shell: a slightly larger copy of the visor in front of it, additive, so the LEDs bloom past their edges
+      { const gv = [], GA = HA * 1.12, GE = HE * 1.16;
+        for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) { const u = i / N * 2 - 1, v = j / N * 2 - 1, [a, b] = toSq(u, v); const p = surf(dirAE(a * GA, EC + b * GE), 1.05); gv.push(p.x, p.y, p.z); }
+        const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gv, 3)); gg.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); gg.setIndex(idx);
+        const gm = new THREE.Mesh(gg, glowMat); gm.renderOrder = 2; head.add(gm); }
       const ring = [];
       for (let n = 0; n < 120; n++) { const t = n / 120 * Math.PI * 2, c = Math.cos(t), sn = Math.sin(t); const u = Math.sign(c) * Math.pow(Math.abs(c), 2 / Q), v = Math.sign(sn) * Math.pow(Math.abs(sn), 2 / Q); ring.push(surf(dirAE(u * HA, EC + v * HE), 1.012)); }
       head.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ring, true), 240, 0.014, 10, true), bezelMat));
@@ -430,7 +470,7 @@
       const top = surf(V(0, 1, -0.25).normalize());
       const a = top.clone().add(V(0, -0.005, 0)), b = top.clone().add(V(0.005, 0.08, -0.01)), c = top.clone().add(V(0.035, 0.14, -0.05));
       head.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(a, b, c), 20, 0.008, 8), metalDark));
-      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.026, 20, 14), new THREE.MeshStandardMaterial({ color: '#00E0B8', emissive: '#00BEFF', emissiveIntensity: 1.1 })); tip.position.copy(c); head.add(tip);
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.026, 20, 14), tipMat); tip.position.copy(c); head.add(tip);
       const base = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.03, 0.014, 24), plainMat); base.position.copy(top); head.add(base);
     }
     // Hover thruster under the head
@@ -439,9 +479,11 @@
       const noz = new THREE.Mesh(new THREE.LatheGeometry([[0.0001, 0.01], [0.05, 0.01], [0.062, -0.006], [0.056, -0.03], [0.044, -0.038]].map(([x, y]) => new THREE.Vector2(x, y)), 40), plainMat);
       noz.position.set(0, bottom.y + 0.012, 0); head.add(noz);
       const g = new THREE.Mesh(new THREE.CircleGeometry(0.04, 32), thrustMat); g.rotation.x = Math.PI / 2; g.position.set(0, bottom.y - 0.025, 0); head.add(g);
-      const pl = new THREE.PointLight(0x7fefff, 0.5, 0.8); pl.position.set(0, bottom.y - 0.08, 0); head.add(pl);
+      const pl = new THREE.PointLight(0x7fefff, 0.5, 0.8); pl.position.set(0, bottom.y - 0.08, 0); head.add(pl); thrustLight = pl;
     }
     const hands = [];
+    // face light: the LEDs light up the bezel and anything right in front of them
+    const faceLight = new THREE.PointLight(0x5ff4ff, 0.25, 0.9); faceLight.position.set(0, 0.02, 0.5); head.add(faceLight);
     // ---------- Expressions ----------
     const MOODS = {
       idle:    { open: 1.0, squint: 0, closed: 0, sad: 0, pupil: 1.0, mouth: 0.55, mouthOpen: 0 },
@@ -460,11 +502,18 @@
     function compose() {
       const W = FW, H = FH;
       fctx.globalCompositeOperation = 'source-over'; fctx.fillStyle = '#000'; fctx.fillRect(0, 0, W, H);
-      fctx.globalAlpha = 0.35; fctx.filter = 'blur(10px)'; fctx.drawImage(src, 0, 0); fctx.filter = 'none'; fctx.globalAlpha = 1;
+      // soft light behind the dots: a wide haze plus a tighter halo
+      fctx.globalAlpha = 0.32 + 0.18 * nightF; fctx.filter = 'blur(22px)'; fctx.drawImage(src, 0, 0);
+      fctx.globalAlpha = 0.5 + 0.15 * nightF; fctx.filter = 'blur(7px)'; fctx.drawImage(src, 0, 0); fctx.filter = 'none'; fctx.globalAlpha = 1;
       lctx.globalCompositeOperation = 'source-over'; lctx.clearRect(0, 0, W, H); lctx.drawImage(dots, 0, 0);
       lctx.globalCompositeOperation = 'source-in'; lctx.drawImage(src, 0, 0);
       fctx.drawImage(led, 0, 0);
+      // hot white centers on lit dots, so each LED reads as a light, not a colored dot
+      fctx.globalCompositeOperation = 'lighter'; fctx.globalAlpha = 0.28; fctx.drawImage(led, 0, 0); fctx.globalAlpha = 1; fctx.globalCompositeOperation = 'source-over';
       faceTex.needsUpdate = true;
+      // light that spills past the visor glass onto the bezel and shell
+      gctx.clearRect(0, 0, GW, GH); gctx.filter = 'blur(9px)'; gctx.drawImage(src, 0, 0, GW, GH); gctx.filter = 'none';
+      glowTex.needsUpdate = true;
     }
     function drawFace(px, py, blink, talk, think, t) {
       const W = FW, H = FH, cx = W / 2;
@@ -611,6 +660,14 @@
       if (mood === 'talk') { head.rotation.x += 0.1 + Math.sin(t * 9) * 0.05 * m; head.rotation.z += Math.sin(t * 4.5) * 0.05 * m; }
       if (mood === 'think') head.rotation.z += 0.16;
       ringMat.emissiveIntensity = (bus.scanning ? 1.6 + Math.abs(Math.sin(t * 12)) : 0) + (bus.unlocked ? 1.2 : 0) + 0.9 + 0.4 * Math.sin(t * 3) + 2.2 * Math.exp(-sinceKey * 5) + (mood === 'think' ? 0.8 * Math.abs(Math.sin(t * 5)) : 0);
+      // night: dim the studio light so the LEDs carry the bot, and push every glow harder
+      nightF += ((document.documentElement.classList.contains('zb-night') ? 1 : 0) - nightF) * Math.min(1, dt * 4);
+      renderer.toneMappingExposure = 1 - 0.28 * nightF;
+      if (faceMat) faceMat.emissiveIntensity = 1.7 + 1.0 * nightF;
+      glowMat.opacity = 0.32 + 0.4 * nightF;
+      faceLight.color.setRGB(col.r / 255, col.g / 255, col.b / 255); faceLight.intensity = 0.25 + 0.9 * nightF;
+      ringMat.emissiveIntensity *= 1 + 0.9 * nightF; tipMat.emissiveIntensity = 1.1 + 1.6 * nightF + 0.3 * Math.sin(t * 2.2);
+      if (thrustLight) thrustLight.intensity = 0.5 + 1.2 * nightF;
       renderer.render(scene, camera);
       requestAnimationFrame(frame);
     }
