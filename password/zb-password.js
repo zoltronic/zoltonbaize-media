@@ -135,7 +135,15 @@
   }
 
   // ---------- Shared state between the bot and the chat ----------
-  const bus = { mood: failed ? 'sad' : 'idle', moodUntil: failed ? 2.8 : 0, talkUntil: 0, chatOpen: false, poke: -1 };
+  const bus = { mood: 'idle', moodUntil: 0, talkUntil: 0, chatOpen: false, poke: -1, shakeReq: false };
+  // Wrong password: the text field shakes and gets a red ring; Zoltbot looks at it, shakes his head and goes sad.
+  function wrongPassword() {
+    if (input) { input.classList.add('zb-wrong'); input.classList.remove('zb-shake'); void input.offsetWidth; input.classList.add('zb-shake'); }
+    bus.mood = 'sad'; bus.moodUntil = performance.now() / 1000 + 2.6; bus.shakeReq = true;
+  }
+  window.zbPasswordWrong = wrongPassword;
+  if (input) input.addEventListener('input', () => input.classList.remove('zb-wrong'));
+  if (failed) setTimeout(wrongPassword, 500);
 
   // ---------- Chat UI ----------
   let chat = null;
@@ -358,8 +366,7 @@
     let focused = false, typing = 0, hop = -1, shake = -1;
     const towards = (el) => { const a = dock.getBoundingClientRect(), b = el.getBoundingClientRect(); return new THREE.Vector2(Math.max(-1, Math.min(1, ((b.left + b.width * 0.45) - (a.left + a.width / 2)) / (innerWidth / 2.2))), Math.max(-1, Math.min(1, -((b.top + b.height / 2) - (a.top + a.height / 2)) / (innerHeight / 2.2)))); };
     // wrong password: look at the field, shake the head while the field shakes
-    if (failed && input) setTimeout(() => { shake = 0; input.classList.add('zb-wrong'); input.classList.remove('zb-shake'); void input.offsetWidth; input.classList.add('zb-shake'); }, 700);
-    if (input) input.addEventListener('input', () => input.classList.remove('zb-wrong'));
+
     addEventListener('pointermove', e => {
       const r = dock.getBoundingClientRect();
       lookT.set(Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (innerWidth / 2.2))), Math.max(-1, Math.min(1, -(e.clientY - (r.top + r.height / 2)) / (innerHeight / 2.2))));
@@ -369,7 +376,7 @@
       input.addEventListener('blur', () => { focused = false; typing = 0; });
       input.addEventListener('input', () => { typing = 1.6; });
     }
-    form.addEventListener('submit', () => { hop = 0; typing = 0; bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.2; });
+    if (!DEMO) form.addEventListener('submit', () => { hop = 0; typing = 0; bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.2; });
     dock.addEventListener('pointerenter', () => { if (!bus.chatOpen) { bus.mood = 'curious'; bus.moodUntil = performance.now() / 1000 + 0.9; } });
 
     function resize() { const s = dock.clientWidth || 230; renderer.setSize(s, s, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
@@ -377,7 +384,6 @@
 
     const clock = new THREE.Clock();
     const ease = x => x * x * (3 - 2 * x);
-    if (failed) { bus.mood = 'sad'; bus.moodUntil = performance.now() / 1000 + 2.6; }
     let cover = 0, nextBlink = 2.5, blinkT = -1;
     const target = { r: 95, g: 244, b: 255 };
     function frame() {
@@ -414,6 +420,7 @@
       head.rotation.y = look.x * 0.5 * (1 - c * 0.6);
       head.rotation.x = -look.y * 0.3 + c * 0.22;
       head.rotation.z = Math.sin(t * 1.7) * 0.05 * m;
+      if (bus.shakeReq) { bus.shakeReq = false; shake = 0; }
       if (shake >= 0) { shake += dt; head.rotation.y += Math.sin(shake * 26) * 0.32 * Math.max(0, 1 - shake / 1.0); if (shake > 1.0) shake = -1; }
       if (hop >= 0) { hop += dt; const h = Math.min(1, hop / 0.55); bot.position.y += Math.sin(h * Math.PI) * 0.22; head.rotation.y += ease(h) * Math.PI * 2; if (hop > 0.55) hop = -1; }
       if (bus.poke >= 0) { bus.poke += dt; bot.position.y += Math.sin(Math.min(1, bus.poke / 0.4) * Math.PI) * 0.08; if (bus.poke > 0.4) bus.poke = -1; }
