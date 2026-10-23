@@ -76,6 +76,12 @@
 
     const BASE = [[0.0, 0.4, 0.0, 2.2], [-2.2, 0.0, 0.4, 1.7], [2.3, 0.1, -0.2, 1.8], [-0.8, 1.9, 0.2, 1.6], [1.0, 2.3, -0.3, 1.5], [0.1, 3.4, 0.1, 1.2], [-3.8, -0.3, -0.2, 1.1], [3.9, -0.2, 0.5, 1.1], [0.5, 0.2, 1.8, 1.4]];
     const blobs = BASE.map(() => new THREE.Vector4());
+    // the field: the hero cumulus plus smaller ones near and far, so scrolling flies you through a sky of them
+    const CLUSTERS = [
+      [0, 0, 0, 1.0], [-15, -1.2, -12, 0.75], [17, 0.4, -16, 0.85], [-9, -1.6, 10, 0.5], [11, -1.4, 8, 0.55],
+      [-27, -0.5, -30, 1.0], [28, 0.8, -34, 1.1], [3, -2.2, -40, 1.2], [-6, -2.6, 22, 0.45],
+      [-16, -1.2, -56, 1.1], [15, -0.6, -62, 1.3], [-2, -2.4, -78, 1.6]
+    ].map(c => new THREE.Vector4(...c));
     const uniforms = {
       uNoise: { value: noiseTex }, uTime: { value: 0 }, uFrame: { value: 0 },
       uCam: { value: new THREE.Vector3() }, uInvVP: { value: new THREE.Matrix4() },
@@ -84,7 +90,8 @@
       uNoiseScale: { value: 0.11 }, uDetail: { value: 0.3 }, uDetailScale: { value: 0.38 },
       uSunI: { value: 1 }, uAbsorb: { value: 1.6 }, uMulti: { value: 0.28 }, uSilver: { value: 0.7 },
       uAmbient: { value: 1 }, uExposure: { value: 1.05 }, uSteps: { value: 90 },
-      uZenith: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uWarm: { value: 1 }
+      uZenith: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uWarm: { value: 1 },
+      uClusters: { value: CLUSTERS }
     };
     const frag = /* glsl */`
     precision highp float;
@@ -95,80 +102,71 @@
     uniform vec3 uCam, uSun, uZenith, uHorizon;
     uniform mat4 uInvVP;
     uniform vec4 uBlobs[9];
+    uniform vec4 uClusters[NC];     // xyz centre, w scale: copies of the cumulus spread across the sky
     varying vec2 vUv;
-
-    const vec3 BMIN = vec3(-6.2, -1.4, -4.4);
-    const vec3 BMAX = vec3( 6.2,  5.4,  4.4);
+    const float R = 6.5;            // bounding radius of one cumulus (local units)
 
     float smin(float a, float b, float k) { float h = clamp(.5 + .5 * (b - a) / k, 0., 1.); return mix(b, a, h) - k * h * (1. - h); }
     float sdCloud(vec3 p) { float d = 1e4; for (int i = 0; i < 9; i++) { vec4 b = uBlobs[i]; d = smin(d, length(p - b.xyz) - b.w, 1.0); } return d; }
 
     float density(vec3 wp, bool detail) {
       vec3 p = wp / uScale;
-      float sd = sdCloud(p);
+      float sd = 1e4, ly = 0.;
+      for (int c = 0; c < NC; c++) {
+        vec4 C = uClusters[c];
+        if (length(p - C.xyz) - R * C.w > 0.9) continue;
+        float d = sdCloud((p - C.xyz) / C.w) * C.w;
+        if (d < sd) { sd = d; ly = (p.y - C.y) / C.w; }
+      }
       if (sd > 0.9) return 0.;
-      float shape = clamp(0.45 - sd * 0.55, 0., 1.);
-      shape *= smoothstep(-1.3, -0.75, p.y);
+      float shape = clamp(0.45 - sd * 0.55, 0., 1.) * smoothstep(-1.3, -0.75, ly);
       vec3 rise = vec3(0.010, -0.028, 0.006) * uTime;
       float n = texture(uNoise, p * uNoiseScale + rise).r;
       if (detail) n = mix(n, texture(uNoise, p * uDetailScale + rise * 2.4 + 0.37).r, uDetail);
       float er = (1. - n) * (1.15 - uCoverage);
       return clamp((shape - er) / (1. - er + 1e-3), 0., 1.) * uDensity;
     }
-
-    float lightOD(vec3 p) {
-      float od = 0., st = 0.25 * uScale;
-      for (int i = 0; i < 6; i++) { p += uSun * st; od += density(p, false) * st; st *= 1.45; }
-      return od;
-    }
-
+    float lightOD(vec3 p) { float od = 0., st = 0.25 * uScale; for (int i = 0; i < 6; i++) { p += uSun * st; od += density(p, false) * st; st *= 1.45; } return od; }
     float hg(float c, float g) { float g2 = g * g; return (1. - g2) / (12.566 * pow(1. + g2 - 2. * g * c, 1.5)); }
     float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-
     float lowSun() { return (1. - smoothstep(0.02, 0.4, uSun.y)) * uWarm; }
     vec3 sunColor() { return mix(vec3(1.0, 0.96, 0.9), vec3(1.0, 0.52, 0.28), lowSun()); }
-
     vec3 sky(vec3 rd) {
       float ls = lowSun();
-      vec3 zen = mix(uZenith, uZenith * vec3(0.7, 0.6, 0.7), ls);
-      vec3 hor = mix(uHorizon, vec3(0.95, 0.62, 0.45), ls * 0.8);
-      float h = max(rd.y, 0.);
-      vec3 c = mix(hor, zen, pow(h, 0.5));
+      vec3 zen = mix(uZenith, uZenith * vec3(0.7, 0.6, 0.7), ls), hor = mix(uHorizon, vec3(0.95, 0.62, 0.45), ls * 0.8);
+      float h = max(rd.y, 0.); vec3 c = mix(hor, zen, pow(h, 0.5));
       if (rd.y < 0.) c = mix(hor, hor * 0.55, clamp(-rd.y * 3., 0., 1.));
-      float s = max(dot(rd, uSun), 0.);
-      c += sunColor() * uSunI * (pow(s, 900.) * 12. + pow(s, 10.) * 0.25);
+      float s = max(dot(rd, uSun), 0.); c += sunColor() * uSunI * (pow(s, 900.) * 12. + pow(s, 10.) * 0.25);
       return c;
     }
-
-    vec2 box(vec3 ro, vec3 rd) {
-      vec3 inv = 1. / rd, t0 = (BMIN * uScale - ro) * inv, t1 = (BMAX * uScale - ro) * inv;
-      vec3 mn = min(t0, t1), mx = max(t0, t1);
-      return vec2(max(max(mn.x, mn.y), mn.z), min(min(mx.x, mx.y), mx.z));
-    }
-
+    vec2 sphere(vec3 ro, vec3 rd, vec3 c, float r) { vec3 o = ro - c; float b = dot(o, rd), q = dot(o, o) - r * r, h = b * b - q; if (h < 0.) return vec2(1e9, -1e9); h = sqrt(h); return vec2(-b - h, -b + h); }
     vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0., 1.); }
-    vec3 toLinear(vec3 c) { return pow(c, vec3(2.2)); }
 
     void main() {
       vec4 wp = uInvVP * vec4(vUv * 2. - 1., 1., 1.);
       vec3 ro = uCam, rd = normalize(wp.xyz / wp.w - uCam);
       vec3 col = sky(rd);
-
-      vec2 t = box(ro, rd);
-      if (t.y > max(t.x, 0.)) {
-        float t0 = max(t.x, 0.);
-        float dt = max((t.y - t0) / uSteps, 0.05 * uScale);
-        float tt = t0 + dt * hash(gl_FragCoord.xy + fract(uFrame * 0.618) * 100.);
-        float T = 1.;
-        vec3 L = vec3(0.);
-        float mu = dot(rd, uSun);
-        float phase = mix(hg(mu, uSilver), hg(mu, -0.2), 0.45);
+      // where the ray passes through each cloud's bounding sphere; march only inside those spans
+      vec2 sp[NC]; float tmin = 1e9, tmax = -1e9, inside = 0.;
+      for (int c = 0; c < NC; c++) {
+        vec4 C = uClusters[c]; vec2 s = sphere(ro, rd, C.xyz * uScale, R * C.w * uScale);
+        s.x = max(s.x, 0.); sp[c] = s;
+        if (s.y > s.x) { tmin = min(tmin, s.x); tmax = max(tmax, s.y); inside += s.y - s.x; }
+      }
+      if (tmax > tmin) {
+        float dt = max(inside / uSteps, 0.06 * uScale);
+        float tt = tmin + dt * hash(gl_FragCoord.xy + fract(uFrame * 0.618) * 100.);
+        float T = 1.; vec3 L = vec3(0.);
+        float mu = dot(rd, uSun), phase = mix(hg(mu, uSilver), hg(mu, -0.2), 0.45);
         vec3 sc = sunColor() * uSunI * mix(0.55, 1.0, smoothstep(0.0, 0.35, uSun.y));
         float ls = lowSun();
-        vec3 ambTop = mix(uZenith, uHorizon, 0.5) * 1.15 + 0.15;
-        vec3 ambBot = ambTop * vec3(0.42, 0.45, 0.5);
-        for (int i = 0; i < 160; i++) {
-          if (tt > t.y || T < 0.01 || float(i) > uSteps * 1.5) break;
+        vec3 ambTop = mix(uZenith, uHorizon, 0.5) * 1.15 + 0.15, ambBot = ambTop * vec3(0.42, 0.45, 0.5);
+        for (int i = 0; i < 220; i++) {
+          if (tt > tmax || T < 0.01 || float(i) > uSteps * 2.2) break;
+          // skip the empty sky between clouds
+          bool inS = false; float next = 1e9;
+          for (int c = 0; c < NC; c++) { vec2 s = sp[c]; if (s.y > s.x) { if (tt >= s.x && tt <= s.y) inS = true; else if (s.x > tt) next = min(next, s.x); } }
+          if (!inS) { if (next > 1e8) break; tt = next + dt * 0.5; continue; }
           vec3 p = ro + rd * tt;
           float d = density(p, true);
           if (d > 0.002) {
@@ -176,24 +174,22 @@
             float beer = max(exp(-od * uAbsorb), exp(-od * uAbsorb * 0.22) * uMulti);
             float powder = 1. - exp(-d * 2.2);
             vec3 sunL = sc * beer * phase * mix(1., powder, 0.55) * 14.;
-            float hgt = clamp((p.y / uScale + 1.4) / 6.5, 0., 1.);
-            vec3 amb = mix(ambBot, ambTop, hgt) * uAmbient * mix(0.85, 0.5, ls);
+            vec3 amb = mix(ambBot, ambTop, clamp((p.y / uScale + 1.4) / 6.5, 0., 1.)) * uAmbient * mix(0.85, 0.5, ls);
             float Tr = exp(-d * dt * 1.25 / uScale);
-            L += T * (sunL + amb) * (1. - Tr);
-            T *= Tr;
+            L += T * (sunL + amb) * (1. - Tr); T *= Tr;
           }
           tt += dt;
         }
+        // farther clouds pick up a little sky haze, which sells the depth
         col = col * T + L;
       }
       col = aces(col * uExposure);
       col = pow(col, vec3(1. / 2.2));
-      vec2 q = vUv - 0.5;
-      col *= 1. - dot(q, q) * 0.35;
+      vec2 q = vUv - 0.5; col *= 1. - dot(q, q) * 0.3;
       gl_FragColor = vec4(col, 1.);
     }
   `;
-    const mat = new THREE.ShaderMaterial({ uniforms, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }', fragmentShader: frag, depthTest: false, depthWrite: false });
+    const mat = new THREE.ShaderMaterial({ defines: { NC: CLUSTERS.length }, uniforms, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }', fragmentShader: frag, depthTest: false, depthWrite: false });
     const scene = new THREE.Scene(); scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat));
     const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     const cam = new THREE.PerspectiveCamera(SETTINGS.fov, 1, 0.1, 300);
@@ -216,6 +212,7 @@
       wrap.style.background = n > 0.5 ? 'linear-gradient(180deg,#030814,#14223d)' : '';
     }
     apply();
+    window.zbAbout = { settings: SETTINGS, clusters: CLUSTERS, set(o) { Object.assign(SETTINGS, o); if (o.fov) { cam.fov = o.fov; cam.updateProjectionMatrix(); } apply(); } };
     // follow the site's light/dark toggle (it saves zbTheme) and the system setting
     addEventListener('storage', e => { if (e.key === 'zbTheme') night = isNight(); });
     setInterval(() => { night = isNight(); }, 1000);
@@ -243,10 +240,10 @@
         const lift = i >= 3 && i <= 5 ? 0.25 * Math.sin(simT * 0.05 + i) : 0.1 * Math.sin(simT * 0.07 + i);
         blobs[i].set(b[0] + 0.15 * Math.sin(simT * 0.04 + i * 2.3), b[1] + lift, b[2], b[3] * s);
       });
-      // scroll moves the camera: it climbs over the cloud, pitches down to look at its top and swings a quarter turn around it
-      const S = SETTINGS.size, r = (15 + 5 * sp) * S, pitch = 0.08 + 0.42 * sp, y0 = yaw + 1.1 * sp;
-      cam.position.set(Math.sin(y0) * Math.cos(pitch) * r, 1.2 * S + Math.sin(pitch) * r, Math.cos(y0) * Math.cos(pitch) * r);
-      cam.lookAt(1.6 * S * (1 - sp), (1.3 + 1.6 * (1 - sp)) * S, 0);   // at the top the cloud sits low and to the side, leaving room for the headline
+      // scroll flies the camera forward through the field: near clouds slide past faster than far ones (real parallax)
+      const S = SETTINGS.size, sway = reduce ? 0 : Math.sin(yaw * 2) * 1.2;
+      cam.position.set((4 - 6 * sp + sway) * S, (2.4 + 3.2 * sp) * S, (24 - 30 * sp) * S);
+      cam.lookAt((-1 - 4 * sp + sway * 0.5) * S, (2.6 - 0.4 * sp) * S, (0 - 34 * sp) * S);
       cam.updateMatrixWorld();
       uniforms.uCam.value.copy(cam.position);
       uniforms.uInvVP.value.multiplyMatrices(cam.matrixWorld, cam.projectionMatrixInverse);
@@ -265,6 +262,7 @@
     requestAnimationFrame(frame);
   }
 
-  if (window.THREE && THREE.DataTexture3D) boot();
-  else { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'; s.onload = boot; document.head.appendChild(s); }
+  const go = () => (window.requestIdleCallback || setTimeout)(boot, { timeout: 400 });   // after first paint, so page transitions aren't held up
+  if (window.THREE && THREE.DataTexture3D) go();
+  else { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'; s.onload = go; document.head.appendChild(s); }
 })();
