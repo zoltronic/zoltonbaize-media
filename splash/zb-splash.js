@@ -29,8 +29,8 @@
     '#zb-splash canvas{position:absolute;inset:0;width:100%;height:100%;display:block}',
     '#zb-splash-hint{position:absolute;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:12px ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.88);text-shadow:0 1px 8px rgba(7,40,61,.5);opacity:0;transition:opacity 300ms ease-out;white-space:nowrap;pointer-events:none}',
     '#zb-splash-hint.on{opacity:1}',
-    '#zb-deck{position:fixed;left:0;right:0;bottom:0;height:clamp(150px,34vh,380px);z-index:0;pointer-events:none;overflow:hidden;opacity:0;transition:opacity 900ms cubic-bezier(.2,.8,.2,1)}',
-    '#zb-deck.on{opacity:1}',
+    '#zb-deck{position:fixed;left:0;right:0;bottom:0;height:clamp(150px,34vh,380px);z-index:0;pointer-events:none;overflow:hidden;visibility:hidden;will-change:transform,opacity}',
+    '#zb-deck.on{visibility:visible}',
     '#zb-deck i{position:absolute;left:0;right:0;bottom:0;background-repeat:repeat-x;background-position:0 100%;will-change:background-position}',
     '#zb-deck .back{height:78%;bottom:16%;opacity:.8;filter:blur(.6px)}',
     '#zb-deck .front{height:72%;bottom:-6%}',
@@ -408,8 +408,18 @@
     layers = [{ el: front, speed: 7 }, { el: back, speed: 3.5 }];   // px per second: the back layer drifts slower (depth)
     requestAnimationFrame(() => deck.classList.add('on'));
   }
+  // The cloud floor only appears as you reach the bottom of the page: it rises into view over the last
+  // stretch of scrolling (the last ~70% of a screen), so the page "lands" on the clouds.
+  let shown = -1;
   function updateDeck(time) {
     deck.classList.toggle('night', isDark());
+    const vh = innerHeight, max = Math.max(0, document.documentElement.scrollHeight - vh), zone = vh * 0.7;
+    const p = max < 4 ? 1 : Math.max(0, Math.min(1, (scrollY - (max - zone)) / zone));
+    const e = 1 - Math.pow(1 - p, 3);
+    shown = shown < 0 ? e : shown + (e - shown) * (reduce ? 1 : 0.18);   // smooth out jumpy wheel scrolling
+    deck.style.opacity = shown.toFixed(3);
+    deck.style.transform = 'translate3d(0,' + ((1 - shown) * 60).toFixed(1) + '%,0)';
+    if (shown < 0.005) return;
     const h = deck.clientHeight;
     layers.forEach(({ el, speed }) => {
       const th = el.clientHeight || h, tw = th * (1536 / 384);        // keep the strip's aspect so it tiles
