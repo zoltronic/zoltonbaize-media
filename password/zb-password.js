@@ -24,6 +24,24 @@
   const CHAT = !!(ENDPOINT || DEMO);
   const hasSky = !!(window.customElements && customElements.get('zb-sky'));
 
+  // ---------- Which page is protected ----------
+  // Webflow serves this page at the protected URL and puts that path in a hidden "path" field.
+  const NAMES = { '/gold': 'Gold', '/iconography': 'Icons', '/icons': 'Icons', '/atm': 'ATM' };
+  const pathEl = form.querySelector('input[name="path"]');
+  const protPath = ((window.ZB_PROTECTED_PATH || (pathEl && pathEl.value) || location.pathname) + '').replace(/\/+$/, '') || '/';
+  const PAGE = window.ZB_PROTECTED_NAME || NAMES[protPath.toLowerCase()] ||
+    (protPath === '/' || protPath === '/401' ? '' : protPath.split('/').pop().replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+  {
+    const h = card.querySelector('h1, h2, h3');
+    if (h && PAGE) { h.innerHTML = ''; const n = document.createElement('span'); n.className = 'zb-pw-name'; n.textContent = PAGE; h.append(n, document.createTextNode(' is a protected page')); }
+    if (PAGE) document.title = PAGE + ' is a protected page';
+  }
+  // Passwords are all lowercase: lowercase what's typed (Caps Lock and phone auto-capitals can't break it).
+  if (input) {
+    input.setAttribute('autocapitalize', 'none'); input.setAttribute('autocorrect', 'off'); input.spellcheck = false;
+    input.addEventListener('input', () => { const v = input.value, l = v.toLowerCase(); if (v !== l) { const a = input.selectionStart, b = input.selectionEnd; input.value = l; try { input.setSelectionRange(a, b); } catch (e) {} } });
+  }
+
   // ---------- Styles ----------
   const css = document.createElement('style');
   css.textContent = `
@@ -36,6 +54,7 @@
     backdrop-filter: blur(9px) saturate(130%); -webkit-backdrop-filter: blur(9px) saturate(130%); }
   .zb-glass.zb-on-sky { background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
   .zb-pw-card { padding: 32px 28px; }
+  .zb-pw-name { display: block; font-size: 1.35em; letter-spacing: -.02em; background: linear-gradient(135deg, #00BEFF, #00E0B8); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .zb-pw-dock { position: fixed; left: 0; top: 0; width: 320px; height: 320px; z-index: 6; cursor: pointer; border-radius: 50%; will-change: transform; -webkit-tap-highlight-color: transparent; }
   .zb-pw-dock:focus-visible { outline: 2px solid #0A5C86; outline-offset: -20px; }
   .zb-pw-dock canvas { width: 100%; height: 100%; display: block; }
@@ -288,10 +307,10 @@
       if (reason === 'wrong') {
         if (innerWidth < 820) el.classList.add('zb-peek');   // phone: a short card that leaves the password field visible
         greeted = true; bus.mood = 'curious'; bus.moodUntil = performance.now() / 1000 + 2;
-        setTimeout(() => { say(history.length ? 'Still no luck with the password? I can help.' : 'Hmm, that password didn’t work. Need access? Have a question? I’m Zoltbot, Zolton’s sidekick robot, and I can help.', 'bot'); setChips(['Request access', 'I have a question', 'I’ll try again']); }, 250);
+        setTimeout(() => { say(history.length ? 'Still no luck with the password? I can help.' : 'Hmm, that password didn’t work' + (PAGE ? ' for ' + PAGE : '') + '. Need access? Have a question? I’m Zoltbot, Zolton’s sidekick robot, and I can help.', 'bot'); setChips(['Request access', 'I have a question', 'I’ll try again']); }, 250);
         return;   // leave focus on the password field so they can retry
       }
-      if (!greeted) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. This part of the site is password-protected. Need access? Have a question? I can tell you about Zolton’s work, or help you ask him for access.', 'bot'); setChips(['Request access', 'What’s behind the password?', 'Who is Zolton?']); }, 250); }
+      if (!greeted) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. ' + (PAGE ? PAGE + ' is a password-protected page.' : 'This part of the site is password-protected.') + ' Need access? Have a question? I can tell you about Zolton’s work, or help you ask him for access.', 'bot'); setChips(['Request access', 'What’s behind the password?', 'Who is Zolton?']); }, 250); }
       setTimeout(() => inp.focus(), 320);
     }
     function close() { bus.chatOpen = false; el.classList.remove('open', 'zb-peek'); el.setAttribute('aria-hidden', 'true'); dock.focus(); }
@@ -339,8 +358,8 @@
         answers[step] = text; step++;
         if (step < QS.length) { say(QS[step], 'bot'); return true; }
         step = -1;
-        pending = { name: answers[0], company: answers[1], role: answers[2], about: answers[3], email: answers[4], wantsToSee: answers[5] && !/^skip$/i.test(answers[5]) ? answers[5] : '' };
-        say('Here’s what I’ll send Zolton:\n• ' + pending.name + ', ' + pending.role + ' at ' + pending.company + '\n• About: ' + pending.about + '\n• Email: ' + pending.email + (pending.wantsToSee ? '\n• Wants to see: ' + pending.wantsToSee : '') + '\n\nSend it?', 'bot');
+        pending = { page: PAGE || protPath, name: answers[0], company: answers[1], role: answers[2], about: answers[3], email: answers[4], wantsToSee: answers[5] && !/^skip$/i.test(answers[5]) ? answers[5] : '' };
+        say('Here’s what I’ll send Zolton:\n' + (PAGE ? '• Access to: ' + PAGE + '\n' : '') + '• ' + pending.name + ', ' + pending.role + ' at ' + pending.company + '\n• About: ' + pending.about + '\n• Email: ' + pending.email + (pending.wantsToSee ? '\n• Wants to see: ' + pending.wantsToSee : '') + '\n\nSend it?', 'bot');
         setChips(['Yes, send it', 'Start over']); return true;
       }
       if (/^i’ll try again$/.test(t)) { say('Go for it. I’ll be right here if you need me.', 'bot'); setChips(['Request access']); if (input) input.focus(); return true; }

@@ -63,11 +63,11 @@ export default async (req, context) => {
 
   if (body.type === 'request') {
     const r = body.request || {};
-    const request = { name: clean(r.name, 120), company: clean(r.company, 120), role: clean(r.role, 120), about: clean(r.about, 500), email: clean(r.email, 200), wantsToSee: clean(r.wantsToSee, 300), page: clean(body.page, 120), at: new Date().toISOString() };
+    const request = { name: clean(r.name, 120), company: clean(r.company, 120), role: clean(r.role, 120), about: clean(r.about, 500), email: clean(r.email, 200), wantsToSee: clean(r.wantsToSee, 300), page: clean(r.page || body.page, 120), at: new Date().toISOString() };
     if (!request.name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(request.email)) return json({ error: 'name and a valid email are required' }, 400, origin);
     if (!(await bump(limits, `req:${today()}:${visitor}`, REQUESTS_PER_VISITOR))) return json({ ok: false, error: 'already sent today' }, 429, origin);
     await getStore('zoltbot-requests').setJSON(`${request.at}-${visitor}`, request);       // the request list
-    const line = `Access request: ${request.name}, ${request.role} at ${request.company}, about ${request.about}. Email: ${request.email}.` + (request.wantsToSee ? ` Wants to see: ${request.wantsToSee}.` : '');
+    const line = `Access request${request.page ? ' for ' + request.page : ''}: ${request.name}, ${request.role} at ${request.company}, about ${request.about}. Email: ${request.email}.` + (request.wantsToSee ? ` Wants to see: ${request.wantsToSee}.` : '');
     await Promise.allSettled([sendEmail(request, line), sendPush(request, line)]);
     return json({ ok: true }, 200, origin);
   }
@@ -113,7 +113,7 @@ async function sendEmail(r, line) {               // Resend: https://resend.com
     method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
     body: JSON.stringify({
       from: env('ZB_ALERT_FROM', 'Zoltbot <onboarding@resend.dev>'), to: [to], reply_to: r.email,
-      subject: `Zoltbot: access request from ${r.name}${r.company ? ' (' + r.company + ')' : ''}`,
+      subject: `Zoltbot: ${r.page ? r.page + ' ' : ''}access request from ${r.name}${r.company ? ' (' + r.company + ')' : ''}`,
       text: line + '\n\nReply to this email to answer them directly.',
       html: `<p>${esc(line)}</p><p><a href="mailto:${encodeURIComponent(r.email)}">Reply to ${esc(r.name)}</a></p>`
     })
