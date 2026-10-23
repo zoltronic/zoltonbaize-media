@@ -427,7 +427,7 @@
     const faceTex = new THREE.CanvasTexture(face); faceTex.colorSpace = THREE.SRGBColorSpace;
     const GW = 256, GH = 160, glowC = document.createElement('canvas'); glowC.width = GW; glowC.height = GH; const gctx = glowC.getContext('2d');
     const glowTex = new THREE.CanvasTexture(glowC); glowTex.colorSpace = THREE.SRGBColorSpace;
-    const glowMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+    const glowMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
     const MOON = new THREE.Color(0.36, 0.45, 0.6);   // body tint under the night sky
     let bodyMats = [];
     let nightF = 0, lastNight = -1, faceMat = null, thrustLight = null;
@@ -511,25 +511,31 @@
     };
     const F = Object.assign({}, MOODS[bus.mood]);
     const col = { r: 95, g: 244, b: 255 };
+    const holes = [];
     function compose() {
       const W = FW, H = FH;
       fctx.globalCompositeOperation = 'source-over'; fctx.fillStyle = '#000'; fctx.fillRect(0, 0, W, H);
       // soft light behind the dots: a wide haze plus a tighter halo
-      fctx.globalAlpha = 0.32 + 0.18 * nightF; fctx.filter = 'blur(22px)'; fctx.drawImage(src, 0, 0);
-      fctx.globalAlpha = 0.5 + 0.15 * nightF; fctx.filter = 'blur(7px)'; fctx.drawImage(src, 0, 0); fctx.filter = 'none'; fctx.globalAlpha = 1;
+      fctx.globalAlpha = 0.24 + 0.08 * nightF; fctx.filter = 'blur(26px)'; fctx.drawImage(src, 0, 0);
+      fctx.globalAlpha = 0.3 + 0.06 * nightF; fctx.filter = 'blur(9px)'; fctx.drawImage(src, 0, 0); fctx.filter = 'none'; fctx.globalAlpha = 1;
+      // keep the pupils dark: cut the haze back out of them, with a soft edge
+      holes.forEach(h => { const g = fctx.createRadialGradient(h.x, h.y, h.r * 0.7, h.x, h.y, h.r * 1.25); g.addColorStop(0, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)'); fctx.fillStyle = g; fctx.beginPath(); fctx.arc(h.x, h.y, h.r * 1.25, 0, Math.PI * 2); fctx.fill(); });
       lctx.globalCompositeOperation = 'source-over'; lctx.clearRect(0, 0, W, H); lctx.drawImage(dots, 0, 0);
       lctx.globalCompositeOperation = 'source-in'; lctx.drawImage(src, 0, 0);
       fctx.drawImage(led, 0, 0);
       // hot white centers on lit dots, so each LED reads as a light, not a colored dot
-      fctx.globalCompositeOperation = 'lighter'; fctx.globalAlpha = 0.28; fctx.drawImage(led, 0, 0); fctx.globalAlpha = 1; fctx.globalCompositeOperation = 'source-over';
+      fctx.globalCompositeOperation = 'lighter'; fctx.globalAlpha = 0.2; fctx.drawImage(led, 0, 0); fctx.globalAlpha = 1; fctx.globalCompositeOperation = 'source-over';
       faceTex.needsUpdate = true;
       // light that spills past the visor glass onto the bezel and shell
-      gctx.clearRect(0, 0, GW, GH); gctx.filter = 'blur(9px)'; gctx.drawImage(src, 0, 0, GW, GH); gctx.filter = 'none';
+      gctx.clearRect(0, 0, GW, GH); gctx.filter = 'blur(12px)'; gctx.drawImage(src, 0, 0, GW, GH); gctx.filter = 'none';
+      gctx.globalCompositeOperation = 'destination-out'; const k = GW / FW;
+      holes.forEach(h => { const g = gctx.createRadialGradient(h.x * k, h.y * k, 0, h.x * k, h.y * k, h.r * k * 1.4); g.addColorStop(0, '#000'); g.addColorStop(0.6, 'rgba(0,0,0,.85)'); g.addColorStop(1, 'rgba(0,0,0,0)'); gctx.fillStyle = g; gctx.beginPath(); gctx.arc(h.x * k, h.y * k, h.r * k * 1.4, 0, Math.PI * 2); gctx.fill(); });
+      gctx.globalCompositeOperation = 'source-over';
       glowTex.needsUpdate = true;
     }
     function drawFace(px, py, blink, talk, think, t) {
       const W = FW, H = FH, cx = W / 2;
-      sctx.clearRect(0, 0, W, H);
+      sctx.clearRect(0, 0, W, H); holes.length = 0;
       const c = `rgb(${col.r|0},${col.g|0},${col.b|0})`;
       sctx.strokeStyle = c; sctx.fillStyle = c; sctx.lineCap = 'round'; sctx.lineJoin = 'round';
       if (bus.scanning) {          // checking: a scanner bar sweeps across the visor
@@ -562,7 +568,7 @@
         gr.addColorStop(0, `rgba(${col.r|0},${col.g|0},${col.b|0},.25)`); gr.addColorStop(1, `rgba(${col.r|0},${col.g|0},${col.b|0},.75)`);
         sctx.fillStyle = gr; sctx.fillRect(ex - R, ey - R, R * 2, R * 2);
         // pupil (dark = no glow) with catch-lights
-        const pr = 34 * F.pupil, ppx = ex + px * 26, ppy = ey + py * 20;
+        const pr = 34 * F.pupil, ppx = ex + px * 26, ppy = ey + py * 20; holes.push({ x: ppx, y: ppy, r: pr });
         sctx.globalCompositeOperation = 'destination-out';
         sctx.beginPath(); sctx.arc(ppx, ppy, pr, 0, Math.PI * 2); sctx.fill();
         sctx.globalCompositeOperation = 'source-over';
@@ -684,7 +690,7 @@
         scene.traverse(o => { if (o.material && o.material.envMapIntensity !== undefined && o.material !== glowMat) o.material.envMapIntensity = 1 - 0.92 * nightF; });
       }
       if (faceMat) faceMat.emissiveIntensity = 1.7 + 0.3 * nightF;
-      glowMat.opacity = 0.32 + 0.1 * nightF;
+      glowMat.opacity = 0.2 + 0.08 * nightF;
       faceLight.color.setRGB(col.r / 255, col.g / 255, col.b / 255); faceLight.intensity = 0.25 + 0.45 * nightF;
       ringMat.emissiveIntensity *= 1 + 0.3 * nightF; tipMat.emissiveIntensity = 1.1 + 0.5 * nightF + 0.3 * Math.sin(t * 2.2);
       if (thrustLight) thrustLight.intensity = 0.5 + 0.5 * nightF;
