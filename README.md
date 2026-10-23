@@ -11,3 +11,5 @@ URL pattern: `https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@main/<path
 - `splash/zb-splash.js` — first-visit splash for the work page: flies over a raymarched cloud sea, the Z mark condenses out of vapor into liquid glass, then the camera zooms through it to reveal the page. Also adds foreground clouds that parallax with scroll. Plays once per browser session, skipped for reduced motion, `?splash` forces a replay. Loads three.js r128 from cdnjs; needs WebGL2.
 
 - `password/zb-password.js` — password page: replaces the avatar image with a live 3D Zoltbot (cursor follow, looks at the field on focus, covers his eyes while you type, hops on submit, shakes his head after a wrong password) and puts the form on a glass card over the sky. Uses the site's `<zb-sky>` when present, else its own cloud sky. Loads three.js 0.152.2 from jsDelivr.
+
+- `transitions/zb-spatial.html` — sky-world page transitions (cross-document View Transitions): Work center, About right, Contact further right; case studies (`/project/*`, `/gold`) push forward and pull back. Lives inline in Site settings > Custom code > Head; this file is the source copy.
