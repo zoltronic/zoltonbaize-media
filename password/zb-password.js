@@ -63,6 +63,7 @@
   .zb-chat button:focus-visible, .zb-chat input:focus-visible { outline: 2px solid #0A5C86; outline-offset: 2px; }
   @keyframes zb-shake { 0%,100% { transform: translateX(0); } 15% { transform: translateX(-11px); } 30% { transform: translateX(9px); } 45% { transform: translateX(-7px); } 60% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
   .zb-shake { animation: zb-shake 520ms var(--zb-ease); }
+  .zb-right { box-shadow: 0 0 0 3px rgba(0,224,184,.45) !important; border-color: rgba(0,170,140,.8) !important; }
   .zb-wrong { box-shadow: 0 0 0 3px rgba(220,60,40,.4) !important; border-color: rgba(200,50,30,.75) !important; }
   @media (prefers-reduced-motion: reduce) { .zb-shake { animation: none; } }
   .zb-pw-sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(178deg,#1E7FC4 0%,#7FD0F0 46%,#CFEBF9 74%,#F6E9D2 100%); }
@@ -157,13 +158,52 @@
   }
 
   // ---------- Shared state between the bot and the chat ----------
-  const bus = { mood: 'idle', moodUntil: 0, talkUntil: 0, chatOpen: false, poke: -1, shakeReq: false, thinking: false, chatKey: -9, chatInput: null, chatLog: null };
+  const bus = { busy: false, scanning: false, unlocked: false, checkUntil: 0, hopReq: false, mood: 'idle', moodUntil: 0, talkUntil: 0, chatOpen: false, poke: -1, shakeReq: false, thinking: false, chatKey: -9, chatInput: null, chatLog: null };
   // Wrong password: the text field shakes and gets a red ring; Zoltbot looks at it, shakes his head and goes sad.
   function wrongPassword() {
     if (input) { input.classList.add('zb-wrong'); input.classList.remove('zb-shake'); void input.offsetWidth; input.classList.add('zb-shake'); }
     bus.mood = 'sad'; bus.moodUntil = performance.now() / 1000 + 2.6; bus.shakeReq = true;
   }
   window.zbPasswordWrong = wrongPassword;
+  // Correct password: check it in the background (same request Webflow makes), celebrate, then push forward into the page.
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const submitBtn = form.querySelector('[type="submit"]');
+  const btnLabel = submitBtn ? (submitBtn.value || submitBtn.textContent) : '';
+  const setBtn = (txt) => { if (!submitBtn) return; if ('value' in submitBtn && submitBtn.tagName === 'INPUT') submitBtn.value = txt; else submitBtn.textContent = txt; };
+  form.addEventListener('submit', async (e) => {
+    if (!window.fetch || bus.busy) return;
+    e.preventDefault();
+    bus.busy = true; bus.scanning = true; setBtn('Checking…');
+    const t0 = performance.now();
+    try {
+      let ok, dest = null;
+      if (DEMO) { await wait(950); ok = (input && input.value.trim().toLowerCase() === 'zolton'); }
+      else {
+        const r = await fetch(form.getAttribute('action') || '/.wf_auth', { method: 'POST', body: new FormData(form), credentials: 'same-origin', redirect: 'follow' });
+        const html = await r.text();
+        ok = r.ok && !/wf_auth/.test(html); dest = r.url;
+        await wait(Math.max(0, 750 - (performance.now() - t0)));
+      }
+      bus.scanning = false;
+      if (ok) {
+        if (failEl) failEl.style.display = 'none';
+        if (input) { input.classList.remove('zb-wrong'); input.classList.add('zb-right'); }
+        setBtn('Unlocked');
+        bus.unlocked = true; bus.checkUntil = performance.now() / 1000 + 0.75; bus.mood = 'unlocked'; bus.moodUntil = performance.now() / 1000 + 4; bus.hopReq = true;
+        await wait(1250);
+        if (DEMO) { window.dispatchEvent(new CustomEvent('zb:unlocked')); return; }
+        try { sessionStorage.setItem('zbUnlock', '1'); } catch (err) {}
+        location.assign(dest || location.href);
+      } else {
+        if (failEl) failEl.style.display = 'block';
+        wrongPassword(); if (input) { input.value = ''; input.focus(); }
+        setBtn(btnLabel); bus.busy = false;
+      }
+    } catch (err) {
+      bus.scanning = false; bus.busy = false; setBtn(btnLabel);
+      form.submit();   // fall back to Webflow's normal submit
+    }
+  });
   if (input) input.addEventListener('input', () => input.classList.remove('zb-wrong'));
   if (failed) setTimeout(wrongPassword, 500);
 
@@ -396,15 +436,35 @@
       attentive: { open: 1.16, squint: 0, closed: 0, sad: 0, pupil: 1.22, mouth: 0.35, mouthOpen: 0 },
       think:   { open: 0.94, squint: 0, closed: 0, sad: 0, pupil: 0.92, mouth: 0, mouthOpen: 0 },
       talk:    { open: 1.02, squint: 0, closed: 0, sad: 0, pupil: 1.05, mouth: 0.75, mouthOpen: 0 },
+      unlocked: { open: 1.0, squint: 1, closed: 0, sad: 0, pupil: 1.0, mouth: 1.0, mouthOpen: 0.65 },
       listen:  { open: 1.06, squint: 0, closed: 0, sad: 0, pupil: 1.08, mouth: 0.45, mouthOpen: 0 }
     };
     const F = Object.assign({}, MOODS[bus.mood]);
     const col = { r: 95, g: 244, b: 255 };
+    function compose() {
+      const W = FW, H = FH;
+      fctx.globalCompositeOperation = 'source-over'; fctx.fillStyle = '#000'; fctx.fillRect(0, 0, W, H);
+      fctx.globalAlpha = 0.35; fctx.filter = 'blur(10px)'; fctx.drawImage(src, 0, 0); fctx.filter = 'none'; fctx.globalAlpha = 1;
+      lctx.globalCompositeOperation = 'source-over'; lctx.clearRect(0, 0, W, H); lctx.drawImage(dots, 0, 0);
+      lctx.globalCompositeOperation = 'source-in'; lctx.drawImage(src, 0, 0);
+      fctx.drawImage(led, 0, 0);
+      faceTex.needsUpdate = true;
+    }
     function drawFace(px, py, blink, talk, think, t) {
       const W = FW, H = FH, cx = W / 2;
       sctx.clearRect(0, 0, W, H);
       const c = `rgb(${col.r|0},${col.g|0},${col.b|0})`;
       sctx.strokeStyle = c; sctx.fillStyle = c; sctx.lineCap = 'round'; sctx.lineJoin = 'round';
+      if (bus.scanning) {          // checking: a scanner bar sweeps across the visor
+        const sx = cx + Math.sin(t * 6) * 150;
+        sctx.globalAlpha = 0.3; sctx.lineWidth = 10; sctx.beginPath(); sctx.moveTo(70, 160); sctx.lineTo(W - 70, 160); sctx.stroke(); sctx.globalAlpha = 1;
+        sctx.lineWidth = 30; sctx.beginPath(); sctx.moveTo(sx - 55, 160); sctx.lineTo(sx + 55, 160); sctx.stroke();
+        compose(); return;
+      }
+      if (performance.now() / 1000 < bus.checkUntil) {   // unlocked: a big check mark
+        sctx.lineWidth = 32; sctx.beginPath(); sctx.moveTo(cx - 92, 166); sctx.lineTo(cx - 26, 228); sctx.lineTo(cx + 104, 88); sctx.stroke();
+        compose(); return;
+      }
       [-1, 1].forEach(s => {
         const ex = cx + s * 112, ey = 140, R = 70, ry = R * F.open * blink;
         if (F.closed > 0.5) {
@@ -453,13 +513,7 @@
       } else {
         sctx.lineWidth = 12; sctx.beginPath(); sctx.moveTo(cx - 38, my); sctx.quadraticCurveTo(cx, my + 34 * F.mouth, cx + 38, my); sctx.stroke();
       }
-      // compose: soft glow underlay + crisp LED dots
-      fctx.globalCompositeOperation = 'source-over'; fctx.fillStyle = '#000'; fctx.fillRect(0, 0, W, H);
-      fctx.globalAlpha = 0.35; fctx.filter = 'blur(10px)'; fctx.drawImage(src, 0, 0); fctx.filter = 'none'; fctx.globalAlpha = 1;
-      lctx.globalCompositeOperation = 'source-over'; lctx.clearRect(0, 0, W, H); lctx.drawImage(dots, 0, 0);
-      lctx.globalCompositeOperation = 'source-in'; lctx.drawImage(src, 0, 0);
-      fctx.drawImage(led, 0, 0);
-      faceTex.needsUpdate = true;
+      compose();
     }
 
     // ---------- Input wiring ----------
@@ -477,7 +531,6 @@
       input.addEventListener('blur', () => { focused = false; typing = 0; });
       input.addEventListener('input', () => { typing = 1.6; });
     }
-    if (!DEMO) form.addEventListener('submit', () => { hop = 0; typing = 0; bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.2; });
     dock.addEventListener('pointerenter', () => { if (!bus.chatOpen) { bus.mood = 'curious'; bus.moodUntil = performance.now() / 1000 + 0.9; } });
 
     function resize() { const s = dock.clientWidth || 230; renderer.setSize(s, s, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
@@ -501,8 +554,8 @@
       else if (bus.chatOpen) mood = 'listen';
       const T = MOODS[mood], k = 1 - Math.pow(0.0005, dt);
       for (const p in T) F[p] += (T[p] - F[p]) * k;
-      const sadCol = mood === 'sad';
-      target.r = sadCol ? 255 : 95; target.g = sadCol ? 176 : 244; target.b = sadCol ? 139 : 255;
+      const sadCol = mood === 'sad', okCol = bus.unlocked;
+      target.r = sadCol ? 255 : okCol ? 40 : 95; target.g = sadCol ? 176 : okCol ? 240 : 244; target.b = sadCol ? 139 : okCol ? 200 : 255;
       col.r += (target.r - col.r) * k; col.g += (target.g - col.g) * k; col.b += (target.b - col.b) * k;
 
       // where to look: cursor, the password field when focused, the chat panel when open
@@ -527,6 +580,8 @@
       head.rotation.x = -look.y * 0.3 + c * 0.22;
       head.rotation.z = Math.sin(t * 1.7) * 0.05 * m;
       if (bus.shakeReq) { bus.shakeReq = false; shake = 0; }
+      if (bus.hopReq) { bus.hopReq = false; hop = 0; }
+      if (bus.unlocked) ringMat.emissive.set('#00E0B8');
       if (shake >= 0) { shake += dt; head.rotation.y += Math.sin(shake * 26) * 0.32 * Math.max(0, 1 - shake / 1.0); if (shake > 1.0) shake = -1; }
       if (hop >= 0) { hop += dt; const h = Math.min(1, hop / 0.55); bot.position.y += Math.sin(h * Math.PI) * 0.22; head.rotation.y += ease(h) * Math.PI * 2; if (hop > 0.55) hop = -1; }
       if (bus.poke >= 0) { bus.poke += dt; bot.position.y += Math.sin(Math.min(1, bus.poke / 0.4) * Math.PI) * 0.08; if (bus.poke > 0.4) bus.poke = -1; }
@@ -539,7 +594,7 @@
       if (mood === 'attentive') head.rotation.x += 0.14 * Math.exp(-sinceKey * 7) * Math.sin(sinceKey * 18 + 1.6) + 0.05;
       if (mood === 'talk') { head.rotation.x += 0.1 + Math.sin(t * 9) * 0.05 * m; head.rotation.z += Math.sin(t * 4.5) * 0.05 * m; }
       if (mood === 'think') head.rotation.z += 0.16;
-      ringMat.emissiveIntensity = 0.9 + 0.4 * Math.sin(t * 3) + 2.2 * Math.exp(-sinceKey * 5) + (mood === 'think' ? 0.8 * Math.abs(Math.sin(t * 5)) : 0);
+      ringMat.emissiveIntensity = (bus.scanning ? 1.6 + Math.abs(Math.sin(t * 12)) : 0) + (bus.unlocked ? 1.2 : 0) + 0.9 + 0.4 * Math.sin(t * 3) + 2.2 * Math.exp(-sinceKey * 5) + (mood === 'think' ? 0.8 * Math.abs(Math.sin(t * 5)) : 0);
       renderer.render(scene, camera);
       requestAnimationFrame(frame);
     }

@@ -22,6 +22,9 @@ zb-sky { view-transition-name: zb-sky; }
 :root:active-view-transition-type(zb-forward)::view-transition-new(root) { animation: 360ms var(--zb-pan) both zb-push-in; }
 :root:active-view-transition-type(zb-back)::view-transition-old(root) { animation: 300ms var(--zb-pan) both zb-pull-out; }
 :root:active-view-transition-type(zb-back)::view-transition-new(root) { animation: 300ms var(--zb-pan) both zb-pull-in; }
+/* unlocked a password page: fly forward through the glass card */
+:root:active-view-transition-type(zb-unlock)::view-transition-old(root) { animation: 460ms var(--zb-pan) both zb-unlock-out; }
+:root:active-view-transition-type(zb-unlock)::view-transition-new(root) { animation: 460ms var(--zb-pan) both zb-push-in; }
 /* anything else: a quick crossfade */
 :root:active-view-transition-type(zb-fade)::view-transition-old(root) { animation: 200ms var(--zb-fade) both zb-fade-out; }
 :root:active-view-transition-type(zb-fade)::view-transition-new(root) { animation: 200ms var(--zb-fade) both zb-fade-in; }
@@ -38,7 +41,10 @@ zb-sky { view-transition-name: zb-sky; }
 @keyframes zb-push-in { from { transform: scale(.9); opacity: 0; } }
 @keyframes zb-pull-out { to { transform: scale(.9); opacity: 0; } }
 @keyframes zb-pull-in { from { transform: scale(1.12); opacity: 0; } }
+@keyframes zb-unlock-out { to { transform: scale(1.22); opacity: 0; filter: blur(8px); } }
 @keyframes zb-fade-out { to { opacity: 0; } }
+.zb-toast { position: fixed; top: calc(18px + env(safe-area-inset-top, 0px)); left: 50%; transform: translate(-50%, -8px); z-index: 2147483000; padding: 10px 16px; border-radius: 999px; background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.9); box-shadow: 0 12px 30px -16px rgba(4,34,58,.45); backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%); font: 600 13px system-ui, -apple-system, sans-serif; color: #07283D; opacity: 0; transition: opacity 300ms var(--zb-pan), transform 300ms var(--zb-pan); pointer-events: none; }
+.zb-toast.on { opacity: 1; transform: translate(-50%, 0); }
 @keyframes zb-fade-in { from { opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
@@ -68,13 +74,18 @@ zb-sky { view-transition-name: zb-sky; }
     return 'zb-fade';
   }
   var KEY = 'zbTransition';
+  function unlocking() { try { return sessionStorage.getItem('zbUnlock') === '1'; } catch (e) { return false; } }
+  function toast(text) {
+    function show() { var t = document.createElement('div'); t.className = 'zb-toast'; t.setAttribute('role', 'status'); t.textContent = text; document.body.appendChild(t); requestAnimationFrame(function () { t.classList.add('on'); }); setTimeout(function () { t.classList.remove('on'); setTimeout(function () { t.remove(); }, 400); }, 2600); }
+    document.body ? show() : document.addEventListener('DOMContentLoaded', show);
+  }
   function remember(to, k) { try { sessionStorage.setItem(KEY, JSON.stringify({ to: new URL(to, location.href).href, k: k })); } catch (e) {} }
 
   // Leaving a page: decide the move from here to there (and keep it for browsers without the Navigation API).
   addEventListener('pageswap', function (e) {
     var to = e.activation && e.activation.entry && e.activation.entry.url;
     if (!to) return;
-    var k = kind(location.href, to);
+    var k = unlocking() ? 'zb-unlock' : kind(location.href, to);
     remember(to, k);
     if (e.viewTransition) e.viewTransition.types.add(k);
   });
@@ -86,6 +97,7 @@ zb-sky { view-transition-name: zb-sky; }
 
   // Arriving: apply the same move to the incoming page.
   addEventListener('pagereveal', function (e) {
+    if (unlocking()) { try { sessionStorage.removeItem('zbUnlock'); } catch (err) {} toast('Unlocked. Welcome in.'); if (e.viewTransition) e.viewTransition.types.add('zb-unlock'); return; }
     if (!e.viewTransition) return;
     var k = null;
     var act = window.navigation && navigation.activation;
