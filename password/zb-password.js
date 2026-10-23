@@ -281,16 +281,45 @@
       m.position.copy(a).add(b).multiplyScalar(0.5); m.quaternion.setFromUnitVectors(V(0, 1, 0), dir.normalize());
       return m;
     }
-    const shellMat = new THREE.MeshPhysicalMaterial({ color: '#F5F8FA', roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.08 });
-    const capMat = new THREE.MeshPhysicalMaterial({ color: '#1E8FE8', roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.06 });
-    const metalDark = new THREE.MeshStandardMaterial({ color: '#56616B', metalness: 1, roughness: 0.35 });
+    // ---------- Zoltbot: one sculpted shell (superellipsoid), inset visor with bezel, painted cap + seam ----------
+    const shellMat = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.26, clearcoat: 1, clearcoatRoughness: 0.1, sheen: 0.08, sheenColor: new THREE.Color('#e6f8ff') });
+    const plainMat = new THREE.MeshPhysicalMaterial({ color: '#F3F6F8', roughness: 0.26, clearcoat: 1, clearcoatRoughness: 0.1 });
+    const capMat = new THREE.MeshPhysicalMaterial({ color: '#1E8FE8', roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.05 });
+    const seamMat = new THREE.MeshStandardMaterial({ color: '#B9C4CC', roughness: 0.6 });
+    const bezelMat = new THREE.MeshPhysicalMaterial({ color: '#E4EAEE', roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.15 });
+    const metalDark = new THREE.MeshStandardMaterial({ color: '#4D5862', metalness: 0.9, roughness: 0.32 });
     const ringMat = new THREE.MeshStandardMaterial({ color: '#00D0F0', emissive: '#00BEFF', emissiveIntensity: 1.2, roughness: 0.3 });
+    const thrustMat = new THREE.MeshBasicMaterial({ color: '#8FF6FF' });
 
     const bot = new THREE.Group(); scene.add(bot);
     const head = new THREE.Group(); bot.add(head);
-    const S = V(1, 0.92, 0.95);
-    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.3, 64, 40), shellMat); shell.scale.copy(S); head.add(shell);
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.304, 64, 20, 0, Math.PI * 2, 0, Math.PI * 0.3), capMat); cap.scale.copy(S); cap.rotation.x = -0.18; head.add(cap);
+    const P = 2.7, SX = 0.3, SY = 0.265, SZ = 0.285;
+    const surf = (d, grow = 1) => {
+      const k = Math.pow(Math.pow(Math.abs(d.x), P) + Math.pow(Math.abs(d.y), P) + Math.pow(Math.abs(d.z), P), -1 / P);
+      return V(d.x * k * SX * grow, d.y * k * SY * grow * (d.y < 0 ? 0.93 : 1), d.z * k * SZ * grow);
+    };
+    const dirAE = (az, el) => V(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az));
+    const capLine = d => d.y - (0.56 + 0.16 * d.z);           // cap edge sits high at the front, lower at the back
+    {
+      const g = new THREE.SphereGeometry(1, 128, 96), pos = g.attributes.position, cols = [];
+      const white = new THREE.Color('#F4F7F9'), blue = new THREE.Color('#0E6BD3'), cc = new THREE.Color();
+      for (let i = 0; i < pos.count; i++) {
+        const d = V(pos.getX(i), pos.getY(i), pos.getZ(i)).normalize(), p = surf(d);
+        pos.setXYZ(i, p.x, p.y, p.z);
+        const t = Math.min(1, Math.max(0, (capLine(d) + 0.012) / 0.024));
+        cc.copy(white).lerp(blue, t * t * (3 - 2 * t)); cols.push(cc.r, cc.g, cc.b);
+      }
+      g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); g.computeVertexNormals();
+      head.add(new THREE.Mesh(g, shellMat));
+      // seam groove along the cap edge
+      const pts = [];
+      for (let n = 0; n < 160; n++) {
+        const th = n / 160 * Math.PI * 2; let lo = 0, hi = Math.PI / 2;
+        for (let it = 0; it < 30; it++) { const e = (lo + hi) / 2; capLine(dirAE(th, e)) > 0 ? hi = e : lo = e; }
+        pts.push(surf(dirAE(th, (lo + hi) / 2), 1.004));
+      }
+      head.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 240, 0.004, 6, true), seamMat));
+    }
 
     // LED face: a 2D canvas drawn every frame, glowing through a dot-matrix mask, mapped on the visor
     const FW = 512, FH = 320;
@@ -301,26 +330,62 @@
     const dots = document.createElement('canvas'); dots.width = FW; dots.height = FH;
     { const d = dots.getContext('2d'); d.fillStyle = '#fff'; for (let y = 4; y < FH; y += 8) for (let x = 4; x < FW; x += 8) { d.beginPath(); d.arc(x, y, 3.1, 0, Math.PI * 2); d.fill(); } }
     const faceTex = new THREE.CanvasTexture(face); faceTex.colorSpace = THREE.SRGBColorSpace;
-    const VW = 1.95, VH = 1.25;
-    const visor = new THREE.Mesh(new THREE.SphereGeometry(0.306, 64, 40, Math.PI / 2 - VW / 2, VW, Math.PI / 2 - VH / 2 + 0.06, VH),
-      new THREE.MeshPhysicalMaterial({ color: '#06131D', roughness: 0.1, clearcoat: 1, clearcoatRoughness: 0.03, emissive: '#ffffff', emissiveMap: faceTex, emissiveIntensity: 1.5 }));
-    visor.scale.copy(S); head.add(visor);
-    // Ear pods with glowing rings, small rotors above
-    const rotors = [], pods = [];
+    // Visor: a rounded-rectangle patch that follows the shell, with a raised bezel around it
+    {
+      const HA = 0.98, HE = 0.6, EC = 0.0, N = 56, Q = 4;
+      const toSq = (u, v) => { const m = Math.max(Math.abs(u), Math.abs(v)); if (m < 1e-6) return [0, 0]; const L = Math.pow(Math.pow(Math.abs(u), Q) + Math.pow(Math.abs(v), Q), 1 / Q); return [u * m / L, v * m / L]; };
+      const vs = [], uvs = [], idx = [];
+      for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
+        const u = i / N * 2 - 1, v = j / N * 2 - 1, [a, b] = toSq(u, v);
+        const p = surf(dirAE(a * HA, EC + b * HE), 1.006); vs.push(p.x, p.y, p.z); uvs.push((a + 1) / 2, (b + 1) / 2);
+      }
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const k = j * (N + 1) + i; idx.push(k, k + 1, k + N + 1, k + 1, k + N + 2, k + N + 1); }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(vs, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); g.setIndex(idx); g.computeVertexNormals();
+      head.add(new THREE.Mesh(g, new THREE.MeshPhysicalMaterial({ color: '#06131D', roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.02, emissive: '#ffffff', emissiveMap: faceTex, emissiveIntensity: 1.5 })));
+      const ring = [];
+      for (let n = 0; n < 120; n++) { const t = n / 120 * Math.PI * 2, c = Math.cos(t), sn = Math.sin(t); const u = Math.sign(c) * Math.pow(Math.abs(c), 2 / Q), v = Math.sign(sn) * Math.pow(Math.abs(sn), 2 / Q); ring.push(surf(dirAE(u * HA, EC + v * HE), 1.012)); }
+      head.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ring, true), 240, 0.014, 10, true), bezelMat));
+    }
+
+    // Ear pods: rounded lathed pucks with an inset blue disc and glowing ring; curved rotor masts
+    const rotors = [], blurs = [];
+    const blurTex = new THREE.CanvasTexture((() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const gr = g.createRadialGradient(64, 64, 8, 64, 64, 64); gr.addColorStop(0, 'rgba(220,250,255,0)'); gr.addColorStop(0.55, 'rgba(220,250,255,.55)'); gr.addColorStop(0.9, 'rgba(220,250,255,.35)'); gr.addColorStop(1, 'rgba(220,250,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return c; })());
+    const podProfile = [[0.0001, 0.05], [0.06, 0.05], [0.08, 0.043], [0.091, 0.025], [0.093, 0], [0.088, -0.03], [0.07, -0.05]].map(([x, y]) => new THREE.Vector2(x, y));
     [-1, 1].forEach(s => {
-      const pod = new THREE.Group(); pod.position.set(s * 0.285, -0.01, 0); head.add(pod); pods.push(pod);
-      const can = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.07, 40), shellMat); can.rotation.z = Math.PI / 2; pod.add(can);
-      const disc = new THREE.Mesh(new THREE.CircleGeometry(0.068, 40), capMat); disc.position.x = s * 0.036; disc.rotation.y = s * Math.PI / 2; pod.add(disc);
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.011, 12, 48), ringMat); ring.position.x = s * 0.04; ring.rotation.y = Math.PI / 2; pod.add(ring);
-      pod.add(limb(V(0, 0.07, 0), V(s * 0.03, 0.2, 0), 0.016, metalDark));
-      const rotor = new THREE.Group(); rotor.position.set(s * 0.03, 0.215, 0); pod.add(rotor);
-      const bladeMat = new THREE.MeshStandardMaterial({ color: '#BFF6FF', transparent: true, opacity: 0.55, roughness: 0.3 });
-      [0, Math.PI].forEach(a => { const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.007, 0.042), bladeMat); b.position.x = Math.cos(a) * 0.1; b.position.z = Math.sin(a) * 0.1; rotor.add(b); });
+      const side = surf(V(s, 0, 0));
+      const pod = new THREE.Group(); pod.position.set(side.x - s * 0.012, -0.012, 0); pod.rotation.z = -s * Math.PI / 2; head.add(pod);
+      pod.add(new THREE.Mesh(new THREE.LatheGeometry(podProfile, 48), plainMat));
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(0.056, 48), capMat); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.052; pod.add(disc);
+      const glow = new THREE.Mesh(new THREE.TorusGeometry(0.066, 0.008, 12, 64), ringMat); glow.rotation.x = Math.PI / 2; glow.position.y = 0.051; pod.add(glow);
+      const a = V(s * 0.27, 0.07, -0.01), b = V(s * 0.36, 0.16, -0.02), c = V(s * 0.33, 0.27, -0.02);
+      head.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(a, b, c), 24, 0.013, 10), plainMat));
+      const hub = new THREE.Mesh(new THREE.LatheGeometry([[0.0001, 0.02], [0.02, 0.018], [0.028, 0], [0.022, -0.012], [0.012, -0.016]].map(([x, y]) => new THREE.Vector2(x, y)), 24), metalDark);
+      hub.position.copy(c).add(V(0, 0.012, 0)); head.add(hub);
+      const rotor = new THREE.Group(); rotor.position.copy(c).add(V(0, 0.03, 0)); head.add(rotor);
+      const bladeMat = new THREE.MeshPhysicalMaterial({ color: '#DDF7FF', transparent: true, opacity: 0.45, roughness: 0.2, clearcoat: 1 });
+      [0, Math.PI].forEach(ang => { const bl = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 8), bladeMat); bl.scale.set(0.1, 0.005, 0.022); bl.position.set(Math.cos(ang) * 0.1, 0, Math.sin(ang) * 0.1); bl.rotation.y = -ang; bl.rotation.x = 0.25; rotor.add(bl); });
+      const blur = new THREE.Mesh(new THREE.CircleGeometry(0.21, 48), new THREE.MeshBasicMaterial({ map: blurTex, transparent: true, depthWrite: false, opacity: 0.5 }));
+      blur.rotation.x = -Math.PI / 2; rotor.add(blur); blurs.push(blur);
       rotors.push(rotor);
     });
-    // Hands for covering his eyes
-    const hands = [-1, 1].map(s => { const h = new THREE.Mesh(new THREE.SphereGeometry(0.07, 24, 16), shellMat); h.scale.set(1.15, 0.85, 0.6); bot.add(h); return { h, s }; });
-
+    // Antenna that bends back, glowing tip
+    {
+      const top = surf(V(0, 1, -0.25).normalize());
+      const a = top.clone().add(V(0, -0.005, 0)), b = top.clone().add(V(0.005, 0.08, -0.01)), c = top.clone().add(V(0.035, 0.14, -0.05));
+      head.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(a, b, c), 20, 0.008, 8), metalDark));
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.026, 20, 14), new THREE.MeshStandardMaterial({ color: '#00E0B8', emissive: '#00BEFF', emissiveIntensity: 1.1 })); tip.position.copy(c); head.add(tip);
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.03, 0.014, 24), plainMat); base.position.copy(top); head.add(base);
+    }
+    // Hover thruster under the head
+    {
+      const bottom = surf(V(0, -1, 0));
+      const noz = new THREE.Mesh(new THREE.LatheGeometry([[0.0001, 0.01], [0.05, 0.01], [0.062, -0.006], [0.056, -0.03], [0.044, -0.038]].map(([x, y]) => new THREE.Vector2(x, y)), 40), plainMat);
+      noz.position.set(0, bottom.y + 0.012, 0); head.add(noz);
+      const g = new THREE.Mesh(new THREE.CircleGeometry(0.04, 32), thrustMat); g.rotation.x = Math.PI / 2; g.position.set(0, bottom.y - 0.025, 0); head.add(g);
+      const pl = new THREE.PointLight(0x7fefff, 0.5, 0.8); pl.position.set(0, bottom.y - 0.08, 0); head.add(pl);
+    }
+    const hands = [];
     // ---------- Expressions ----------
     const MOODS = {
       idle:    { open: 1.0, squint: 0, closed: 0, sad: 0, pupil: 1.0, mouth: 0.55, mouthOpen: 0 },
@@ -468,6 +533,8 @@
       hands.forEach(({ h }) => { h.visible = false; });
       head.rotation.y += c * 0.35; head.rotation.x -= c * 0.32;   // eyes shut, chin up, politely looking away
       rotors.forEach((r, i) => r.rotation.y += dt * (i ? -38 : 38));
+      blurs.forEach(bm => { bm.material.opacity = 0.42 + 0.08 * Math.sin(t * 40); });
+      thrustMat.color.setHSL(0.52, 1, 0.72 + 0.08 * Math.sin(t * 31));
       const sinceKey = now - bus.chatKey;
       if (mood === 'attentive') head.rotation.x += 0.14 * Math.exp(-sinceKey * 7) * Math.sin(sinceKey * 18 + 1.6) + 0.05;
       if (mood === 'talk') { head.rotation.x += 0.1 + Math.sin(t * 9) * 0.05 * m; head.rotation.z += Math.sin(t * 4.5) * 0.05 * m; }
