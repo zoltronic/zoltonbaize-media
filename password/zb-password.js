@@ -67,6 +67,13 @@
   .zb-wrong { box-shadow: 0 0 0 3px rgba(220,60,40,.4) !important; border-color: rgba(200,50,30,.75) !important; }
   @media (prefers-reduced-motion: reduce) { .zb-shake { animation: none; } }
   .zb-pw-sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(178deg,#1E7FC4 0%,#7FD0F0 46%,#CFEBF9 74%,#F6E9D2 100%); }
+  /* Site nav and footer on the password page: nav stays fixed at the top (thumb bar at the bottom on phones), footer pins to the bottom */
+  .zb-pw-page .page_footer { position: fixed; left: clamp(20px,4vw,48px); right: clamp(20px,4vw,48px); bottom: 18px; margin: 0; padding-top: 14px; z-index: 2; }
+  @media (max-width: 767px) {
+    .zb-pw-page .page_footer { bottom: 96px; justify-content: center; text-align: center; }
+    .zb-pw-page.zb-has-thumb .zb-chat { bottom: 92px !important; height: min(52vh, 420px) !important; }
+    .zb-pw-page.zb-has-thumb .zb-chat.zb-peek { bottom: 12px !important; height: auto !important; z-index: 22; }   /* short help card sits over the thumb nav so the password field stays clear */
+  }
   .zb-pw-sky canvas { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 420ms; }
   .zb-pw-sky { transition: background 420ms; }
   /* Night (dark mode): deep sky, smoky glass, light ink */
@@ -94,6 +101,8 @@
   // ---------- Sky, glass card ----------
   wrap.classList.add('zb-pw-raise');
   card.classList.add('zb-glass', 'zb-pw-card');
+  document.documentElement.classList.add('zb-pw-page');
+  if (document.querySelector('.nav_thumb')) document.documentElement.classList.add('zb-has-thumb');
   // Dark mode: follows the site's night sky (zb-sky[night]) or a dark theme class, else the system setting.
   let forcedNight = null, ownSky = null;
   const mqDark = matchMedia('(prefers-color-scheme: dark)');
