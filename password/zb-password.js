@@ -355,7 +355,7 @@
         fragmentShader: 'varying vec3 vP; void main(){ float h = vP.y; vec3 c = h > 0. ? mix(vec3(.85,.94,.99), vec3(.12,.45,.82), pow(h,.6)) : vec3(.95,.9,.82); c += vec3(1.) * pow(max(dot(vP, normalize(vec3(-.4,.6,.7))),0.), 40.) * 3.; gl_FragColor = vec4(c,1.); }' })));
       scene.environment = new THREE.PMREMGenerator(renderer).fromScene(envScene, 0.02).texture;
     }
-    scene.add(new THREE.HemisphereLight(0xdff2ff, 0xe8d2b8, 0.7));
+    const hemi = new THREE.HemisphereLight(0xdff2ff, 0xe8d2b8, 0.7); scene.add(hemi);
     const key = new THREE.DirectionalLight(0xfff4ea, 1.4); key.position.set(-3, 4, 5); scene.add(key);
     const rim = new THREE.DirectionalLight(0x7fe6ff, 1.3); rim.position.set(3, 2, -4); scene.add(rim);
 
@@ -419,7 +419,9 @@
     const GW = 256, GH = 160, glowC = document.createElement('canvas'); glowC.width = GW; glowC.height = GH; const gctx = glowC.getContext('2d');
     const glowTex = new THREE.CanvasTexture(glowC); glowTex.colorSpace = THREE.SRGBColorSpace;
     const glowMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
-    let nightF = 0, faceMat = null, thrustLight = null;
+    const MOON = new THREE.Color(0.36, 0.45, 0.6);   // body tint under the night sky
+    let bodyMats = [];
+    let nightF = 0, lastNight = -1, faceMat = null, thrustLight = null;
     // Visor: a rounded-rectangle patch that follows the shell, with a raised bezel around it
     {
       const HA = 0.98, HE = 0.6, EC = 0.0, N = 56, Q = 4;
@@ -482,6 +484,7 @@
       const pl = new THREE.PointLight(0x7fefff, 0.5, 0.8); pl.position.set(0, bottom.y - 0.08, 0); head.add(pl); thrustLight = pl;
     }
     const hands = [];
+    bodyMats = [shellMat, plainMat, bezelMat, capMat].map(mt => [mt, mt.color.clone()]);
     // face light: the LEDs light up the bezel and anything right in front of them
     const faceLight = new THREE.PointLight(0x5ff4ff, 0.25, 0.9); faceLight.position.set(0, 0.02, 0.5); head.add(faceLight);
     // ---------- Expressions ----------
@@ -662,12 +665,20 @@
       ringMat.emissiveIntensity = (bus.scanning ? 1.6 + Math.abs(Math.sin(t * 12)) : 0) + (bus.unlocked ? 1.2 : 0) + 0.9 + 0.4 * Math.sin(t * 3) + 2.2 * Math.exp(-sinceKey * 5) + (mood === 'think' ? 0.8 * Math.abs(Math.sin(t * 5)) : 0);
       // night: dim the studio light so the LEDs carry the bot, and push every glow harder
       nightF += ((document.documentElement.classList.contains('zb-night') ? 1 : 0) - nightF) * Math.min(1, dt * 4);
-      renderer.toneMappingExposure = 1 - 0.28 * nightF;
-      if (faceMat) faceMat.emissiveIntensity = 1.7 + 1.0 * nightF;
-      glowMat.opacity = 0.32 + 0.4 * nightF;
-      faceLight.color.setRGB(col.r / 255, col.g / 255, col.b / 255); faceLight.intensity = 0.25 + 0.9 * nightF;
-      ringMat.emissiveIntensity *= 1 + 0.9 * nightF; tipMat.emissiveIntensity = 1.1 + 1.6 * nightF + 0.3 * Math.sin(t * 2.2);
-      if (thrustLight) thrustLight.intensity = 0.5 + 1.2 * nightF;
+      // moonlit body: weaker, bluer light and much less sky reflection; the LEDs are not dimmed
+      if (Math.abs(nightF - lastNight) > 0.002) {
+        lastNight = nightF;
+        hemi.intensity = 0.7 - 0.6 * nightF; hemi.color.setRGB(0.875 - 0.55 * nightF, 0.95 - 0.5 * nightF, 1 - 0.3 * nightF); hemi.groundColor.setRGB(0.91 - 0.82 * nightF, 0.82 - 0.7 * nightF, 0.72 - 0.5 * nightF);
+        key.intensity = 1.4 - 1.2 * nightF; key.color.setRGB(1 - 0.35 * nightF, 0.96 - 0.2 * nightF, 0.92);
+        rim.intensity = 1.3 - 0.5 * nightF;
+        bodyMats.forEach(([mt, base]) => { mt.color.copy(base).multiply(MOON.clone().lerp(new THREE.Color(1, 1, 1), 1 - nightF)); });
+        scene.traverse(o => { if (o.material && o.material.envMapIntensity !== undefined && o.material !== glowMat) o.material.envMapIntensity = 1 - 0.92 * nightF; });
+      }
+      if (faceMat) faceMat.emissiveIntensity = 1.7 + 0.3 * nightF;
+      glowMat.opacity = 0.32 + 0.1 * nightF;
+      faceLight.color.setRGB(col.r / 255, col.g / 255, col.b / 255); faceLight.intensity = 0.25 + 0.45 * nightF;
+      ringMat.emissiveIntensity *= 1 + 0.3 * nightF; tipMat.emissiveIntensity = 1.1 + 0.5 * nightF + 0.3 * Math.sin(t * 2.2);
+      if (thrustLight) thrustLight.intensity = 0.5 + 0.5 * nightF;
       renderer.render(scene, camera);
       requestAnimationFrame(frame);
     }
