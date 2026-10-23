@@ -33,7 +33,12 @@
     (protPath === '/' || protPath === '/401' ? '' : protPath.split('/').pop().replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
   {
     const h = card.querySelector('h1, h2, h3');
-    if (h && PAGE) { h.innerHTML = ''; const n = document.createElement('span'); n.className = 'zb-pw-name'; n.textContent = PAGE; h.append(n, document.createTextNode(' is a protected page')); }
+    // Site type: mono eyebrow + display title (Schibsted Grotesk 900), per the Portfolio 2.0 guidelines
+    if (h) {
+      h.classList.add('zb-pw-title'); h.textContent = PAGE || 'Protected page';
+      const eb = document.createElement('div'); eb.className = 'zb-pw-eyebrow'; eb.textContent = PAGE ? 'Protected page' : 'zoltonbaize.com';
+      h.parentNode.insertBefore(eb, h);
+    }
     if (PAGE) document.title = PAGE + ' is a protected page';
   }
   // Passwords are all lowercase: lowercase what's typed (Caps Lock and phone auto-capitals can't break it).
@@ -47,6 +52,7 @@
   css.textContent = `
   :root { --zb-ease: cubic-bezier(.2,.8,.2,1); --zb-ink: #07283D; --zb-muted: #2A5570; }
   .zb-pw-raise { position: relative; z-index: 1; }
+  .zb-pw-card.zb-glass:not(.zb-on-sky) { border-radius: 38px; background: var(--_zb-mode---mode--glass-bg, rgba(255,255,255,.62)); border: 1px solid var(--_zb-mode---mode--glass-border, rgba(255,255,255,.9)); box-shadow: 0 22px 50px -26px rgba(8,60,95,.45), inset 0 0 2px 1px rgba(255,255,255,.35), inset 0 0 10px 4px rgba(255,255,255,.15); backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%); }
   .zb-glass { position: relative; border-radius: 28px; overflow: visible;
     background: linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,.04) 55%, rgba(255,255,255,.12));
     border: 1px solid rgba(255,255,255,.62);
@@ -54,7 +60,21 @@
     backdrop-filter: blur(9px) saturate(130%); -webkit-backdrop-filter: blur(9px) saturate(130%); }
   .zb-glass.zb-on-sky { background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
   .zb-pw-card { padding: 32px 28px; }
-  .zb-pw-name { display: block; font-size: 1.35em; letter-spacing: -.02em; background: linear-gradient(135deg, #00BEFF, #00E0B8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  /* Card content in the site's own styles (field, field_label, btn btn--primary, label-mono, type is--h1) */
+  .zb-pw-page .zb-pw-card { width: min(380px, calc(100vw - 32px)); max-width: none; box-sizing: border-box; padding: clamp(26px,4vw,40px); text-align: left; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: var(--_zb-mode---mode--ink, #07283D); }
+  .zb-pw-card form { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+  .zb-pw-eyebrow { margin: 0 0 10px; font: 400 11px/1.4 'JetBrains Mono', ui-monospace, monospace; letter-spacing: .18em; text-transform: uppercase; color: var(--_zb-mode---mode--accent, #0A5C86); }
+  .zb-pw-card .zb-pw-title { margin: 0 0 26px; font: 900 clamp(38px, 5vw, 48px)/.98 'Schibsted Grotesk', system-ui, sans-serif; letter-spacing: -.035em; color: var(--_zb-mode---mode--ink, #07283D); text-wrap: balance; }
+  .zb-pw-card label { display: block; margin: 0 0 8px; font: 400 11px/1.4 'JetBrains Mono', ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--_zb-mode---mode--muted, #2A5570); }
+  .zb-pw-card input[type="password"] { box-sizing: border-box; width: 100%; min-height: 48px; margin: 0 0 14px; padding: 0 14px; border: 1px solid var(--_zb-mode---mode--glass-border, rgba(255,255,255,.9)); border-radius: 16px; background: var(--_zb-mode---mode--field-bg, rgba(255,255,255,.78)); font: 400 15px 'Schibsted Grotesk', system-ui, sans-serif; color: var(--_zb-mode---mode--ink, #07283D); box-shadow: none; outline: none; transition: box-shadow 220ms cubic-bezier(.2,0,0,1), border-color 220ms cubic-bezier(.2,0,0,1); }
+  .zb-pw-card input[type="password"]::placeholder { color: var(--_zb-mode---mode--muted, #2A5570); opacity: .7; }
+  .zb-pw-card input[type="password"]:focus-visible { border-color: var(--_zb-mode---mode--accent, #0A5C86); box-shadow: 0 0 0 3px var(--_zb-mode---mode--ghost-wash, rgba(1,151,128,.12)); }
+  .zb-pw-card input[type="submit"], .zb-pw-card button[type="submit"] { -webkit-appearance: none; appearance: none; width: 100%; min-height: 48px; margin: 0; padding: 0 22px; border: 0; border-radius: 18px; background: var(--_zb-mode---mode--btn-primary-bg, #06222F); color: var(--_zb-mode---mode--btn-primary-ink, #EAFBF6); font: 700 15px 'Schibsted Grotesk', system-ui, sans-serif; cursor: pointer; transition: background-color 220ms cubic-bezier(.2,0,0,1), transform 220ms cubic-bezier(.2,0,0,1); }
+  .zb-pw-card input[type="submit"]:active { transform: scale(.98); }
+  .zb-pw-card input[type="submit"]:focus-visible { outline: 2px solid var(--_zb-mode---mode--accent, #0A5C86); outline-offset: 3px; }
+  .zb-pw-card .w-form-fail { margin: 14px 0 0; padding: 12px 14px; border-radius: 16px; background: var(--_zb-mode---mode--danger-ink, #FFF4F2); color: var(--_zb-mode---mode--danger-bg, #A32718); font: 400 14px/1.4 'Schibsted Grotesk', system-ui, sans-serif; text-align: left; }
+  /* Night: the site's dark-mode tokens (same values as the Webflow mode variables) */
+  :root.zb-night, .zb-night body { --_zb-mode---mode--ink: #EAF6FD; --_zb-mode---mode--muted: #B3D3E5; --_zb-mode---mode--accent: #5FDBFF; --_zb-mode---mode--live: #00E0B8; --_zb-mode---mode--glass-bg: rgba(10,28,48,.58); --_zb-mode---mode--glass-border: rgba(160,220,250,.22); --_zb-mode---mode--hair: rgba(160,220,250,.16); --_zb-mode---mode--btn-primary-bg: #00E0B8; --_zb-mode---mode--btn-primary-ink: #03231D; --_zb-mode---mode--btn-secondary-bg: rgba(160,205,240,.13); --_zb-mode---mode--ghost-wash: rgba(0,224,184,.14); --_zb-mode---mode--danger-bg: #FF8474; --_zb-mode---mode--danger-ink: #2B0904; --_zb-mode---mode--liquid-bg: rgba(10,28,48,.42); --_zb-mode---mode--mark: #EAF6FD; --_zb-mode---mode--field-bg: rgba(3,15,26,.5); --_zb-mode---mode--btn-secondary-border: rgba(180,220,248,.26); }
   .zb-pw-dock { position: fixed; left: 0; top: 0; width: 320px; height: 320px; z-index: 6; cursor: pointer; border-radius: 50%; will-change: transform; -webkit-tap-highlight-color: transparent; }
   .zb-pw-dock:focus-visible { outline: 2px solid #0A5C86; outline-offset: -20px; }
   .zb-pw-dock canvas { width: 100%; height: 100%; display: block; }
@@ -85,8 +105,8 @@
   .zb-chat button:focus-visible, .zb-chat input:focus-visible { outline: 2px solid #0A5C86; outline-offset: 2px; }
   @keyframes zb-shake { 0%,100% { transform: translateX(0); } 15% { transform: translateX(-11px); } 30% { transform: translateX(9px); } 45% { transform: translateX(-7px); } 60% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
   .zb-shake { animation: zb-shake 520ms var(--zb-ease); }
-  .zb-right { box-shadow: 0 0 0 3px rgba(0,224,184,.45) !important; border-color: rgba(0,170,140,.8) !important; }
-  .zb-wrong { box-shadow: 0 0 0 3px rgba(220,60,40,.4) !important; border-color: rgba(200,50,30,.75) !important; }
+  .zb-right { box-shadow: 0 0 0 3px var(--_zb-mode---mode--ghost-wash, rgba(1,151,128,.12)) !important; border-color: var(--_zb-mode---mode--live, #017465) !important; }
+  .zb-wrong { box-shadow: 0 0 0 3px rgba(163,39,24,.16) !important; border-color: var(--_zb-mode---mode--danger-bg, #A32718) !important; }
   @media (prefers-reduced-motion: reduce) { .zb-shake { animation: none; } }
   .zb-pw-sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(178deg,#1E7FC4 0%,#7FD0F0 46%,#CFEBF9 74%,#F6E9D2 100%); }
   /* Site nav and footer on the password page: nav stays fixed at the top (thumb bar at the bottom on phones), footer pins to the bottom */
@@ -102,8 +122,7 @@
   .zb-night { --zb-ink: #EAF6FD; --zb-muted: #9CC3DC; }
   .zb-night .zb-pw-sky { background: linear-gradient(178deg,#040D1C 0%,#0B2340 44%,#13375C 76%,#1E4E72 100%); }
   .zb-night .zb-pw-sky canvas { opacity: .09; }
-  .zb-night .zb-glass:not(.zb-on-sky) { background: linear-gradient(135deg, rgba(148,196,232,.16), rgba(148,196,232,.04) 55%, rgba(148,196,232,.1)); border-color: rgba(180,220,248,.3); box-shadow: inset 0 1.5px 0 rgba(215,238,255,.32), 0 30px 60px -30px rgba(0,0,0,.7); }
-  .zb-night .zb-pw-card { color: var(--zb-ink); }
+  .zb-night .zb-glass:not(.zb-on-sky):not(.zb-pw-card) { background: linear-gradient(135deg, rgba(148,196,232,.16), rgba(148,196,232,.04) 55%, rgba(148,196,232,.1)); border-color: rgba(180,220,248,.3); box-shadow: inset 0 1.5px 0 rgba(215,238,255,.32), 0 30px 60px -30px rgba(0,0,0,.7); }
   .zb-night .zb-chat { background: rgba(10,30,50,.62); }
   .zb-night .zb-msg.bot, .zb-night .zb-chip, .zb-night .zb-chat-x, .zb-night .zb-chat-form input { background: rgba(255,255,255,.1); border-color: rgba(180,220,248,.22); color: var(--zb-ink); }
   .zb-night .zb-chat-head, .zb-night .zb-chat-form { border-color: rgba(180,220,248,.16); }
@@ -145,7 +164,7 @@
     const sky = document.createElement('zb-sky'); sky.setAttribute('fixed', ''); ownSky = sky;
     document.body.insertBefore(sky, document.body.firstChild);
     card.classList.add('zb-on-sky');
-    card.setAttribute('data-zb-glass', ''); card.setAttribute('data-zb-radius', '28');
+    card.setAttribute('data-zb-glass', ''); card.setAttribute('data-zb-radius', '38');
   } else {
     paintSky();
   }
