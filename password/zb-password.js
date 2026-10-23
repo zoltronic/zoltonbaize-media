@@ -38,6 +38,9 @@
       h.classList.add('zb-pw-title'); h.textContent = PAGE || 'Protected page';
       const eb = document.createElement('div'); eb.className = 'zb-pw-eyebrow'; eb.textContent = PAGE ? 'Protected page' : 'zoltonbaize.com';
       h.parentNode.insertBefore(eb, h);
+      const help = document.createElement('p'); help.className = 'zb-pw-help';
+      help.textContent = PAGE ? 'Enter the password Zolton shared with you to view this case study.' : 'Enter the password Zolton shared with you.';
+      h.after(help);
     }
     if (PAGE) document.title = PAGE + ' is a protected page';
   }
@@ -61,10 +64,11 @@
   .zb-glass.zb-on-sky { background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
   .zb-pw-card { padding: 32px 28px; }
   /* Card content in the site's own styles (field, field_label, btn btn--primary, label-mono, type is--h1) */
-  .zb-pw-page .zb-pw-card { width: min(380px, calc(100vw - 32px)); max-width: none; box-sizing: border-box; padding: clamp(26px,4vw,40px); text-align: left; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: var(--_zb-mode---mode--ink, #07283D); }
+  .zb-pw-page .zb-pw-card { width: min(340px, calc(100vw - 32px)); max-width: none; box-sizing: border-box; padding: clamp(26px,4vw,40px); text-align: left; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: var(--_zb-mode---mode--ink, #07283D); }
   .zb-pw-card form { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
   .zb-pw-eyebrow { margin: 0 0 10px; font: 400 11px/1.4 'JetBrains Mono', ui-monospace, monospace; letter-spacing: .18em; text-transform: uppercase; color: var(--_zb-mode---mode--accent, #0A5C86); }
-  .zb-pw-card .zb-pw-title { margin: 0 0 26px; font: 900 clamp(38px, 5vw, 48px)/.98 'Schibsted Grotesk', system-ui, sans-serif; letter-spacing: -.035em; color: var(--_zb-mode---mode--ink, #07283D); text-wrap: balance; }
+  .zb-pw-help { margin: 0 0 24px; max-width: 30ch; font: 400 15px/1.5 'Schibsted Grotesk', system-ui, sans-serif; color: var(--_zb-mode---mode--muted, #2A5570); text-wrap: pretty; }
+  .zb-pw-card .zb-pw-title { margin: 0 0 12px; font: 900 clamp(38px, 5vw, 48px)/.98 'Schibsted Grotesk', system-ui, sans-serif; letter-spacing: -.035em; color: var(--_zb-mode---mode--ink, #07283D); text-wrap: balance; }
   .zb-pw-card label { display: block; margin: 0 0 8px; font: 400 11px/1.4 'JetBrains Mono', ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--_zb-mode---mode--muted, #2A5570); }
   .zb-pw-card input[type="password"] { box-sizing: border-box; width: 100%; min-height: 48px; margin: 0 0 14px; padding: 0 14px; border: 1px solid var(--_zb-mode---mode--glass-border, rgba(255,255,255,.9)); border-radius: 16px; background: var(--_zb-mode---mode--field-bg, rgba(255,255,255,.78)); font: 400 15px 'Schibsted Grotesk', system-ui, sans-serif; color: var(--_zb-mode---mode--ink, #07283D); box-shadow: none; outline: none; transition: box-shadow 220ms cubic-bezier(.2,0,0,1), border-color 220ms cubic-bezier(.2,0,0,1); }
   .zb-pw-card input[type="password"]::placeholder { color: var(--_zb-mode---mode--muted, #2A5570); opacity: .7; }
@@ -78,7 +82,7 @@
   .zb-pw-dock { position: fixed; left: 0; top: 0; width: 320px; height: 320px; z-index: 6; cursor: pointer; border-radius: 50%; will-change: transform; -webkit-tap-highlight-color: transparent; }
   .zb-pw-dock:focus-visible { outline: 2px solid #0A5C86; outline-offset: -20px; }
   .zb-pw-dock canvas { width: 100%; height: 100%; display: block; }
-  .zb-pw-bubble { position: absolute; left: 74%; top: 14px; white-space: nowrap; padding: 9px 14px; border-radius: 18px 18px 18px 6px; font: 600 13px system-ui, -apple-system, sans-serif; color: var(--zb-ink);
+  .zb-pw-bubble { position: absolute; left: 76%; top: 26%; white-space: nowrap; padding: 9px 14px; border-radius: 18px 18px 18px 6px; font: 600 13px system-ui, -apple-system, sans-serif; color: var(--zb-ink);
     opacity: 0; transform: translateY(6px) scale(.96); transform-origin: 0 100%; transition: opacity 300ms var(--zb-ease), transform 300ms var(--zb-ease); pointer-events: none; }
   .zb-pw-bubble.on { opacity: 1; transform: none; }
   .zb-chat { position: fixed; z-index: 5; width: 340px; display: flex; flex-direction: column; color: var(--zb-ink); font: 14px/1.45 system-ui, -apple-system, sans-serif;
@@ -128,7 +132,8 @@
   .zb-night .zb-chat-head, .zb-night .zb-chat-form { border-color: rgba(180,220,248,.16); }
   .zb-night .zb-msg.me, .zb-night .zb-chat-form button { background: #EAF6FD; color: #07283D; }
   @media (max-width: 819px) {
-    .zb-pw-card { margin-top: 210px; }
+    .zb-pw-card { margin-top: 176px; }
+    .zb-pw-help { margin-bottom: 18px; }
     .zb-pw-dock { width: 260px; height: 260px; }
     .zb-pw-bubble { left: 60%; top: -6px; width: 128px; white-space: normal; line-height: 1.3; }
     .zb-chat.zb-peek { height: auto !important; }
@@ -218,14 +223,23 @@
     function anchor() {
       const s = dock.offsetWidth || 320, r = card.getBoundingClientRect(), mobile = innerWidth < 820;
       if (bus.chatOpen && chat && !chat.el.classList.contains('zb-peek')) { const p = chat.el.getBoundingClientRect(); return [p.left + p.width / 2 - s / 2, p.top - s * 0.74]; }
-      if (mobile) return [r.left + r.width / 2 - s / 2, r.top - s * 0.86];
-      return [r.right - s * 0.3, r.top - s * 0.5];
+      if (mobile) return [r.left + r.width / 2 - s / 2, r.top - s * 0.7];
+      return [r.right - s * 0.56, r.top - s * 0.44];   // tucked in over the card's top-right corner, clear of the nav
     }
+    // Spring-damper flight: he accelerates toward his spot, overshoots a touch and settles.
+    // Velocity and acceleration feed the 3D side (banking, thruster flame, exhaust that stays behind).
+    let vx = 0, vy = 0;
+    const K = 70, C = 2 * Math.sqrt(K) * 0.62;
     function step(now) {
-      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      const dt = Math.min(0.033, (now - last) / 1000); last = now;
       const [tx, ty] = anchor();
-      if (cx === null || reduce) { cx = tx; cy = ty; }
-      else { const k = 1 - Math.pow(0.0004, dt); cx += (tx - cx) * k; cy += (ty - cy) * k; }
+      if (cx === null || reduce) { cx = tx; cy = ty; vx = vy = 0; }
+      else {
+        const ax = K * (tx - cx) - C * vx, ay = K * (ty - cy) - C * vy;
+        vx += ax * dt; vy += ay * dt;
+        const dx = vx * dt, dy = vy * dt; cx += dx; cy += dy;
+        if (window.__zbBus) { const b = window.__zbBus; b.vx = vx; b.vy = vy; b.ax = ax; b.ay = ay; b.mdx += dx; b.mdy += dy; }
+      }
       dock.style.transform = 'translate3d(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px,0)';
       requestAnimationFrame(step);
     }
@@ -240,7 +254,7 @@
   }
 
   // ---------- Shared state between the bot and the chat ----------
-  const bus = { busy: false, scanning: false, unlocked: false, checkUntil: 0, hopReq: false, mood: 'idle', moodUntil: 0, talkUntil: 0, chatOpen: false, poke: -1, shakeReq: false, thinking: false, chatKey: -9, chatInput: null, chatLog: null };
+  const bus = window.__zbBus = { vx: 0, vy: 0, ax: 0, ay: 0, mdx: 0, mdy: 0, busy: false, scanning: false, unlocked: false, checkUntil: 0, hopReq: false, mood: 'idle', moodUntil: 0, talkUntil: 0, chatOpen: false, poke: -1, shakeReq: false, thinking: false, chatKey: -9, chatInput: null, chatLog: null };
   // Wrong password: the text field shakes and gets a red ring; Zoltbot looks at it, shakes his head and goes sad.
   function wrongPassword() {
     if (input) { input.classList.add('zb-wrong'); input.classList.remove('zb-shake'); void input.offsetWidth; input.classList.add('zb-shake'); }
@@ -495,7 +509,7 @@
     const glowMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
     const MOON = new THREE.Color(0.36, 0.45, 0.6);   // body tint under the night sky
     let bodyMats = [];
-    let nightF = 0, lastNight = -1, faceMat = null, thrustLight = null;
+    let nightF = 0, lastNight = -1, faceMat = null, thrustLight = null, flameParts = null;
     // Visor: a rounded-rectangle patch that follows the shell, with a raised bezel around it
     {
       const HA = 0.98, HE = 0.6, EC = 0.0, N = 56, Q = 4;
@@ -555,7 +569,31 @@
       const noz = new THREE.Mesh(new THREE.LatheGeometry([[0.0001, 0.01], [0.05, 0.01], [0.062, -0.006], [0.056, -0.03], [0.044, -0.038]].map(([x, y]) => new THREE.Vector2(x, y)), 40), plainMat);
       noz.position.set(0, bottom.y + 0.012, 0); head.add(noz);
       const g = new THREE.Mesh(new THREE.CircleGeometry(0.04, 32), thrustMat); g.rotation.x = Math.PI / 2; g.position.set(0, bottom.y - 0.025, 0); head.add(g);
-      const pl = new THREE.PointLight(0x7fefff, 0.5, 0.8); pl.position.set(0, bottom.y - 0.08, 0); head.add(pl); thrustLight = pl;
+      const pl = new THREE.PointLight(0x5fb8ff, 0.5, 0.8); pl.position.set(0, bottom.y - 0.08, 0); head.add(pl); thrustLight = pl;
+      // Blue flame: two lathed plumes (white-hot core, blue outer) with a shader that flickers and licks
+      const plume = (pts) => new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), 32, 0, Math.PI * 2);
+      const mkFlame = (core) => new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+        blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneFactor,
+        uniforms: { uT: { value: 0 }, uLen: { value: 1 }, uCore: { value: core ? 1 : 0 } },
+        vertexShader: `varying vec2 vUv; varying float vRim; uniform float uT, uLen, uCore;
+          void main(){ vUv = uv; vec3 p = position; float d = clamp(-p.y / 0.22, 0., 1.);
+            p.y *= uLen; p.x += sin(p.y * 46. + uT * 31.) * 0.006 * d; p.z += cos(p.y * 39. - uT * 27.) * 0.006 * d;
+            vec3 n = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(p, 1.);
+            vRim = abs(dot(n, normalize(-mv.xyz))); gl_Position = projectionMatrix * mv; }`,
+        fragmentShader: `varying vec2 vUv; varying float vRim; uniform float uT, uCore;
+          void main(){ float y = vUv.y;   // 0 at the nozzle, 1 at the tip
+            float flick = 0.85 + 0.15 * sin(uT * 53. + y * 20.);
+            vec3 hot = vec3(0.9, 0.98, 1.0), blue = vec3(0.22, 0.62, 1.0), deep = vec3(0.12, 0.3, 1.0);
+            vec3 c = uCore > .5 ? mix(hot, vec3(0.45, 0.85, 1.0), y) : mix(blue, deep, y);
+            float a = pow(1. - y, uCore > .5 ? 2.2 : 1.4) * pow(vRim, uCore > .5 ? 0.6 : 1.4) * flick;
+            a = min(1., a * (uCore > .5 ? 1.5 : 1.15));
+            gl_FragColor = vec4(c * a, a * 0.95); }`   // premultiplied light, so it glows over the page instead of darkening it
+      });
+      const flameOuter = new THREE.Mesh(plume([[0.0001, 0.0], [0.042, -0.004], [0.048, -0.035], [0.038, -0.11], [0.022, -0.2], [0.0001, -0.3]]), mkFlame(false));
+      const flameCore = new THREE.Mesh(plume([[0.0001, 0.0], [0.028, -0.004], [0.028, -0.03], [0.018, -0.09], [0.0001, -0.16]]), mkFlame(true));
+      const flame = new THREE.Group(); flame.position.set(0, bottom.y - 0.03, 0); flame.add(flameOuter, flameCore); head.add(flame);
+      flameParts = { flame, mats: [flameOuter.material, flameCore.material], nozzleY: bottom.y - 0.035 };
     }
     const hands = [];
     bodyMats = [shellMat, plainMat, bezelMat, capMat].map(mt => [mt, mt.color.clone()]);
@@ -684,6 +722,55 @@
     function resize() { const s = dock.clientWidth || 230; renderer.setSize(s, s, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
     resize(); addEventListener('resize', resize); new ResizeObserver(resize).observe(dock);
 
+    // Exhaust: sparks spawn at the nozzle in world space, fall with gravity and drag, and are left behind as he flies
+    const NP = 90, pPos = new Float32Array(NP * 3), pCol = new Float32Array(NP * 4), pVel = new Float32Array(NP * 3), pLife = new Float32Array(NP).fill(-1);
+    const pGeo = new THREE.BufferGeometry(); pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3)); pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 4));
+    const sparkTex = new THREE.CanvasTexture((() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return c; })());
+    const sparks = new THREE.Points(pGeo, new THREE.PointsMaterial({ size: 0.05, map: sparkTex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+    sparks.frustumCulled = false; scene.add(sparks);
+    const UPX = 2 * 2.15 * Math.tan(15 * Math.PI / 180);   // scene units across the dock canvas
+    let spawnAcc = 0, thrust = 1, bank = 0, pitch = 0; const nozzle = new THREE.Vector3(), down = new THREE.Vector3();
+    function physics(dt, t, hopping) {
+      const b = bus, upp = UPX / (dock.clientWidth || 320);
+      // thrust: hover baseline, more when he climbs (screen y up = negative ay) or hops, less when he drops
+      const want = Math.max(0.45, Math.min(2.4, 1 - b.ay * 0.0016 - b.vy * 0.0012 + (hopping ? 1.1 : 0) + Math.cos(t * 2.2) * 0.18));
+      thrust += (want - thrust) * Math.min(1, dt * 12);
+      // bank into horizontal moves, pitch a little with vertical ones (a real drone tilts to fly)
+      bank += (Math.max(-0.4, Math.min(0.4, -b.vx * 0.0011 - b.ax * 0.00012)) - bank) * Math.min(1, dt * 8);
+      pitch += (Math.max(-0.2, Math.min(0.2, b.vy * 0.0005)) - pitch) * Math.min(1, dt * 8);
+      bot.rotation.z = bank; bot.rotation.x = pitch;
+      if (flameParts) {
+        const fl = 0.75 + 0.45 * thrust + 0.06 * Math.sin(t * 47) + 0.04 * Math.sin(t * 83);
+        flameParts.mats.forEach(mt => { mt.uniforms.uT.value = t; mt.uniforms.uLen.value = fl; });
+        flameParts.flame.scale.set(0.9 + 0.12 * thrust, 1, 0.9 + 0.12 * thrust);
+        if (thrustLight) thrustLight.intensity = (0.4 + 0.35 * thrust) * (1 + 0.6 * nightF);
+      }
+      // the page moved under him this frame: shift live sparks the other way so they stay put on the page
+      const sx = -b.mdx * upp, sy = b.mdy * upp; b.mdx = b.mdy = 0;
+      head.updateWorldMatrix(true, false);
+      nozzle.set(0, flameParts ? flameParts.nozzleY - 0.05 : -0.3, 0); head.localToWorld(nozzle);
+      down.set(0, -1, 0).applyQuaternion(head.getWorldQuaternion(new THREE.Quaternion()));
+      spawnAcc += dt * (reduce ? 0 : 55 * thrust);
+      for (let i = 0; i < NP; i++) {
+        if (pLife[i] < 0 && spawnAcc >= 1) {
+          spawnAcc -= 1; pLife[i] = 0;
+          pPos[i * 3] = nozzle.x + (Math.random() - 0.5) * 0.03; pPos[i * 3 + 1] = nozzle.y; pPos[i * 3 + 2] = nozzle.z + (Math.random() - 0.5) * 0.03;
+          const sp = 0.55 + 0.35 * thrust + Math.random() * 0.25;
+          pVel[i * 3] = down.x * sp + (Math.random() - 0.5) * 0.18; pVel[i * 3 + 1] = down.y * sp; pVel[i * 3 + 2] = down.z * sp + (Math.random() - 0.5) * 0.18;
+        }
+        if (pLife[i] >= 0) {
+          pLife[i] += dt / 0.7;
+          if (pLife[i] >= 1) { pLife[i] = -1; pCol[i * 4 + 3] = 0; continue; }
+          const drag = Math.exp(-dt * 2.6);
+          pVel[i * 3] *= drag; pVel[i * 3 + 2] *= drag; pVel[i * 3 + 1] = pVel[i * 3 + 1] * drag - 0.5 * dt;   // gravity
+          pPos[i * 3] += pVel[i * 3] * dt + sx; pPos[i * 3 + 1] += pVel[i * 3 + 1] * dt + sy; pPos[i * 3 + 2] += pVel[i * 3 + 2] * dt;
+          const life = pLife[i], fade = (1 - life) * (1 - life) * (0.7 + 0.3 * nightF);
+          // white-blue near the nozzle, cooling to deep blue
+          pCol[i * 4] = 0.7 - 0.55 * life; pCol[i * 4 + 1] = 0.92 - 0.45 * life; pCol[i * 4 + 2] = 1.0; pCol[i * 4 + 3] = fade;
+        }
+      }
+      pGeo.attributes.position.needsUpdate = true; pGeo.attributes.color.needsUpdate = true;
+    }
     const clock = new THREE.Clock();
     const ease = x => x * x * (3 - 2 * x);
     let cover = 0, nextBlink = 2.5, blinkT = -1;
@@ -758,7 +845,7 @@
       glowMat.opacity = 0.2 + 0.08 * nightF;
       faceLight.color.setRGB(col.r / 255, col.g / 255, col.b / 255); faceLight.intensity = 0.25 + 0.45 * nightF;
       ringMat.emissiveIntensity *= 1 + 0.3 * nightF; tipMat.emissiveIntensity = 1.1 + 0.5 * nightF + 0.3 * Math.sin(t * 2.2);
-      if (thrustLight) thrustLight.intensity = 0.5 + 0.5 * nightF;
+      physics(dt, t, hop >= 0 && hop < 0.3);
       renderer.render(scene, camera);
       requestAnimationFrame(frame);
     }
