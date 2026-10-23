@@ -2,8 +2,11 @@
    - Puts the form on a liquid-glass card (uses the site's <zb-sky> glass when present, CSS glass otherwise).
    - Zoltbot floats outside the card: a 3D drone with an LED visor face that changes expression
      (idle, curious on focus, eyes shut while you type, grin on submit, sad after a wrong password, talking).
-   - Optional chat: set window.ZB_CHAT_ENDPOINT (POST {messages} -> {reply}) for the live AI,
-     or window.ZB_CHAT_DEMO = true for a scripted preview. With neither, no chat UI is shown.
+   - Optional chat: Zoltbot follows a scripted tree (about Zolton, what's behind the password, request access).
+     Set window.ZB_CHAT_ENDPOINT to the Zoltbot function (zoltbot/netlify/functions/zoltbot.mjs) to go live:
+       POST {type:'request', request:{...}} delivers an access request to Zolton,
+       POST {type:'chat', messages:[...]} asks the model, only when a visitor goes off the tree -> {reply, chips}.
+     window.ZB_CHAT_DEMO = true runs the same tree as a preview that sends nothing. With neither, no chat UI is shown.
    Loads three.js 0.152.2 from jsDelivr. */
 (function () {
   'use strict';
@@ -303,42 +306,66 @@
       el.classList.remove('zb-peek');
       say(text, 'me'); history.push({ role: 'user', content: text }); setChips([]);
       setTimeout(showTyping, 200);
-      if (ENDPOINT) {
-        try {
-          const r = await fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: history.slice(-20) }) });
-          const j = await r.json(); say(j.reply || 'Hmm, my signal dropped. Try again?', 'bot');
-          if (j.chips) setChips(j.chips);
-        } catch (err) { say('Hmm, my signal dropped. Try again in a moment?', 'bot'); }
-        hideTyping();
-      } else {
-        setTimeout(() => demoReply(text), 1100 + Math.min(900, text.length * 12));
-      }
+      await wait(900 + Math.min(900, text.length * 12));
+      if (!(await treeReply(text))) await offTrack();
+      hideTyping();
     }
-    // Scripted preview of the flow in the Zoltbot Brief. Nothing is sent anywhere.
+    const post = async (body) => {
+      const r = await fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+      return r.json();
+    };
+    // Off the tree: ask the model (live), or say what the live version would do (preview).
+    async function offTrack() {
+      if (!ENDPOINT) {
+        say('Good question. I don’t know that one yet, but I can pass it to Zolton.', 'bot');
+        say('In the live version I’ll answer this with AI. For this preview, try the buttons.', 'note');
+        setChips(['Request access', 'What’s behind the password?']); return;
+      }
+      try {
+        const j = await post({ type: 'chat', messages: history.slice(-12) });
+        say(j.reply || 'Hmm, I lost my signal for a second. Try asking again?', 'bot');
+        setChips(Array.isArray(j.chips) && j.chips.length ? j.chips.slice(0, 3) : ['Request access', 'Who is Zolton?']);
+      } catch (err) { say('Hmm, I lost my signal for a second. I can still send Zolton a request for you.', 'bot'); setChips(['Request access']); }
+    }
+    // The scripted tree from the Zoltbot Brief. Returns false when the message is off the tree.
     const QS = ['What’s your name?', 'What company or team are you with?', 'What’s your role? For example, recruiter, hiring manager or designer.', 'Is this about a specific role or project? A job link is welcome.', 'What’s the best email to reach you?', 'Anything you’d like Zolton to show you first? (Optional, or say “skip”.)'];
     let step = -1; const answers = [];
-    function demoReply(text) {
-      const t = text.toLowerCase();
+    let pending = null;
+    async function treeReply(text) {
+      const t = text.toLowerCase().trim();
       if (step >= 0) {
-        if (step === 4 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim())) { say('That email doesn’t look quite right. Mind checking it?', 'bot'); return; }
+        if (step === 4 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim())) { say('That email doesn’t look quite right. Mind checking it?', 'bot'); return true; }
         answers[step] = text; step++;
-        if (step < QS.length) { say(QS[step], 'bot'); return; }
+        if (step < QS.length) { say(QS[step], 'bot'); return true; }
         step = -1;
-        say('Here’s what I’ll send Zolton:\n• ' + answers[0] + ', ' + answers[2] + ' at ' + answers[1] + '\n• About: ' + answers[3] + '\n• Email: ' + answers[4] + (answers[5] && !/^skip$/i.test(answers[5]) ? '\n• Wants to see: ' + answers[5] : '') + '\n\nSend it?', 'bot');
-        setChips(['Yes, send it', 'Start over']); return;
+        pending = { name: answers[0], company: answers[1], role: answers[2], about: answers[3], email: answers[4], wantsToSee: answers[5] && !/^skip$/i.test(answers[5]) ? answers[5] : '' };
+        say('Here’s what I’ll send Zolton:\n• ' + pending.name + ', ' + pending.role + ' at ' + pending.company + '\n• About: ' + pending.about + '\n• Email: ' + pending.email + (pending.wantsToSee ? '\n• Wants to see: ' + pending.wantsToSee : '') + '\n\nSend it?', 'bot');
+        setChips(['Yes, send it', 'Start over']); return true;
       }
-      if (/^i’ll try again$/.test(t)) { say('Go for it. I’ll be right here if you need me.', 'bot'); setChips(['Request access']); if (input) input.focus(); return; }
-      if (/^i have a question$/.test(t)) { say('Ask away! I can tell you about Zolton, his work, or how to get access.', 'bot'); setChips(['What’s behind the password?', 'Who is Zolton?', 'Request access']); inp.focus(); return; }
-      if (/^yes, send it$/.test(t)) { bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.4; say('Done! I’ve sent that to Zolton. He’ll reply to the email you gave me.', 'bot'); say('Preview only: nothing was actually sent.', 'note'); setChips(['Who is Zolton?']); return; }
-      if (/start over|request|access|password|let me in|get in/.test(t)) {
+      if (/^i’ll try again$/.test(t)) { say('Go for it. I’ll be right here if you need me.', 'bot'); setChips(['Request access']); if (input) input.focus(); return true; }
+      if (/^i have a question$/.test(t)) { say('Ask away! I can tell you about Zolton, his work, or how to get access.', 'bot'); setChips(['What’s behind the password?', 'Who is Zolton?', 'Request access']); inp.focus(); return true; }
+      if (/^yes,? send it$/.test(t) && pending) {
+        if (ENDPOINT) {
+          try { await post({ type: 'request', request: pending, page: location.pathname }); }
+          catch (err) {
+            if (err.status === 429) { pending = null; say('Looks like you already sent Zolton a request today, so he has it. Anything else I can help with?', 'bot'); setChips(['Who is Zolton?']); return true; }
+            say('Hmm, that didn’t go through. Mind trying again in a minute?', 'bot'); setChips(['Yes, send it', 'Start over']); return true;
+          }
+        }
+        pending = null; bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.4;
+        say('Done! I’ve sent that to Zolton. He’ll reply to the email you gave me.', 'bot');
+        if (!ENDPOINT) say('Preview only: nothing was actually sent.', 'note');
+        setChips(['Who is Zolton?']); return true;
+      }
+      if (!/behind/.test(t) && /^(start over|request access)$|\b(request|access|let me in|get in)\b|\bpassword\b/.test(t)) {
         if (/password/.test(t) && !/request|access/.test(t)) say('I don’t have the password, and that’s on purpose. But I can send Zolton a request right now.', 'bot');
-        step = 0; answers.length = 0; setTimeout(() => say('Great, a few quick questions. ' + QS[0], 'bot'), /password/.test(t) ? 700 : 0); return;
+        step = 0; answers.length = 0; pending = null; if (/password/.test(t) && !/request|access/.test(t)) await wait(700); say('Great, a few quick questions. ' + QS[0], 'bot'); return true;
       }
-      if (/behind|case|work|project/.test(t)) { say('Case studies including Premiere Loader, ATM modernization, the icon system (“Drawing One Language Out of Many”) and the Gold piece.', 'bot'); setChips(['Request access', 'Who is Zolton?']); return; }
-      if (/who|zolton|about|designer/.test(t)) { say('Zolton is a senior product designer with 8+ years of experience. He specializes in motion design, 3D for the web and design systems, and he prototypes in code with AI in his workflow.', 'bot'); setChips(['Request access', 'What’s behind the password?']); return; }
-      say('Good question. I don’t know that one yet, but I can pass it to Zolton.', 'bot');
-      say('In the live version I’ll answer with AI. For this preview, try the buttons.', 'note');
-      setChips(['Request access', 'What’s behind the password?']);
+      if (/^what’s behind the password\?$|\b(behind|case stud|portfolio)\b/.test(t)) { say('Case studies including Premiere Loader, ATM modernization, the icon system (“Drawing One Language Out of Many”) and the Gold piece.', 'bot'); setChips(['Request access', 'Who is Zolton?']); return true; }
+      if (/^who is zolton\?$|^(who are you|who is (he|zolton)|tell me about (him|zolton))/.test(t)) { say('Zolton is a senior product designer with 8+ years of experience. He specializes in motion design, 3D for the web and design systems, and he prototypes in code with AI in his workflow.', 'bot'); setChips(['Request access', 'What’s behind the password?']); return true; }
+      if (/^(hi|hello|hey|yo|sup)\b/.test(t)) { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to know about Zolton, or get access?', 'bot'); setChips(['Request access', 'Who is Zolton?']); return true; }
+      return false;
     }
     return { open, close, el };
   }

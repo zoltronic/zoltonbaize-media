@@ -1,0 +1,8 @@
+# Zoltbot backend for the zoltonbaize.com password page.
+# Deploy this folder as its own Netlify site (base directory: zoltbot).
+[build]
+  publish = "public"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"

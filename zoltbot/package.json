@@ -1,0 +1,9 @@
+{
+  "name": "zoltbot",
+  "private": true,
+  "type": "module",
+  "description": "Zoltbot: the password-page chat for zoltonbaize.com (access requests plus an AI fallback).",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}
