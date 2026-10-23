@@ -97,7 +97,15 @@ zb-sky { view-transition-name: zb-sky; }
 
   // Arriving: apply the same move to the incoming page.
   addEventListener('pagereveal', function (e) {
-    if (unlocking()) { try { sessionStorage.removeItem('zbUnlock'); } catch (err) {} toast('Unlocked. Welcome in.'); if (e.viewTransition) e.viewTransition.types.add('zb-unlock'); return; }
+    if (unlocking()) {
+      // Arrived from the password page. If this is the password page again (wrong password, page reloaded), it didn't unlock.
+      const gate = () => !!document.querySelector('form[action*="wf_auth"], .w-password-page');
+      try { sessionStorage.removeItem('zbUnlock'); } catch (err) {}
+      if (!gate() && e.viewTransition) e.viewTransition.types.add('zb-unlock');
+      const done = () => { if (!gate()) toast('Unlocked. Welcome in.'); };
+      document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', done) : done();
+      return;
+    }
     if (!e.viewTransition) return;
     var k = null;
     var act = window.navigation && navigation.activation;

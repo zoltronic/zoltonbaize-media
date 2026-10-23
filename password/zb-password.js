@@ -270,40 +270,56 @@
   const submitBtn = form.querySelector('[type="submit"]');
   const btnLabel = submitBtn ? (submitBtn.value || submitBtn.textContent) : '';
   const setBtn = (txt) => { if (!submitBtn) return; if ('value' in submitBtn && submitBtn.tagName === 'INPUT') submitBtn.value = txt; else submitBtn.textContent = txt; };
+  // Submitting: Webflow does the login itself (its own handler or a normal form post) — we never intercept it,
+  // because re-sending the password ourselves broke Webflow's redirect. We only react to the outcome:
+  //   wrong password -> Webflow shows .w-form-fail (same page) or reloads this page with it showing -> head shake
+  //   right password -> Webflow navigates to the protected page -> the "unlock" flight plays on arrival.
+  const UNLOCK = 'zbUnlock';
+  const setFlag = (v) => { try { v ? sessionStorage.setItem(UNLOCK, '1') : sessionStorage.removeItem(UNLOCK); } catch (err) {} };
+  setFlag(false);   // we are on the password page, so any earlier attempt did not get in
+  const failShowing = () => !!(failEl && getComputedStyle(failEl).display !== 'none');
+  let watching = false;
+  function watchOutcome() {
+    if (watching || !failEl) return; watching = true;
+    const t0 = performance.now(), was = failShowing();
+    const check = () => {
+      if (!watching) return;
+      const now = failShowing();
+      // a fresh failure: the message appears, or it was already up and Webflow re-shows it after the request
+      if ((now && !was) || (now && performance.now() - t0 > 1500)) { watching = false; onWrong(); return; }
+      if (performance.now() - t0 > 12000) { watching = false; resetBtn(); return; }   // nothing happened: give the button back
+      requestAnimationFrame(check);
+    };
+    if (was) failEl.style.display = 'none';   // hide the old message so a new one is visible as new
+    requestAnimationFrame(check);
+  }
+  function resetBtn() { bus.scanning = false; bus.busy = false; setBtn(btnLabel); }
+  function onWrong() {
+    setFlag(false); resetBtn();
+    if (failEl) failEl.style.display = 'block';
+    wrongPassword(); if (input) { input.value = ''; input.focus(); }
+  }
   form.addEventListener('submit', async (e) => {
-    if (!window.fetch || bus.busy) return;
-    e.preventDefault();
-    bus.busy = true; bus.scanning = true; setBtn('Checking…');
-    const t0 = performance.now();
-    try {
-      let ok, dest = null;
-      if (DEMO) { await wait(950); ok = (input && input.value.trim().toLowerCase() === 'zolton'); }
-      else {
-        const r = await fetch(form.getAttribute('action') || '/.wf_auth', { method: 'POST', body: new FormData(form), credentials: 'same-origin', redirect: 'follow' });
-        const html = await r.text();
-        ok = r.ok && !/wf_auth/.test(html); dest = r.url;
-        await wait(Math.max(0, 750 - (performance.now() - t0)));
-      }
-      bus.scanning = false;
-      if (ok) {
+    if (DEMO) {   // preview only: simulate both outcomes without a real login
+      e.preventDefault(); if (bus.busy) return;
+      bus.busy = true; bus.scanning = true; setBtn('Checking…');
+      await wait(950); bus.scanning = false;
+      if (input && input.value.trim().toLowerCase() === 'zolton') {
         if (failEl) failEl.style.display = 'none';
         if (input) { input.classList.remove('zb-wrong'); input.classList.add('zb-right'); }
         setBtn('Unlocked');
         bus.unlocked = true; bus.checkUntil = performance.now() / 1000 + 0.75; bus.mood = 'unlocked'; bus.moodUntil = performance.now() / 1000 + 4; bus.hopReq = true;
-        await wait(1250);
-        if (DEMO) { window.dispatchEvent(new CustomEvent('zb:unlocked')); return; }
-        try { sessionStorage.setItem('zbUnlock', '1'); } catch (err) {}
-        location.assign(dest || location.href);
-      } else {
-        if (failEl) failEl.style.display = 'block';
-        wrongPassword(); if (input) { input.value = ''; input.focus(); }
-        setBtn(btnLabel); bus.busy = false;
-      }
-    } catch (err) {
-      bus.scanning = false; bus.busy = false; setBtn(btnLabel);
-      form.submit();   // fall back to Webflow's normal submit
+        await wait(1250); window.dispatchEvent(new CustomEvent('zb:unlocked'));
+      } else onWrong();
+      return;
     }
+    // Live: let Webflow handle it. Show the scanner while it checks.
+    bus.busy = true; bus.scanning = true; setBtn('Checking…');
+    setFlag(true);        // if this navigates to the protected page, it arrives with the unlock flight
+    watchOutcome();
   });
+  // Leaving for the protected page: a quick celebration frame on the way out.
+  addEventListener('pagehide', () => { if (bus.busy) { bus.scanning = false; bus.unlocked = true; bus.mood = 'unlocked'; } });
   if (input) input.addEventListener('input', () => input.classList.remove('zb-wrong'));
   if (failed) setTimeout(wrongPassword, 500);
 
