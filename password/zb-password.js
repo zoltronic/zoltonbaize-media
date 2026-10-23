@@ -33,14 +33,13 @@
     backdrop-filter: blur(9px) saturate(130%); -webkit-backdrop-filter: blur(9px) saturate(130%); }
   .zb-glass.zb-on-sky { background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
   .zb-pw-card { padding: 32px 28px; }
-  .zb-pw-dock { position: absolute; width: 230px; height: 230px; left: calc(100% - 64px); top: -104px; z-index: 3; cursor: pointer; border-radius: 50%;
-    transition: left 300ms var(--zb-ease), top 300ms var(--zb-ease), transform 300ms var(--zb-ease); -webkit-tap-highlight-color: transparent; }
+  .zb-pw-dock { position: fixed; left: 0; top: 0; width: 230px; height: 230px; z-index: 6; cursor: pointer; border-radius: 50%; will-change: transform; -webkit-tap-highlight-color: transparent; }
   .zb-pw-dock:focus-visible { outline: 2px solid #0A5C86; outline-offset: -20px; }
   .zb-pw-dock canvas { width: 100%; height: 100%; display: block; }
   .zb-pw-bubble { position: absolute; left: 74%; top: 14px; white-space: nowrap; padding: 9px 14px; border-radius: 18px 18px 18px 6px; font: 600 13px system-ui, -apple-system, sans-serif; color: var(--zb-ink);
     opacity: 0; transform: translateY(6px) scale(.96); transform-origin: 0 100%; transition: opacity 300ms var(--zb-ease), transform 300ms var(--zb-ease); pointer-events: none; }
   .zb-pw-bubble.on { opacity: 1; transform: none; }
-  .zb-chat { position: fixed; z-index: 4; width: 340px; display: flex; flex-direction: column; color: var(--zb-ink); font: 14px/1.45 system-ui, -apple-system, sans-serif;
+  .zb-chat { position: fixed; z-index: 5; width: 340px; display: flex; flex-direction: column; color: var(--zb-ink); font: 14px/1.45 system-ui, -apple-system, sans-serif;
     opacity: 0; transform: translateY(10px) scale(.98); pointer-events: none; transition: opacity 300ms var(--zb-ease), transform 300ms var(--zb-ease); }
   .zb-chat.open { opacity: 1; transform: none; pointer-events: auto; }
   .zb-chat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px 10px 18px; border-bottom: 1px solid rgba(7,40,61,.1); }
@@ -51,6 +50,10 @@
   .zb-msg { max-width: 85%; padding: 9px 12px; border-radius: 16px; white-space: pre-wrap; word-wrap: break-word; }
   .zb-msg.bot { align-self: flex-start; background: rgba(255,255,255,.72); border-bottom-left-radius: 6px; }
   .zb-msg.me { align-self: flex-end; background: #06222F; color: #EAFBF6; border-bottom-right-radius: 6px; }
+  .zb-msg.typing { display: inline-flex; gap: 5px; padding: 12px 14px; }
+  .zb-msg.typing i { width: 7px; height: 7px; border-radius: 50%; background: #2A5570; opacity: .35; animation: zb-dot 1s infinite; }
+  .zb-msg.typing i:nth-child(2) { animation-delay: .15s; } .zb-msg.typing i:nth-child(3) { animation-delay: .3s; }
+  @keyframes zb-dot { 0%,60%,100% { opacity: .3; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
   .zb-msg.note { align-self: center; max-width: 100%; font-size: 12px; color: var(--zb-muted); background: none; padding: 2px 0; }
   .zb-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 14px 8px; }
   .zb-chip { border: 1px solid rgba(7,40,61,.16); background: rgba(255,255,255,.6); color: var(--zb-ink); border-radius: 999px; padding: 6px 11px; font: 600 12px system-ui, sans-serif; cursor: pointer; }
@@ -66,9 +69,9 @@
   .zb-pw-sky canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   @media (max-width: 819px) {
     .zb-pw-card { margin-top: 150px; }
-    .zb-pw-dock { left: 50%; top: -196px; transform: translateX(-50%); width: 210px; height: 210px; }
+    .zb-pw-dock { width: 200px; height: 200px; }
     .zb-pw-bubble { left: 66%; top: 0; }
-    .zb-chat { left: 12px !important; right: 12px; bottom: 12px; top: auto !important; width: auto; height: min(70vh, 520px) !important; }
+    .zb-chat { left: 12px !important; right: 12px; bottom: 12px; top: auto !important; width: auto; height: min(60vh, 480px) !important; background: rgba(238,247,253,.88); }
   }`;
   document.head.appendChild(css);
 
@@ -125,7 +128,26 @@
   dock.className = 'zb-pw-dock';
   if (CHAT) { dock.setAttribute('role', 'button'); dock.setAttribute('tabindex', '0'); dock.setAttribute('aria-label', 'Chat with Zoltbot, Zolton’s sidekick robot'); }
   else { dock.setAttribute('role', 'img'); dock.setAttribute('aria-label', 'Zoltbot, Zolton’s sidekick robot'); }
-  card.appendChild(dock);
+  document.body.appendChild(dock);
+  // The dock follows its anchor: the card's top-right corner, or the top of the chat panel when it is open.
+  (function follow() {
+    let cx = null, cy = null, last = performance.now();
+    function anchor() {
+      const s = dock.offsetWidth || 230, r = card.getBoundingClientRect(), mobile = innerWidth < 820;
+      if (bus.chatOpen && chat) { const p = chat.el.getBoundingClientRect(); return [p.left + p.width / 2 - s / 2, p.top - s * 0.74]; }
+      if (mobile) return [r.left + r.width / 2 - s / 2, r.top - s * 0.86];
+      return [r.right - 64, r.top - 104];
+    }
+    function step(now) {
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      const [tx, ty] = anchor();
+      if (cx === null || reduce) { cx = tx; cy = ty; }
+      else { const k = 1 - Math.pow(0.0004, dt); cx += (tx - cx) * k; cy += (ty - cy) * k; }
+      dock.style.transform = 'translate3d(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px,0)';
+      requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  })();
   let bubble = null;
   if (CHAT) {
     bubble = document.createElement('div'); bubble.className = 'zb-pw-bubble zb-glass';
@@ -135,7 +157,7 @@
   }
 
   // ---------- Shared state between the bot and the chat ----------
-  const bus = { mood: 'idle', moodUntil: 0, talkUntil: 0, chatOpen: false, poke: -1, shakeReq: false };
+  const bus = { mood: 'idle', moodUntil: 0, talkUntil: 0, chatOpen: false, poke: -1, shakeReq: false, thinking: false, chatKey: -9, chatInput: null, chatLog: null };
   // Wrong password: the text field shakes and gets a red ring; Zoltbot looks at it, shakes his head and goes sad.
   function wrongPassword() {
     if (input) { input.classList.add('zb-wrong'); input.classList.remove('zb-shake'); void input.offsetWidth; input.classList.add('zb-shake'); }
@@ -159,14 +181,20 @@
     const log = el.querySelector('.zb-chat-log'), chips = el.querySelector('.zb-chips'), f = el.querySelector('form'), inp = el.querySelector('input');
     const history = [];
     let greeted = false;
-    const say = (text, who) => { const m = document.createElement('div'); m.className = 'zb-msg ' + who; m.textContent = text; log.appendChild(m); log.scrollTop = log.scrollHeight; if (who === 'bot') { history.push({ role: 'assistant', content: text }); bus.talkUntil = performance.now() / 1000 + Math.min(2.4, 0.4 + text.length * 0.03); } };
+    bus.chatInput = inp; bus.chatLog = log;
+    inp.addEventListener('input', () => { bus.chatKey = performance.now() / 1000; });
+    let typingEl = null;
+    const showTyping = () => { if (typingEl) return; typingEl = document.createElement('div'); typingEl.className = 'zb-msg bot typing'; typingEl.setAttribute('aria-label', 'Zoltbot is typing'); typingEl.innerHTML = '<i></i><i></i><i></i>'; log.appendChild(typingEl); log.scrollTop = log.scrollHeight; bus.thinking = true; };
+    const hideTyping = () => { if (typingEl) { typingEl.remove(); typingEl = null; } bus.thinking = false; };
+    const say = (text, who) => { if (who === 'bot') hideTyping(); const m = document.createElement('div'); m.className = 'zb-msg ' + who; m.textContent = text; log.appendChild(m); log.scrollTop = log.scrollHeight; if (who === 'bot') { history.push({ role: 'assistant', content: text }); bus.talkUntil = performance.now() / 1000 + Math.min(2.4, 0.4 + text.length * 0.03); } };
     const setChips = (list) => { chips.innerHTML = ''; list.forEach(t => { const b = document.createElement('button'); b.type = 'button'; b.className = 'zb-chip'; b.textContent = t; b.onclick = () => send(t); chips.appendChild(b); }); };
     function place() {
       if (innerWidth < 820) return;
       const r = card.getBoundingClientRect();
       el.style.left = Math.round(r.right + 40) + 'px';
-      el.style.top = Math.max(16, Math.round(r.top + 70)) + 'px';
-      el.style.height = Math.min(470, innerHeight - Math.max(16, r.top + 70) - 16) + 'px';
+      const top = Math.max(180, Math.round(r.top + 40));
+      el.style.top = top + 'px';
+      el.style.height = Math.max(300, Math.min(460, innerHeight - top - 16)) + 'px';
     }
     function open() {
       bus.chatOpen = true; place(); el.classList.add('open'); el.setAttribute('aria-hidden', 'false');
@@ -182,14 +210,16 @@
 
     async function send(text) {
       say(text, 'me'); history.push({ role: 'user', content: text }); setChips([]);
+      setTimeout(showTyping, 200);
       if (ENDPOINT) {
         try {
           const r = await fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: history.slice(-20) }) });
           const j = await r.json(); say(j.reply || 'Hmm, my signal dropped. Try again?', 'bot');
           if (j.chips) setChips(j.chips);
         } catch (err) { say('Hmm, my signal dropped. Try again in a moment?', 'bot'); }
+        hideTyping();
       } else {
-        setTimeout(() => demoReply(text), 450);
+        setTimeout(() => demoReply(text), 1100 + Math.min(900, text.length * 12));
       }
     }
     // Scripted preview of the flow in the Zoltbot Brief. Nothing is sent anywhere.
@@ -298,11 +328,14 @@
       shy:     { open: 1.0, squint: 0, closed: 1, sad: 0, pupil: 1.0, mouth: 0.45, mouthOpen: 0 },
       happy:   { open: 1.0, squint: 1, closed: 0, sad: 0, pupil: 1.0, mouth: 1.0, mouthOpen: 0.7 },
       sad:     { open: 0.82, squint: 0, closed: 0, sad: 1, pupil: 0.9, mouth: -0.75, mouthOpen: 0 },
+      attentive: { open: 1.16, squint: 0, closed: 0, sad: 0, pupil: 1.22, mouth: 0.35, mouthOpen: 0 },
+      think:   { open: 0.94, squint: 0, closed: 0, sad: 0, pupil: 0.92, mouth: 0, mouthOpen: 0 },
+      talk:    { open: 1.02, squint: 0, closed: 0, sad: 0, pupil: 1.05, mouth: 0.75, mouthOpen: 0 },
       listen:  { open: 1.06, squint: 0, closed: 0, sad: 0, pupil: 1.08, mouth: 0.45, mouthOpen: 0 }
     };
     const F = Object.assign({}, MOODS[bus.mood]);
     const col = { r: 95, g: 244, b: 255 };
-    function drawFace(px, py, blink, talk) {
+    function drawFace(px, py, blink, talk, think, t) {
       const W = FW, H = FH, cx = W / 2;
       sctx.clearRect(0, 0, W, H);
       const c = `rgb(${col.r|0},${col.g|0},${col.b|0})`;
@@ -347,7 +380,10 @@
       // mouth
       const my = 262, mo = Math.max(F.mouthOpen, talk);
       sctx.strokeStyle = c; sctx.fillStyle = c;
-      if (mo > 0.12) {
+      if (think) {
+        for (let i = 0; i < 3; i++) { const a = 0.35 + 0.65 * Math.max(0, Math.sin(t * 7 - i * 0.9)); sctx.globalAlpha = a; sctx.beginPath(); sctx.arc(cx + (i - 1) * 34, my + 2 - 6 * a, 11, 0, Math.PI * 2); sctx.fill(); }
+        sctx.globalAlpha = 1;
+      } else if (mo > 0.12) {
         sctx.beginPath(); sctx.ellipse(cx, my + 4, 26 + 8 * F.mouth, 6 + 22 * mo, 0, 0, Math.PI * 2); sctx.fill();
       } else {
         sctx.lineWidth = 12; sctx.beginPath(); sctx.moveTo(cx - 38, my); sctx.quadraticCurveTo(cx, my + 34 * F.mouth, cx + 38, my); sctx.stroke();
@@ -394,6 +430,9 @@
       if (now < bus.moodUntil) mood = bus.mood;
       else if (typing > 0) mood = 'shy';
       else if (focused) mood = 'curious';
+      else if (bus.chatOpen && bus.thinking) mood = 'think';
+      else if (bus.chatOpen && now < bus.talkUntil) mood = 'talk';
+      else if (bus.chatOpen && now - bus.chatKey < 1.3) mood = 'attentive';
       else if (bus.chatOpen) mood = 'listen';
       const T = MOODS[mood], k = 1 - Math.pow(0.0005, dt);
       for (const p in T) F[p] += (T[p] - F[p]) * k;
@@ -404,7 +443,9 @@
       // where to look: cursor, the password field when focused, the chat panel when open
       let tgt = lookT;
       if (input && (focused || shake >= 0 || mood === 'sad')) tgt = towards(input);
-      else if (bus.chatOpen && innerWidth >= 820) tgt = new THREE.Vector2(0.35, -0.45);
+      else if (mood === 'attentive' && bus.chatInput) tgt = towards(bus.chatInput);
+      else if (mood === 'think') tgt = new THREE.Vector2(-0.45 + Math.sin(t * 0.9) * 0.15, 0.55);
+      else if (mood === 'talk' && bus.chatLog) tgt = towards(bus.chatLog).multiplyScalar(0.5);
       look.lerp(tgt, 1 - Math.pow(0.004, dt));
 
       // blink
@@ -412,7 +453,7 @@
       if (t > nextBlink && blinkT < 0) blinkT = 0;
       if (blinkT >= 0) { blinkT += dt; blink = blinkT < 0.08 ? 1 - blinkT / 0.08 : Math.min(1, (blinkT - 0.08) / 0.1); if (blinkT > 0.18) { blinkT = -1; nextBlink = t + 2.5 + Math.random() * 3.5; } }
       const talk = now < bus.talkUntil ? (0.35 + 0.35 * Math.abs(Math.sin(t * 14))) : 0;
-      drawFace(Math.max(-1, Math.min(1, look.x * 1.3)), Math.max(-1, Math.min(1, -look.y * 1.3)), Math.max(0.05, blink), talk);
+      drawFace(Math.max(-1, Math.min(1, look.x * 1.3)), Math.max(-1, Math.min(1, -look.y * 1.3)), Math.max(0.05, blink), talk, mood === 'think', t);
 
       cover += ((mood === 'shy' ? 1 : 0) - cover) * (1 - Math.pow(0.0008, dt));
       const c = ease(Math.min(1, cover));
@@ -427,7 +468,11 @@
       hands.forEach(({ h }) => { h.visible = false; });
       head.rotation.y += c * 0.35; head.rotation.x -= c * 0.32;   // eyes shut, chin up, politely looking away
       rotors.forEach((r, i) => r.rotation.y += dt * (i ? -38 : 38));
-      ringMat.emissiveIntensity = 0.9 + 0.4 * Math.sin(t * 3);
+      const sinceKey = now - bus.chatKey;
+      if (mood === 'attentive') head.rotation.x += 0.14 * Math.exp(-sinceKey * 7) * Math.sin(sinceKey * 18 + 1.6) + 0.05;
+      if (mood === 'talk') { head.rotation.x += 0.1 + Math.sin(t * 9) * 0.05 * m; head.rotation.z += Math.sin(t * 4.5) * 0.05 * m; }
+      if (mood === 'think') head.rotation.z += 0.16;
+      ringMat.emissiveIntensity = 0.9 + 0.4 * Math.sin(t * 3) + 2.2 * Math.exp(-sinceKey * 5) + (mood === 'think' ? 0.8 * Math.abs(Math.sin(t * 5)) : 0);
       renderer.render(scene, camera);
       requestAnimationFrame(frame);
     }
