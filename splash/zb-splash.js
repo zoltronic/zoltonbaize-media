@@ -1,6 +1,7 @@
 /* zb-splash — first-visit splash for zoltonbaize.com
    Flies over a raymarched cloud sea, condenses the Z mark out of vapor into liquid glass,
-   then zooms through it to reveal the page. Also adds slow foreground clouds that parallax with scroll.
+   then zooms through it to reveal the page. Leaves a cloud sea along the bottom of the screen, like the splash's,
+   baked once from the same cloud engine into two seamless strips that drift slowly behind the content.
    Plays once per browser session; skipped for prefers-reduced-motion. Force a replay with ?splash
    Needs WebGL2. Loads three.js r128 from cdnjs. */
 (function () {
@@ -28,9 +29,13 @@
     '#zb-splash canvas{position:absolute;inset:0;width:100%;height:100%;display:block}',
     '#zb-splash-hint{position:absolute;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:12px ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.88);text-shadow:0 1px 8px rgba(7,40,61,.5);opacity:0;transition:opacity 300ms ease-out;white-space:nowrap;pointer-events:none}',
     '#zb-splash-hint.on{opacity:1}',
-    '#zb-fg{position:fixed;inset:0;z-index:5;pointer-events:none;overflow:hidden}',
-    '#zb-fg img{position:absolute;left:0;top:0;will-change:transform;user-select:none;opacity:.94}',
-    '#zb-fg.night img{filter:brightness(.42) saturate(.7) hue-rotate(8deg)}'
+    '#zb-deck{position:fixed;left:0;right:0;bottom:0;height:clamp(150px,34vh,380px);z-index:0;pointer-events:none;overflow:hidden;opacity:0;transition:opacity 900ms cubic-bezier(.2,.8,.2,1)}',
+    '#zb-deck.on{opacity:1}',
+    '#zb-deck i{position:absolute;left:0;right:0;bottom:0;background-repeat:repeat-x;background-position:0 100%;will-change:background-position}',
+    '#zb-deck .back{height:78%;bottom:16%;opacity:.8;filter:blur(.6px)}',
+    '#zb-deck .front{height:72%;bottom:-6%}',
+    '#zb-deck.night i{filter:brightness(.42) sepia(.55) hue-rotate(170deg) saturate(2.2);opacity:.9}',
+    '#zb-deck.night .back{filter:brightness(.36) sepia(.55) hue-rotate(170deg) saturate(2) blur(.6px);opacity:.7}'
   ].join('');
   document.head.appendChild(css);
   let splash = null, canvas, hint;
@@ -46,9 +51,11 @@
     canvas = document.createElement('canvas');
     hint = document.createElement('div');
   }
-  const fg = document.createElement('div');
-  fg.id = 'zb-fg'; fg.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(fg);
+  const deck = document.createElement('div');
+  deck.id = 'zb-deck'; deck.setAttribute('aria-hidden', 'true');
+  deck.innerHTML = '<i class="back"></i><i class="front"></i>';
+  { const sky = document.querySelector('zb-sky');           // just above the sky, below the page content
+    if (sky && sky.parentNode) sky.parentNode.insertBefore(deck, sky.nextSibling); else document.body.insertBefore(deck, document.body.firstChild); }
 
   function bail() { clearCover(); if (splash) splash.remove(); }
   function loadThree(cb) {
@@ -321,77 +328,70 @@
   const W = zGroup.localToWorld(INC.clone());
   const ZC = zGroup.position.clone();
 
-  // ---------- Foreground puffs: baked once from the same cloud engine ----------
-  const PUFF_FS = /* glsl */`
+  // ---------- Bottom cloud sea: baked once from the same cloud engine ----------
+  // Orthographic across x (so each strip tiles seamlessly), perspective in y: a cloud deck seen from just above.
+  const DECK_FS = /* glsl */`
     precision highp float; precision highp sampler3D;
-    uniform sampler3D uNoise; uniform vec4 uBlobs[8]; uniform vec3 uSeed;
+    uniform sampler3D uNoise; uniform vec3 uSeed; uniform float uTop, uPitch;
     varying vec2 vUv;
     ${COMMON}
-    float smin(float a, float b, float k){ float h = clamp(.5 + .5*(b-a)/k, 0., 1.); return mix(b, a, h) - k*h*(1.-h); }
-    float sdC(vec3 p){ float d = 1e4; for (int i = 0; i < 8; i++){ d = smin(d, length(p - uBlobs[i].xyz) - uBlobs[i].w, 1.); } return d; }
+    const float WID = 24.;
     float density(vec3 p, bool det){
-      float sd = sdC(p);
-      if (sd > 0.9) return 0.;
-      float shape = clamp(0.45 - sd*0.55, 0., 1.) * smoothstep(-1.3, -0.7, p.y);
-      float n = texture(uNoise, p*0.12 + uSeed).r;
-      if (det) n = mix(n, texture(uNoise, p*0.4 + uSeed*2.3).r, 0.3);
-      float er = (1. - n) * 0.62;
-      return clamp((shape - er) / (1. - er + 1e-3), 0., 1.) * 3.;
+      float big = texture(uNoise, vec3(p.x / WID, 0.31, p.z / WID) + uSeed).r;            // slow swells, one per strip
+      float mid = texture(uNoise, vec3(p.x / 8., 0.57, p.z / 8.) + uSeed * 1.7).r;          // billows, 3 per strip
+      float n = texture(uNoise, p / 8. + uSeed).r;
+      float top = uTop + (big - 0.55) * 3.2 + (mid - 0.55) * 2.6 + (n - 0.55) * 1.2;       // rolling, billowing cloud tops
+      float shape = clamp((top - p.y) * 0.7, 0., 1.) * smoothstep(-2.6, -1.4, p.y);
+      if (det) n = mix(n, texture(uNoise, p / 2.6666667 + uSeed * 2.3).r, 0.4);
+      float er = (1. - n) * 0.85;
+      return clamp((shape - er) / (1. - er + 1e-3), 0., 1.) * 2.2;
     }
     void main(){
-      const vec3 SUN = normalize(vec3(-0.45, 0.75, 0.5));
-      vec3 ro = vec3(0., 1.4, 15.);
-      float th = tan(radians(19.));
-      vec3 rd = normalize(vec3((vUv.x*2.-1.)*th*1.5, (vUv.y*2.-1.)*th, -1.));
-      vec3 bmin = vec3(-7.5, -1.6, -3.6), bmax = vec3(7.5, 5.2, 3.6);
-      vec3 inv = 1./rd, t0 = (bmin - ro)*inv, t1 = (bmax - ro)*inv;
-      vec3 mn = min(t0, t1), mx = max(t0, t1);
-      float ta = max(max(mn.x, mn.y), mn.z), tb = min(min(mx.x, mx.y), mx.z);
-      float T = 1.; vec3 L = vec3(0.);
+      const vec3 SUN = normalize(vec3(-0.35, 0.8, 0.45));
+      vec3 ro = vec3((vUv.x - 0.5) * WID, 3.4, 9.);
+      vec3 rd = normalize(vec3(0., (vUv.y * 2. - 1.) * 0.3 - uPitch, -1.));
+      float T = 1.; vec3 L = vec3(0.); float hit = 1e4;
+      // march only through the slab y in [-2.6, 2.8]
+      float ty0 = (3.3 - ro.y) / rd.y, ty1 = (-2.6 - ro.y) / rd.y;
+      float ta = max(0., min(ty0, ty1)), tb = min(60., max(ty0, ty1));
+      if (rd.y > 0.) { ta = 0.; tb = min(60., ty0); }
       if (tb > ta){
-        float dt = (tb - ta)/110., t = ta + dt*hash(gl_FragCoord.xy);
-        float mu = dot(rd, SUN), phase = mix(hg(mu, 0.65), hg(mu, -0.2), 0.45);
-        for (int i = 0; i < 110; i++){
-          vec3 p = ro + rd*t;
+        float dt = (tb - ta) / 120., t = ta + dt * hash(gl_FragCoord.xy);
+        float mu = dot(rd, SUN), phase = mix(hg(mu, 0.6), hg(mu, -0.2), 0.45);
+        for (int i = 0; i < 120; i++){
+          vec3 p = ro + rd * t;
           float d = density(p, true);
           if (d > 0.002){
-            float od = 0., st = 0.25; vec3 q = p;
-            for (int j = 0; j < 5; j++){ q += SUN*st; od += density(q, false)*st; st *= 1.5; }
-            float beer = max(exp(-od*1.6), exp(-od*0.35)*0.3);
-            float powder = 1. - exp(-d*2.2);
-            vec3 sunL = vec3(1., 0.97, 0.92) * beer * phase * mix(1., powder, 0.55) * 14.;
-            vec3 amb = mix(vec3(0.55, 0.68, 0.88), vec3(0.95, 0.98, 1.), clamp((p.y + 1.4)/6., 0., 1.));
-            float Tr = exp(-d*dt*1.25);
-            L += T*(sunL + amb)*(1. - Tr); T *= Tr;
+            hit = min(hit, t);
+            float od = 0., st = 0.22; vec3 q = p;
+            for (int j = 0; j < 5; j++){ q += SUN * st; od += density(q, false) * st; st *= 1.5; }
+            float beer = max(exp(-od * 1.6), exp(-od * 0.35) * 0.3);
+            float powder = 1. - exp(-d * 2.2);
+            vec3 sunL = vec3(1., 0.97, 0.92) * beer * phase * mix(1., powder, 0.7) * 20.;
+            vec3 amb = mix(vec3(0.36, 0.5, 0.74), vec3(0.9, 0.95, 1.), clamp((p.y + 0.6) / 4., 0., 1.)) * 0.6;
+            float Tr = exp(-d * dt * 1.25);
+            L += T * (sunL + amb) * (1. - Tr); T *= Tr;
           }
           t += dt;
           if (T < 0.01) break;
         }
       }
       float a = 1. - T;
+      // distant tops melt into the sky haze; the top of the strip fades out
+      a *= smoothstep(58., 18., hit) * smoothstep(1.0, 0.8, vUv.y);
       vec3 col = pow(aces(L / max(a, 1e-3) * 1.05), vec3(1./2.2));
       gl_FragColor = vec4(col, smoothstep(0.02, 1., a));
     }
   `;
-  function puffBlobs(seed) {
-    const r = rng(seed), j = () => (r() - 0.5) * 0.6;
-    return [
-      [0 + j(), 0.6, 0, 2.0 + r() * 0.3], [-2.4 + j(), 0.1, 0.3, 1.5 + r() * 0.3], [2.5 + j(), 0.15, -0.2, 1.5 + r() * 0.3],
-      [-4.3 + j(), -0.3, 0, 0.9 + r() * 0.3], [4.3 + j(), -0.25, 0.2, 0.9 + r() * 0.3],
-      [-0.9 + r() * 0.6, 1.9 + r() * 0.4, 0.1, 1.3 + r() * 0.3], [1.2 + r() * 0.6, 2.0 + r() * 0.4, -0.2, 1.1 + r() * 0.3],
-      [r() * 1.5 - 0.75, 3.0 + r() * 0.4, 0, 0.85 + r() * 0.25]
-    ].map(b => new THREE.Vector4(...b));
-  }
-  function bakePuffs() {
-    const PW = 720, PH = 480, urls = [];
+  function bakeDeck() {
+    const PW = 1536, PH = 384, urls = [];
     const rt = new THREE.WebGLRenderTarget(PW, PH, { depthBuffer: false });
-    const mat = new THREE.ShaderMaterial({ uniforms: { uNoise: { value: noiseTex }, uBlobs: { value: [] }, uSeed: { value: new THREE.Vector3() } }, vertexShader: QUAD_VS, fragmentShader: PUFF_FS, depthTest: false, depthWrite: false });
+    const mat = new THREE.ShaderMaterial({ uniforms: { uNoise: { value: noiseTex }, uSeed: { value: new THREE.Vector3() }, uTop: { value: 0.4 }, uPitch: { value: 0.18 } }, vertexShader: QUAD_VS, fragmentShader: DECK_FS, depthTest: false, depthWrite: false });
     const sc = new THREE.Scene(); const q = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); q.frustumCulled = false; sc.add(q);
     const buf = new Uint8Array(PW * PH * 4), c2 = document.createElement('canvas'); c2.width = PW; c2.height = PH;
     const ctx = c2.getContext('2d'), img = ctx.createImageData(PW, PH);
-    [101, 202, 303].forEach((seed, k) => {
-      mat.uniforms.uBlobs.value = puffBlobs(seed);
-      mat.uniforms.uSeed.value.set(k * 0.31, k * 0.17, k * 0.53);
+    [[0.11, 0.07, 0.29, 0.9, 0.22], [0.43, 0.19, 0.61, 0.55, 0.12]].forEach(([sx, sy, sz, top, pitch]) => {   // front, back
+      mat.uniforms.uSeed.value.set(sx, sy, sz); mat.uniforms.uTop.value = top; mat.uniforms.uPitch.value = pitch;
       renderer.setRenderTarget(rt); renderer.render(sc, quadCam); renderer.setRenderTarget(null);
       renderer.readRenderTargetPixels(rt, 0, 0, PW, PH, buf);
       for (let y = 0; y < PH; y++) img.data.set(buf.subarray((PH - 1 - y) * PW * 4, (PH - y) * PW * 4), y * PW * 4);
@@ -401,30 +401,20 @@
     rt.dispose(); mat.dispose();
     return urls;
   }
-
-  // ---------- Foreground clouds (parallax with scroll) ----------
-  const PUFFS = [
-    { i: 0, x: -0.18, y: 0.70, s: 1.9, w: 0.55, ph: 0.0 },
-    { i: 1, x: 0.70, y: 1.25, s: 2.3, w: 0.50, ph: 1.7 },
-    { i: 2, x: -0.14, y: 2.10, s: 1.7, w: 0.46, ph: 3.1 },
-    { i: 0, x: 0.66, y: 2.90, s: 2.1, w: 0.58, ph: 4.2 },
-    { i: 1, x: -0.12, y: 3.80, s: 2.5, w: 0.52, ph: 5.3 }
-  ];
-  let puffEls = [];
-  function buildPuffs(urls) {
-    fg.innerHTML = '';
-    puffEls = PUFFS.map(p => { const im = new Image(); im.alt = ''; im.src = urls[p.i]; im.draggable = false; fg.appendChild(im); return im; });
+  let layers = [];
+  function buildDeck(urls) {
+    const [front, back] = [deck.querySelector('.front'), deck.querySelector('.back')];
+    front.style.backgroundImage = 'url(' + urls[0] + ')'; back.style.backgroundImage = 'url(' + urls[1] + ')';
+    layers = [{ el: front, speed: 7 }, { el: back, speed: 3.5 }];   // px per second: the back layer drifts slower (depth)
+    requestAnimationFrame(() => deck.classList.add('on'));
   }
-  function updatePuffs(time) {
-    const vw = innerWidth, vh = innerHeight, sy = scrollY;
-    fg.classList.toggle('night', isDark());
-    PUFFS.forEach((p, k) => {
-      const el = puffEls[k]; if (!el) return;
-      const w = Math.max(300, p.w * vw);
-      const s = reduce ? 1 + (p.s - 1) * 0.3 : p.s;
-      const drift = reduce ? 0 : Math.sin(time * 0.08 + p.ph) * 24;
-      el.style.width = w + 'px';
-      el.style.transform = 'translate3d(' + (p.x * vw + drift) + 'px,' + (p.y * vh - sy * s) + 'px,0)';
+  function updateDeck(time) {
+    deck.classList.toggle('night', isDark());
+    const h = deck.clientHeight;
+    layers.forEach(({ el, speed }) => {
+      const th = el.clientHeight || h, tw = th * (1536 / 384);        // keep the strip's aspect so it tiles
+      el.style.backgroundSize = tw + 'px ' + th + 'px';
+      el.style.backgroundPosition = (reduce ? 0 : -(time * speed) % tw) + 'px 100%';
     });
   }
 
@@ -452,7 +442,7 @@
     skyRT.setSize(Math.ceil(v.x * rs), Math.ceil(v.y * rs));
     camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   }
-  addEventListener('resize', () => { if (playing) resize(); updatePuffs(performance.now() / 1000); });
+  addEventListener('resize', () => { if (playing) resize(); });
 
   // ---------- Timeline (seconds) ----------
   const END = 2.2;
@@ -537,8 +527,8 @@
   }
 
   // ---------- Boot ----------
-  try { buildPuffs(bakePuffs()); } catch (e) {}
-  const loop = now => { updatePuffs(now / 1000); requestAnimationFrame(loop); };
+  try { buildDeck(bakeDeck()); } catch (e) { console.warn('[zb-splash] cloud deck', e); }
+  const loop = now => { updateDeck(now / 1000); requestAnimationFrame(loop); };
   requestAnimationFrame(loop);
   if (!splash) { release(); return; }
   applyTheme(); resize();
