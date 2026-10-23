@@ -33,7 +33,7 @@
     backdrop-filter: blur(9px) saturate(130%); -webkit-backdrop-filter: blur(9px) saturate(130%); }
   .zb-glass.zb-on-sky { background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
   .zb-pw-card { padding: 32px 28px; }
-  .zb-pw-dock { position: fixed; left: 0; top: 0; width: 230px; height: 230px; z-index: 6; cursor: pointer; border-radius: 50%; will-change: transform; -webkit-tap-highlight-color: transparent; }
+  .zb-pw-dock { position: fixed; left: 0; top: 0; width: 320px; height: 320px; z-index: 6; cursor: pointer; border-radius: 50%; will-change: transform; -webkit-tap-highlight-color: transparent; }
   .zb-pw-dock:focus-visible { outline: 2px solid #0A5C86; outline-offset: -20px; }
   .zb-pw-dock canvas { width: 100%; height: 100%; display: block; }
   .zb-pw-bubble { position: absolute; left: 74%; top: 14px; white-space: nowrap; padding: 9px 14px; border-radius: 18px 18px 18px 6px; font: 600 13px system-ui, -apple-system, sans-serif; color: var(--zb-ink);
@@ -68,8 +68,8 @@
   .zb-pw-sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(178deg,#1E7FC4 0%,#7FD0F0 46%,#CFEBF9 74%,#F6E9D2 100%); }
   .zb-pw-sky canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   @media (max-width: 819px) {
-    .zb-pw-card { margin-top: 150px; }
-    .zb-pw-dock { width: 200px; height: 200px; }
+    .zb-pw-card { margin-top: 210px; }
+    .zb-pw-dock { width: 260px; height: 260px; }
     .zb-pw-bubble { left: 66%; top: 0; }
     .zb-chat { left: 12px !important; right: 12px; bottom: 12px; top: auto !important; width: auto; height: min(60vh, 480px) !important; background: rgba(238,247,253,.88); }
   }`;
@@ -133,10 +133,10 @@
   (function follow() {
     let cx = null, cy = null, last = performance.now();
     function anchor() {
-      const s = dock.offsetWidth || 230, r = card.getBoundingClientRect(), mobile = innerWidth < 820;
+      const s = dock.offsetWidth || 320, r = card.getBoundingClientRect(), mobile = innerWidth < 820;
       if (bus.chatOpen && chat) { const p = chat.el.getBoundingClientRect(); return [p.left + p.width / 2 - s / 2, p.top - s * 0.74]; }
       if (mobile) return [r.left + r.width / 2 - s / 2, r.top - s * 0.86];
-      return [r.right - 64, r.top - 104];
+      return [r.right - s * 0.3, r.top - s * 0.5];
     }
     function step(now) {
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -192,7 +192,7 @@
       if (innerWidth < 820) return;
       const r = card.getBoundingClientRect();
       el.style.left = Math.round(r.right + 40) + 'px';
-      const top = Math.max(180, Math.round(r.top + 40));
+      const top = Math.max(250, Math.round(r.top + 60));
       el.style.top = top + 'px';
       el.style.height = Math.max(300, Math.min(460, innerHeight - top - 16)) + 'px';
     }
