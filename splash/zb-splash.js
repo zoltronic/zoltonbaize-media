@@ -555,6 +555,7 @@
   clearCover();
   playing = true; last = performance.now();
   markSeen();   // mark it as soon as it starts, so leaving or tapping the logo mid-splash never replays it
+  if (force) { try { history.replaceState(null, '', location.pathname + location.search.replace(/([?&])splash\b=?[^&]*&?/, '$1').replace(/[?&]$/, '') + location.hash); } catch (e) {} }   // tidy the address after a replay
   requestAnimationFrame(tick);
   });
 })();

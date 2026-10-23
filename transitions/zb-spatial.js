@@ -43,6 +43,14 @@
     remember(to, k);
     if (e.viewTransition) e.viewTransition.types.add(k);
   });
+  // Your name in the header replays the intro: from any page it goes to Work with the splash (Work's ?splash forces it).
+  // The Z logo next to it stays a plain link to Work.
+  addEventListener('click', function (e) {
+    var name = e.target.closest && e.target.closest('.nav_brand');
+    if (!name || e.target.closest('svg, .nav_mark') || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+    e.preventDefault(); e.stopPropagation();
+    location.href = '/?splash';
+  }, true);
   // Fallback for browsers that skip pageswap: remember the clicked link's move.
   addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('a[href]');
