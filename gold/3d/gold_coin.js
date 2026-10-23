@@ -211,6 +211,28 @@ function setup(el) {
   }
   if (fixed) addEventListener('resize', () => resize());
   let running = false, visible = true, ready = false;
+  // Phones: the page scrolls on the browser's own fast track, and a viewport-fixed canvas re-aimed at the tile every frame lands
+  // a frame or two behind the finger (choppy, laggy coin). So while you scroll, the coin freezes: the canvas drops into the page
+  // where it is and scrolls natively like a still image, then re-pins and carries on turning once scrolling stops.
+  let frozen = false, thawTimer = 0;
+  const FIXED_CSS = 'position:fixed;left:0;top:0;width:100vw;height:100vh;display:block;pointer-events:none;z-index:-1';
+  function freeze() {
+    if (frozen || !fixed || !coarse || fling.id != null) return;
+    frozen = true;
+    canvas.style.position = 'absolute';
+    const par = canvas.offsetParent || document.body, pr = par.getBoundingClientRect();
+    canvas.style.left = (-pr.left - par.clientLeft) + 'px'; canvas.style.top = (-pr.top - par.clientTop) + 'px';
+  }
+  function thaw() {
+    if (!frozen) return; frozen = false;
+    canvas.style.cssText = FIXED_CSS; lastNow = 0;          // lastNow reset: the turn resumes where it stopped instead of jumping ahead
+    draw(performance.now());                                 // re-aim in the same frame it re-pins
+  }
+  if (fixed && coarse) {
+    const hold = () => { freeze(); clearTimeout(thawTimer); thawTimer = setTimeout(thaw, 160); };
+    addEventListener('scroll', hold, { passive: true });
+    addEventListener('touchmove', () => { if (fling.id == null && frozen) hold(); }, { passive: true });
+  }
   const t0 = performance.now();
   // the turn is integrated rather than read off the clock, so a swipe can add speed and the extra can decay smoothly
   let phase = 0, extra = 0, lastNow = 0;
@@ -277,7 +299,7 @@ function setup(el) {
     if (stars.some(x => x.visible)) { renderer.autoClear = false; renderer.render(fx, camera); renderer.autoClear = true; }
   }
   // reduced motion: no idle turn, but a swipe still spins it and the loop stops once the spin has settled
-  function frame(now) { if (!visible || (reduce && fling.id == null && !extra)) { running = false; draw(now); return; } draw(now); requestAnimationFrame(frame); }
+  function frame(now) { if (!visible || (reduce && fling.id == null && !extra)) { running = false; draw(now); return; } if (!frozen) draw(now); else lastNow = 0; requestAnimationFrame(frame); }
   function start() { if (running || !ready) return; if (CFG.angle != null || (reduce && fling.id == null && !extra)) { draw(performance.now()); return; } running = true; requestAnimationFrame(frame); }
 
   assets(renderer).then(([gltf, env]) => {

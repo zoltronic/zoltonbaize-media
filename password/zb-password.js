@@ -23,6 +23,14 @@
   const DEMO = !ENDPOINT && !!window.ZB_CHAT_DEMO;
   const CHAT = !!(ENDPOINT || DEMO);
   const hasSky = !!(window.customElements && customElements.get('zb-sky'));
+  // Touch devices: the sky draws its glass in WebGL a beat behind native scrolling, so the card's glass would trail its text.
+  // There the card and chat use CSS glass instead, which is part of the element and scrolls with it.
+  const touch = matchMedia('(pointer: coarse)').matches;
+  const skyGlass = hasSky && !touch;
+  // Nav icons: the password page doesn't load the icon font the other pages use; load it if it's missing.
+  if (!document.querySelector('link[href*="phosphor"], script[src*="phosphor"]')) {
+    ['regular', 'fill'].forEach(w => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://unpkg.com/@phosphor-icons/web@2.1.1/src/' + w + '/style.css'; document.head.appendChild(l); });
+  }
 
   // ---------- Which page is protected ----------
   // Webflow serves this page at the protected URL and puts that path in a hidden "path" field.
@@ -122,6 +130,13 @@
     .zb-pw-page.zb-has-thumb .zb-chat { bottom: 92px !important; height: min(52vh, 420px) !important; }
     .zb-pw-page.zb-has-thumb .zb-chat.zb-peek { bottom: 12px !important; height: auto !important; z-index: 22; }   /* short help card sits over the thumb nav so the password field stays clear */
   }
+  /* Keyboard open on a phone: the card slides up so the field and Submit sit just above the keyboard; nav, toggle and bubble step aside */
+  .zb-pw-card { transition: transform 260ms var(--zb-ease); }
+  .zb-kb .nav_thumb, .zb-kb .theme_toggle, .zb-kb .zb-pw-bubble, .zb-kb .page_footer { opacity: 0 !important; pointer-events: none !important; transition: opacity 160ms; }
+  .zb-kb .zb-pw-help, .zb-kb .zb-pw-eyebrow, .zb-kb .pw_help, .zb-kb .pw_eyebrow { display: none !important; }   /* compact card so Zoltbot fits above it */
+  .zb-kb .zb-pw-card { padding-top: 22px; padding-bottom: 22px; }
+  .zb-kb .zb-pw-dock { width: 190px !important; height: 190px !important; }   /* smaller Zoltbot so he fits above the keyboard too */
+  .zb-kb .zb-pw-card .zb-pw-title { font-size: 30px; margin-bottom: 14px; }
   .zb-pw-sky canvas { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 420ms; }
   .zb-pw-sky { transition: background 420ms; }
   /* Night (dark mode): deep sky, smoky glass, light ink */
@@ -135,6 +150,7 @@
   .zb-night .zb-msg.me, .zb-night .zb-chat-form button { background: #EAF6FD; color: #07283D; }
   @media (max-width: 819px) {
     .zb-pw-card { margin-top: 176px; }
+    .zb-pw-page .utility-page-wrap { box-sizing: border-box; height: auto; min-height: 100vh; min-height: 100svh; max-height: none; padding-bottom: 104px; }   /* keep the card clear of the bottom thumb nav */
     .zb-pw-help { margin-bottom: 18px; }
     .zb-pw-dock { width: 260px; height: 260px; }
     .zb-pw-bubble { left: 60%; top: -6px; width: 128px; white-space: normal; line-height: 1.3; }
@@ -170,8 +186,7 @@
   if (hasSky) {
     const sky = document.createElement('zb-sky'); sky.setAttribute('fixed', ''); ownSky = sky;
     document.body.insertBefore(sky, document.body.firstChild);
-    card.classList.add('zb-on-sky');
-    card.setAttribute('data-zb-glass', ''); card.setAttribute('data-zb-radius', '38');
+    if (skyGlass) { card.classList.add('zb-on-sky'); card.setAttribute('data-zb-glass', ''); card.setAttribute('data-zb-radius', '38'); }
   } else {
     paintSky();
   }
@@ -225,7 +240,7 @@
     function anchor() {
       const s = dock.offsetWidth || 320, r = card.getBoundingClientRect(), mobile = innerWidth < 820;
       if (bus.chatOpen && chat && !chat.el.classList.contains('zb-peek')) { const p = chat.el.getBoundingClientRect(); return [p.left + p.width / 2 - s / 2, p.top - s * 0.74]; }
-      if (mobile) return [r.left + r.width / 2 - s / 2, r.top - s * 0.7];
+      if (mobile) return [r.left + r.width / 2 - s / 2, r.top - s * (document.documentElement.classList.contains('zb-kb') ? 0.84 : 0.7)];   // keyboard up: hover just above the compact card
       return [r.right - s * 0.56, r.top - s * 0.44];   // tucked in over the card's top-right corner, clear of the nav
     }
     // Spring-damper flight: he accelerates toward his spot, overshoots a touch and settles.
@@ -323,6 +338,36 @@
   if (input) input.addEventListener('input', () => input.classList.remove('zb-wrong'));
   if (failed) setTimeout(wrongPassword, 500);
 
+  // ---------- Phone keyboard ----------
+  // iOS keeps the layout viewport the same size when the keyboard opens and only shrinks the visual viewport,
+  // so fixed things and centred content end up behind the keyboard. While the password field has focus,
+  // slide the card so its bottom sits just above the keyboard (Zoltbot follows the card above it).
+  (function keyboard() {
+    const vv = window.visualViewport;
+    if (!vv || !input) return;
+    let shift = 0, raf = 0;
+    function layout() {
+      raf = 0;
+      const open = document.activeElement === input && (innerHeight - vv.height) > 120;
+      document.documentElement.classList.toggle('zb-kb', open);
+      let want = 0;
+      if (open) {
+        // measure without our own shift (read the live, possibly mid-transition, translate from the computed style)
+        const tf = getComputedStyle(card).transform, cur = tf && tf !== 'none' ? new DOMMatrixReadOnly(tf).m42 : 0;
+        const r = card.getBoundingClientRect(), baseTop = r.top - cur, baseBottom = r.bottom - cur;
+        const visTop = vv.offsetTop, visBottom = vv.offsetTop + vv.height;
+        // card bottom just above the keyboard; the field and Submit live at the bottom of the card, so they always show
+        want = (visBottom - 12) - baseBottom;
+        if (baseTop + want > visTop + 200) want = (visTop + 200) - baseTop;   // short card on a tall screen: don't drop it lower than needed
+      }
+      if (Math.abs(want - shift) > 0.5) { shift = want; card.style.transform = shift ? 'translate3d(0,' + shift.toFixed(1) + 'px,0)' : ''; }
+    }
+    const kick = () => { if (!raf) raf = requestAnimationFrame(layout); };
+    vv.addEventListener('resize', kick); vv.addEventListener('scroll', kick); addEventListener('scroll', kick, { passive: true });
+    input.addEventListener('focus', () => { kick(); setTimeout(kick, 300); setTimeout(kick, 650); });
+    input.addEventListener('blur', () => setTimeout(kick, 50));
+  })();
+
   // ---------- Chat UI ----------
   let chat = null;
   if (CHAT) chat = buildChat();
@@ -332,7 +377,7 @@
     el.innerHTML = '<div class="zb-chat-head"><div><strong>Zoltbot</strong><span>Zolton’s sidekick robot</span></div><button class="zb-chat-x" type="button" aria-label="Close chat">×</button></div>' +
       '<div class="zb-chat-log" aria-live="polite"></div><div class="zb-chips"></div>' +
       '<form class="zb-chat-form"><label for="zb-chat-in" style="position:absolute;left:-9999px">Message Zoltbot</label><input id="zb-chat-in" type="text" autocomplete="off" placeholder="Ask Zoltbot…" maxlength="500"><button type="submit">Send</button></form>';
-    if (hasSky) { el.classList.add('zb-on-sky'); el.setAttribute('data-zb-glass', ''); el.setAttribute('data-zb-radius', '28'); }
+    if (skyGlass) { el.classList.add('zb-on-sky'); el.setAttribute('data-zb-glass', ''); el.setAttribute('data-zb-radius', '28'); }
     document.body.appendChild(el);
     const log = el.querySelector('.zb-chat-log'), chips = el.querySelector('.zb-chips'), f = el.querySelector('form'), inp = el.querySelector('input');
     const history = [];
