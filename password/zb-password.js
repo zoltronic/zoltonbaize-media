@@ -71,7 +71,10 @@
   @media (max-width: 819px) {
     .zb-pw-card { margin-top: 210px; }
     .zb-pw-dock { width: 260px; height: 260px; }
-    .zb-pw-bubble { left: 66%; top: 0; }
+    .zb-pw-bubble { left: 60%; top: -6px; width: 128px; white-space: normal; line-height: 1.3; }
+    .zb-chat.zb-peek { height: auto !important; }
+    .zb-chat.zb-peek .zb-chat-form, .zb-chat.zb-peek .zb-chat-head span { display: none; }
+    .zb-chat.zb-peek .zb-chat-log { flex: none; }
     .zb-chat { left: 12px !important; right: 12px; bottom: 12px; top: auto !important; width: auto; height: min(60vh, 480px) !important; background: rgba(238,247,253,.88); }
   }`;
   document.head.appendChild(css);
@@ -135,7 +138,7 @@
     let cx = null, cy = null, last = performance.now();
     function anchor() {
       const s = dock.offsetWidth || 320, r = card.getBoundingClientRect(), mobile = innerWidth < 820;
-      if (bus.chatOpen && chat) { const p = chat.el.getBoundingClientRect(); return [p.left + p.width / 2 - s / 2, p.top - s * 0.74]; }
+      if (bus.chatOpen && chat && !chat.el.classList.contains('zb-peek')) { const p = chat.el.getBoundingClientRect(); return [p.left + p.width / 2 - s / 2, p.top - s * 0.74]; }
       if (mobile) return [r.left + r.width / 2 - s / 2, r.top - s * 0.86];
       return [r.right - s * 0.3, r.top - s * 0.5];
     }
@@ -152,7 +155,7 @@
   let bubble = null;
   if (CHAT) {
     bubble = document.createElement('div'); bubble.className = 'zb-pw-bubble zb-glass';
-    bubble.textContent = 'Need the password? Ask me.';
+    bubble.textContent = 'Need access? Have a question?';
     dock.appendChild(bubble);
     setTimeout(() => bubble.classList.add('on'), 1400);
   }
@@ -163,6 +166,8 @@
   function wrongPassword() {
     if (input) { input.classList.add('zb-wrong'); input.classList.remove('zb-shake'); void input.offsetWidth; input.classList.add('zb-shake'); }
     bus.mood = 'sad'; bus.moodUntil = performance.now() / 1000 + 2.6; bus.shakeReq = true;
+    // After the head shake, Zoltbot pops the chat open to offer help (once per visit; focus stays on the password field).
+    if (chat && !bus.chatOpen && !bus.offeredHelp) { bus.offeredHelp = true; setTimeout(() => { if (!bus.chatOpen && !bus.unlocked) chat.open('wrong'); }, 1300); }
   }
   window.zbPasswordWrong = wrongPassword;
   // Correct password: check it in the background (same request Webflow makes), celebrate, then push forward into the page.
@@ -236,19 +241,28 @@
       el.style.top = top + 'px';
       el.style.height = Math.max(300, Math.min(460, innerHeight - top - 16)) + 'px';
     }
-    function open() {
+    function open(reason) {
       bus.chatOpen = true; place(); el.classList.add('open'); el.setAttribute('aria-hidden', 'false');
       if (bubble) bubble.classList.remove('on');
-      if (!greeted) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. This part of the site is password-protected. I can tell you about Zolton’s work, or help you ask him for access.', 'bot'); setChips(['Request access', 'What’s behind the password?', 'Who is Zolton?']); }, 250); }
+      if (reason === 'wrong') {
+        if (innerWidth < 820) el.classList.add('zb-peek');   // phone: a short card that leaves the password field visible
+        greeted = true; bus.mood = 'curious'; bus.moodUntil = performance.now() / 1000 + 2;
+        setTimeout(() => { say(history.length ? 'Still no luck with the password? I can help.' : 'Hmm, that password didn’t work. Need access? Have a question? I’m Zoltbot, Zolton’s sidekick robot, and I can help.', 'bot'); setChips(['Request access', 'I have a question', 'I’ll try again']); }, 250);
+        return;   // leave focus on the password field so they can retry
+      }
+      if (!greeted) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. This part of the site is password-protected. Need access? Have a question? I can tell you about Zolton’s work, or help you ask him for access.', 'bot'); setChips(['Request access', 'What’s behind the password?', 'Who is Zolton?']); }, 250); }
       setTimeout(() => inp.focus(), 320);
     }
-    function close() { bus.chatOpen = false; el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); dock.focus(); }
+    function close() { bus.chatOpen = false; el.classList.remove('open', 'zb-peek'); el.setAttribute('aria-hidden', 'true'); dock.focus(); }
     el.querySelector('.zb-chat-x').onclick = close;
     el.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
     addEventListener('resize', () => { if (bus.chatOpen) place(); });
     f.addEventListener('submit', e => { e.preventDefault(); const t = inp.value.trim(); if (t) { inp.value = ''; send(t); } });
 
+    inp.addEventListener('focus', () => el.classList.remove('zb-peek'));
     async function send(text) {
+      if (/^I’ll try again$/.test(text) && el.classList.contains('zb-peek')) { close(); if (input) input.focus(); return; }
+      el.classList.remove('zb-peek');
       say(text, 'me'); history.push({ role: 'user', content: text }); setChips([]);
       setTimeout(showTyping, 200);
       if (ENDPOINT) {
@@ -275,6 +289,8 @@
         say('Here’s what I’ll send Zolton:\n• ' + answers[0] + ', ' + answers[2] + ' at ' + answers[1] + '\n• About: ' + answers[3] + '\n• Email: ' + answers[4] + (answers[5] && !/^skip$/i.test(answers[5]) ? '\n• Wants to see: ' + answers[5] : '') + '\n\nSend it?', 'bot');
         setChips(['Yes, send it', 'Start over']); return;
       }
+      if (/^i’ll try again$/.test(t)) { say('Go for it. I’ll be right here if you need me.', 'bot'); setChips(['Request access']); if (input) input.focus(); return; }
+      if (/^i have a question$/.test(t)) { say('Ask away! I can tell you about Zolton, his work, or how to get access.', 'bot'); setChips(['What’s behind the password?', 'Who is Zolton?', 'Request access']); inp.focus(); return; }
       if (/^yes, send it$/.test(t)) { bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.4; say('Done! I’ve sent that to Zolton. He’ll reply to the email you gave me.', 'bot'); say('Preview only: nothing was actually sent.', 'note'); setChips(['Who is Zolton?']); return; }
       if (/start over|request|access|password|let me in|get in/.test(t)) {
         if (/password/.test(t) && !/request|access/.test(t)) say('I don’t have the password, and that’s on purpose. But I can send Zolton a request right now.', 'bot');
