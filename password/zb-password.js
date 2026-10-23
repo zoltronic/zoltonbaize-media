@@ -81,7 +81,8 @@
   :root.zb-night, .zb-night body { --_zb-mode---mode--ink: #EAF6FD; --_zb-mode---mode--muted: #B3D3E5; --_zb-mode---mode--accent: #5FDBFF; --_zb-mode---mode--live: #00E0B8; --_zb-mode---mode--glass-bg: rgba(10,28,48,.58); --_zb-mode---mode--glass-border: rgba(160,220,250,.22); --_zb-mode---mode--hair: rgba(160,220,250,.16); --_zb-mode---mode--btn-primary-bg: #00E0B8; --_zb-mode---mode--btn-primary-ink: #03231D; --_zb-mode---mode--btn-secondary-bg: rgba(160,205,240,.13); --_zb-mode---mode--ghost-wash: rgba(0,224,184,.14); --_zb-mode---mode--danger-bg: #FF8474; --_zb-mode---mode--danger-ink: #2B0904; --_zb-mode---mode--liquid-bg: rgba(10,28,48,.42); --_zb-mode---mode--mark: #EAF6FD; --_zb-mode---mode--field-bg: rgba(3,15,26,.5); --_zb-mode---mode--btn-secondary-border: rgba(180,220,248,.26); }
   .zb-pw-dock { position: fixed; left: 0; top: 0; width: 320px; height: 320px; z-index: 6; cursor: pointer; border-radius: 50%; will-change: transform; -webkit-tap-highlight-color: transparent; }
   .zb-pw-dock:focus-visible { outline: 2px solid #0A5C86; outline-offset: -20px; }
-  .zb-pw-dock canvas { width: 100%; height: 100%; display: block; }
+  /* The 3D canvas overhangs the dock on every side so banking rotors, the flame and the exhaust are never cropped */
+  .zb-pw-dock canvas { position: absolute; left: -35%; top: -30%; width: 170%; height: 170%; display: block; pointer-events: none; }
   .zb-pw-bubble { position: absolute; left: 76%; top: 26%; white-space: nowrap; padding: 9px 14px; border-radius: 18px 18px 18px 6px; font: 600 13px system-ui, -apple-system, sans-serif; color: var(--zb-ink);
     opacity: 0; transform: translateY(6px) scale(.96); transform-origin: 0 100%; transition: opacity 300ms var(--zb-ease), transform 300ms var(--zb-ease); pointer-events: none; }
   .zb-pw-bubble.on { opacity: 1; transform: none; }
@@ -442,7 +443,8 @@
     dock.insertBefore(renderer.domElement, dock.firstChild);
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
-    camera.position.set(0, 0.1, 2.15); camera.lookAt(0, 0.04, 0);
+    const OVER = 1.7;   // canvas is 1.7x the dock; pull the camera back the same amount so Zoltbot stays the same size
+    camera.position.set(0, 0.04 + 0.06 * OVER, 2.15 * OVER); camera.lookAt(0, 0.04, 0);
     {
       const envScene = new THREE.Scene();
       envScene.add(new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), new THREE.ShaderMaterial({ side: THREE.BackSide,
@@ -727,7 +729,7 @@
     }
     dock.addEventListener('pointerenter', () => { if (!bus.chatOpen) { bus.mood = 'curious'; bus.moodUntil = performance.now() / 1000 + 0.9; } });
 
-    function resize() { const s = dock.clientWidth || 230; renderer.setSize(s, s, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
+    function resize() { const s = Math.round((dock.clientWidth || 230) * OVER); renderer.setSize(s, s, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
     resize(); addEventListener('resize', resize); new ResizeObserver(resize).observe(dock);
 
     // Exhaust: sparks spawn at the nozzle in world space, fall with gravity and drag, and are left behind as he flies
@@ -736,7 +738,7 @@
     const sparkTex = new THREE.CanvasTexture((() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return c; })());
     const sparks = new THREE.Points(pGeo, new THREE.PointsMaterial({ size: 0.05, map: sparkTex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
     sparks.frustumCulled = false; scene.add(sparks);
-    const UPX = 2 * 2.15 * Math.tan(15 * Math.PI / 180);   // scene units across the dock canvas
+    const UPX = 2 * 2.15 * Math.tan(15 * Math.PI / 180);   // scene units across one dock width (the canvas is OVER x that)
     let spawnAcc = 0, thrust = 1, bank = 0, pitch = 0; const nozzle = new THREE.Vector3(), down = new THREE.Vector3();
     function physics(dt, t, hopping) {
       const b = bus, upp = UPX / (dock.clientWidth || 320);
