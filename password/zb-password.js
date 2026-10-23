@@ -600,7 +600,8 @@
       const flameOuter = new THREE.Mesh(plume([[0.0001, 0.0], [0.042, -0.004], [0.048, -0.035], [0.038, -0.11], [0.022, -0.2], [0.0001, -0.3]]), mkFlame(false));
       const flameCore = new THREE.Mesh(plume([[0.0001, 0.0], [0.028, -0.004], [0.028, -0.03], [0.018, -0.09], [0.0001, -0.16]]), mkFlame(true));
       const flame = new THREE.Group(); flame.position.set(0, bottom.y - 0.03, 0); flame.add(flameOuter, flameCore); head.add(flame);
-      flameParts = { flame, mats: [flameOuter.material, flameCore.material], nozzleY: bottom.y - 0.035 };
+      const FLAME_SIZE = 0.9;   // overall flame scale
+      flameParts = { flame, size: FLAME_SIZE, mats: [flameOuter.material, flameCore.material], nozzleY: bottom.y - 0.035 };
     }
     const hands = [];
     bodyMats = [shellMat, plainMat, bezelMat, capMat].map(mt => [mt, mt.color.clone()]);
@@ -749,7 +750,7 @@
       if (flameParts) {
         const fl = 0.75 + 0.45 * thrust + 0.06 * Math.sin(t * 47) + 0.04 * Math.sin(t * 83);
         flameParts.mats.forEach(mt => { mt.uniforms.uT.value = t; mt.uniforms.uLen.value = fl; });
-        flameParts.flame.scale.set(0.9 + 0.12 * thrust, 1, 0.9 + 0.12 * thrust);
+        flameParts.flame.scale.set((0.9 + 0.12 * thrust) * flameParts.size, flameParts.size, (0.9 + 0.12 * thrust) * flameParts.size);
         if (thrustLight) thrustLight.intensity = (0.4 + 0.35 * thrust) * (1 + 0.6 * nightF);
       }
       // the page moved under him this frame: shift live sparks the other way so they stay put on the page
