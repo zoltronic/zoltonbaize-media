@@ -10,7 +10,10 @@
   const html = document.documentElement;
   const SEEN_KEY = 'zbSplashSeen';
   const force = /[?&]splash\b/.test(location.search);
-  let seen = false; try { seen = sessionStorage.getItem(SEEN_KEY) === '1'; } catch (e) {}
+  // "Already seen this visit": session storage, plus a session cookie in case storage is blocked (some in-app browsers, strict privacy modes)
+  let seen = /(?:^|;\s*)zbSplashSeen=1/.test(document.cookie);
+  try { seen = seen || sessionStorage.getItem(SEEN_KEY) === '1'; } catch (e) {}
+  const markSeen = () => { try { sessionStorage.setItem(SEEN_KEY, '1'); } catch (e) {} document.cookie = 'zbSplashSeen=1; path=/; SameSite=Lax'; };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const wantSplash = force || (!seen && !reduce);
   const clearCover = () => html.classList.remove('zb-splash-pending');
@@ -513,7 +516,7 @@
   }
   function finish() {
     playing = false; skipping = false;
-    try { sessionStorage.setItem(SEEN_KEY, '1'); } catch (e) {}
+    markSeen();
     if (splash) splash.remove();
     clearCover();
     removeEventListener('keydown', onKey);
@@ -551,6 +554,7 @@
   splash.classList.add('live');
   clearCover();
   playing = true; last = performance.now();
+  markSeen();   // mark it as soon as it starts, so leaving or tapping the logo mid-splash never replays it
   requestAnimationFrame(tick);
   });
 })();
