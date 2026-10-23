@@ -114,6 +114,7 @@
   @media (prefers-reduced-motion: reduce) { .zb-shake { animation: none; } }
   .zb-pw-sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(178deg,#1E7FC4 0%,#7FD0F0 46%,#CFEBF9 74%,#F6E9D2 100%); }
   /* Site nav and footer on the password page: nav stays fixed at the top (thumb bar at the bottom on phones), footer pins to the bottom */
+  @media (min-width: 768px) { .zb-pw-page .utility-page-wrap { box-sizing: border-box; height: auto; min-height: 100vh; max-height: none; padding-top: 108px; padding-bottom: 64px; } }   /* card never slides under the nav or footer */
   .zb-pw-page .page_footer { position: fixed; left: clamp(20px,4vw,48px); right: clamp(20px,4vw,48px); bottom: 18px; margin: 0; padding-top: 14px; z-index: 2; }
   @media (max-width: 767px) {
     .zb-pw-page .page_footer { bottom: 96px; justify-content: center; text-align: center; }
@@ -326,13 +327,19 @@
     const hideTyping = () => { if (typingEl) { typingEl.remove(); typingEl = null; } bus.thinking = false; };
     const say = (text, who) => { if (who === 'bot') hideTyping(); const m = document.createElement('div'); m.className = 'zb-msg ' + who; m.textContent = text; log.appendChild(m); log.scrollTop = log.scrollHeight; if (who === 'bot') { history.push({ role: 'assistant', content: text }); bus.talkUntil = performance.now() / 1000 + Math.min(2.4, 0.4 + text.length * 0.03); } };
     const setChips = (list) => { chips.innerHTML = ''; list.forEach(t => { const b = document.createElement('button'); b.type = 'button'; b.className = 'zb-chip'; b.textContent = t; b.onclick = () => send(t); chips.appendChild(b); }); };
+    // Keep the whole panel (and its Send button) inside the viewport: right of the card if it fits, else left of it,
+    // else pinned to the right edge; shrink before it ever runs off the bottom, leaving room for the footer.
     function place() {
       if (innerWidth < 820) return;
-      const r = card.getBoundingClientRect();
-      el.style.left = Math.round(r.right + 40) + 'px';
-      const top = Math.max(250, Math.round(r.top + 60));
-      el.style.top = top + 'px';
-      el.style.height = Math.max(300, Math.min(460, innerHeight - top - 16)) + 'px';
+      const r = card.getBoundingClientRect(), W = el.offsetWidth || 340, M = 16, FOOT = 56;
+      let left = r.right + 40;
+      if (left + W > innerWidth - M) left = (r.left - 40 - W >= M) ? r.left - 40 - W : innerWidth - M - W;
+      let top = Math.max(250, Math.round(r.top + 60));
+      let h = Math.min(460, innerHeight - top - FOOT);
+      if (h < 280) { h = Math.max(240, Math.min(460, innerHeight - 200 - FOOT)); top = Math.max(110, innerHeight - FOOT - h); }
+      el.style.left = Math.round(Math.max(M, left)) + 'px';
+      el.style.top = Math.round(top) + 'px';
+      el.style.height = Math.round(Math.min(h, innerHeight - top - M)) + 'px';
     }
     function open(reason) {
       bus.chatOpen = true; place(); el.classList.add('open'); el.setAttribute('aria-hidden', 'false');
