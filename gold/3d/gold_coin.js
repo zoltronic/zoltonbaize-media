@@ -42,6 +42,10 @@ const CFG = Object.assign({
   flingEase: 1.4,      // seconds for the extra spin to fall to ~37% (it always settles back to the normal turn)
   dragDegreesPerPx: 0.6,
   light: { halo: 0, bloomStrength: 0.26 },                  // light pages: glow stays on the coin, no haze around it
+  // phones and tablets: a lighter render. The coin draws on its own tile (it scrolls with the page natively, so it can't lag
+  // behind the finger and there is no full-screen layer to leave a line at the bottom), with an overhang so the glow isn't cut,
+  // fewer pixels, cheaper anti-aliasing, a half-size bloom and 30 fps (the turn is slow, so it looks the same)
+  mobile: { fixedLayer: false, overhang: 0.35, pixelRatio: 1.25, samples: 2, bloomScale: 0.5, fps: 30 },
   angle: null, capture: false,
 }, Object.fromEntries(Object.entries(window.GOLD_COIN_CONFIG || {}).filter(([, v]) => v !== undefined)));
 const D2R = Math.PI / 180;
@@ -119,13 +123,18 @@ function assets(renderer) {
 function setup(el) {
   // fixed layer: the canvas covers the viewport (z-index -1 inside .page_root: above the sky / page background, under the copy)
   // and a camera view offset keeps the coin framed on its tile, so nothing it draws is cut at the tile's edge
-  const fixed = !!CFG.fixedLayer;
-  const canvas = document.createElement('canvas');
-  canvas.style.cssText = fixed ? 'position:fixed;left:0;top:0;width:100vw;height:100vh;display:block;pointer-events:none;z-index:-1' : 'display:block;width:100%;height:100%';
-  el.appendChild(canvas);
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: !!CFG.capture });
   const coarse = matchMedia('(pointer:coarse)').matches;
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, coarse || fixed ? 1.5 : 2)); renderer.setClearColor(0, 0);
+  const M = coarse && CFG.mobile ? CFG.mobile : null;            // the phone profile, or null on desktop
+  const fixed = M ? !!M.fixedLayer : !!CFG.fixedLayer;
+  const over = M && !fixed ? (M.overhang || 0) : 0;            // tile mode on phones: the canvas reaches past the tile by this much
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = fixed ? 'position:fixed;left:0;top:0;width:100vw;height:100vh;display:block;pointer-events:none;z-index:-1'
+    : over ? `position:absolute;left:${-over * 100}%;top:${-over * 100}%;width:${100 + over * 200}%;height:${100 + over * 200}%;display:block;pointer-events:none;z-index:-1`
+    : 'display:block;width:100%;height:100%';
+  if (over && getComputedStyle(el).position === 'static') el.style.position = 'relative';
+  el.appendChild(canvas);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !M, alpha: true, powerPreference: M ? 'default' : 'high-performance', preserveDrawingBuffer: !!CFG.capture });
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, M ? (M.pixelRatio || 1.25) : fixed ? 1.5 : 2)); renderer.setClearColor(0, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping; renderer.toneMappingExposure = CFG.exposure;
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(24, 1, 0.1, 100);
@@ -183,8 +192,9 @@ function setup(el) {
 
   // bloom chain, as on the letters
   const pr = renderer.getPixelRatio();
-  const baseRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
-  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
+  const SAMPLES = M ? (M.samples ?? 2) : 4, BLOOM = M ? (M.bloomScale || 0.5) : 1;
+  const baseRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: SAMPLES });
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: SAMPLES }));
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), CFG.bloomStrength, CFG.bloomRadius, CFG.bloomThreshold); composer.addPass(bloom);
   const out = new ShaderPass({ uniforms: { tDiffuse: { value: null }, tBase: { value: null }, halo: { value: CFG.halo } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }', fragmentShader: OUT_FRAG });
@@ -195,9 +205,9 @@ function setup(el) {
 
   function resize() {
     const w = el.clientWidth || 300, h = el.clientHeight || 300;
-    const cw = fixed ? (document.documentElement.clientWidth || innerWidth) : w, ch = fixed ? innerHeight : h;
+    const cw = fixed ? (document.documentElement.clientWidth || innerWidth) : Math.round(w * (1 + over * 2)), ch = fixed ? innerHeight : Math.round(h * (1 + over * 2));
     renderer.setSize(cw, ch, false); camera.aspect = w / h; place();
-    composer.setPixelRatio(pr); composer.setSize(cw, ch); baseRT.setSize(cw * pr, ch * pr); bloom.setSize(cw, ch);
+    composer.setPixelRatio(pr); composer.setSize(cw, ch); baseRT.setSize(cw * pr, ch * pr); bloom.setSize(Math.round(cw * BLOOM), Math.round(ch * BLOOM));
     // the coin's radius is 1: fit its diameter to `fill` of the shorter side
     // (the float needs a little headroom, so the fit counts the bob travel too)
     const t = Math.tan(camera.fov * D2R / 2), r = 1 + (still ? 0 : CFG.floatAmount); camera.position.set(0, 0, Math.max(r / (CFG.fill * t), r / (CFG.fill * t * camera.aspect)));
@@ -205,6 +215,10 @@ function setup(el) {
   }
   // the camera's "full view" is the tile; the viewport is drawn as an offset window around it (re-read every frame: the tile scrolls)
   function place() {
+    if (!fixed && over) {   // tile mode with overhang: the tile is the camera's full view, centred in the bigger canvas (set once, not per frame)
+      const w = el.clientWidth || 300, h = el.clientHeight || 300;
+      camera.setViewOffset(w, h, -w * over, -h * over, w * (1 + over * 2), h * (1 + over * 2)); return;
+    }
     if (!fixed) { camera.clearViewOffset(); camera.updateProjectionMatrix(); return; }
     const r = el.getBoundingClientRect();
     camera.setViewOffset(el.clientWidth || 300, el.clientHeight || 300, -r.left, -r.top, document.documentElement.clientWidth || innerWidth, innerHeight);
@@ -250,7 +264,7 @@ function setup(el) {
   }
   // swipe to spin: the coin follows the finger while held, then keeps the release speed and eases back
   // the fixed layer takes no input, so the swipe is read from the tile's stage
-  const touchEl = fixed ? el : canvas;
+  const touchEl = fixed || over ? el : canvas;
   touchEl.style.touchAction = 'pan-y'; touchEl.style.cursor = 'grab';
   touchEl.addEventListener('pointerdown', e => {
     if (!ready || CFG.angle != null) return;
@@ -299,7 +313,13 @@ function setup(el) {
     if (stars.some(x => x.visible)) { renderer.autoClear = false; renderer.render(fx, camera); renderer.autoClear = true; }
   }
   // reduced motion: no idle turn, but a swipe still spins it and the loop stops once the spin has settled
-  function frame(now) { if (!visible || (reduce && fling.id == null && !extra)) { running = false; draw(now); return; } if (!frozen) draw(now); else lastNow = 0; requestAnimationFrame(frame); }
+  const minGap = M && M.fps ? 1000 / M.fps - 2 : 0; let lastDraw = 0;   // phones: 30 fps is plenty for a slow turn
+  function frame(now) {
+    if (!visible || (reduce && fling.id == null && !extra)) { running = false; draw(now); return; }
+    if (frozen) lastNow = 0;
+    else if (!minGap || fling.id != null || now - lastDraw >= minGap) { lastDraw = now; draw(now); }   // full rate while a finger spins it
+    requestAnimationFrame(frame);
+  }
   function start() { if (running || !ready) return; if (CFG.angle != null || (reduce && fling.id == null && !extra)) { draw(performance.now()); return; } running = true; requestAnimationFrame(frame); }
 
   assets(renderer).then(([gltf, env]) => {
