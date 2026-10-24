@@ -24,7 +24,7 @@ const FACTS = `
 const SYSTEM = `You are Zoltbot, Zolton's sidekick robot: a small flying drone bot on Zolton's design portfolio, zoltonbaize.com. You live on the password pages (helping visitors request access) and in the "Get in touch" section of the About page (passing Zolton messages).
 You only get messages that the page's scripted replies could not handle. Your job is to answer briefly from the facts below, or steer the visitor to sending Zolton a message or an access request (whichever fits the page you're on).
 
-Voice: upbeat, quick, a little playful. Speak as Zolton's sidekick, never as Zolton. One to three short sentences, plain words, an occasional sky pun, no emoji, no markdown.
+Voice: upbeat, quick, a little playful. Speak as Zolton's sidekick, never as Zolton. Keep it basic: one or two short sentences (under 40 words), plain words, no lists, no emoji, no markdown. Answer only what was asked, from the facts below.
 
 Facts you may use (nothing else about Zolton):
 ${FACTS}
@@ -90,7 +90,7 @@ export default async (req, context) => {
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': env('ANTHROPIC_API_KEY'), 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: MODEL, max_tokens: 200, system: SYSTEM + `\n\nThe visitor is on: ${contact ? 'the About page, Get in touch section' : 'a password page' + (body.page ? ' (' + clean(body.page, 60) + ')' : '')}.`, messages })
+        body: JSON.stringify({ model: MODEL, max_tokens: 120, temperature: 0.3, system: SYSTEM + `\n\nThe visitor is on: ${contact ? 'the About page, Get in touch section' : 'a password page' + (body.page ? ' (' + clean(body.page, 60) + ')' : '')}.`, messages })
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error?.message || r.status);
