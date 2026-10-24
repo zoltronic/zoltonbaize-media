@@ -180,8 +180,9 @@
     if (forcedNight !== null) return forcedNight;
     const de = document.documentElement, other = [...document.querySelectorAll('zb-sky')].find(x => x !== ownSky);
     if (other && other.hasAttribute('night')) return !/^(0|false)$/.test(other.getAttribute('night'));
+    if (de.getAttribute('data-mode')) return de.getAttribute('data-mode') === 'dark';   // zb-theme.js, the site-wide setting
     if (de.classList.contains('dark') || de.dataset.theme === 'dark' || document.body.classList.contains('dark')) return true;
-    try { const t = localStorage.getItem('zbTheme'); if (t) return t === 'dark'; } catch (e) {}
+    try { const t = localStorage.getItem('zb-home-mode') || localStorage.getItem('zbTheme'); if (t) return t === 'dark'; } catch (e) {}
     return false;   // the site is a day sky by default; night only when the visitor picks it with the toggle
   }
   function applyNight() {

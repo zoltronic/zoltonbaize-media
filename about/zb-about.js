@@ -48,7 +48,9 @@
   document.body.insertBefore(wrap, document.body.firstChild);
 
   function isNight() {
-    try { const t = localStorage.getItem('zbTheme'); if (t) return t === 'dark'; } catch (e) {}
+    const m = document.documentElement.getAttribute('data-mode');   // set by zb-theme.js, the site-wide light/dark setting
+    if (m) return m === 'dark';
+    try { const t = localStorage.getItem('zb-home-mode') || localStorage.getItem('zbTheme'); if (t) return t === 'dark'; } catch (e) {}
     return false;   // day sky unless the visitor chose night with the toggle
   }
   const SKIES = { work: { zenith: '#1E7FC4', horizon: '#CFEBF9' }, deep: { zenith: '#0b3a8f', horizon: '#4f86d1' } };
@@ -292,7 +294,7 @@
       set(o) { Object.assign(SETTINGS, o); if (o.fov) { cam.fov = o.fov; cam.updateProjectionMatrix(); } if (Object.keys(o).some(k => RELAYOUT.includes(k))) layout(); apply(); },
       randomize() { this.set({ seed: Math.floor(Math.random() * 100000) }); return SETTINGS.seed; }
     };
-    addEventListener('storage', e => { if (e.key === 'zbTheme') night = isNight(); });
+    addEventListener('storage', () => { night = isNight(); });
     addEventListener('zb-theme', () => { night = isNight(); });   // the site's theme toggle fires this
     setInterval(() => { night = isNight(); }, 1000);
 
