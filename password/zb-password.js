@@ -199,6 +199,7 @@
   }
   applyNight();
   setInterval(applyNight, 1000);   // follow the site's theme toggle
+  addEventListener('zb-theme', applyNight);
   function paintSky() {
     const sky = document.createElement('div'); sky.className = 'zb-pw-sky';
     const c = document.createElement('canvas'); sky.appendChild(c);

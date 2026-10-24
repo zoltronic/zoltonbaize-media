@@ -293,6 +293,7 @@
       randomize() { this.set({ seed: Math.floor(Math.random() * 100000) }); return SETTINGS.seed; }
     };
     addEventListener('storage', e => { if (e.key === 'zbTheme') night = isNight(); });
+    addEventListener('zb-theme', () => { night = isNight(); });   // the site's theme toggle fires this
     setInterval(() => { night = isNight(); }, 1000);
 
     // adaptive resolution: the raymarch is heavy, so it renders below screen resolution and scales with the frame rate
