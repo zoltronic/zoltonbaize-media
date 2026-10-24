@@ -2,13 +2,20 @@
    On touch devices the sky's WebGL "liquid glass" pass is switched off and every glass element (nav bars, the light/dark
    pill, cards) gets plain CSS frosted glass instead. The WebGL glass redraws a beat behind native scrolling and could show
    empty "bubbles" or a hard line where a panel's edge was drawn; CSS glass is part of the element, so it can't.
+   Phones scroll vertically only (no pinch-zoom, nothing can push the page sideways).
    The rising cloud floor at the bottom of the Work page is off on touch devices too. Desktop keeps the full effect. Load in the site <head>. */
 (function () {
   'use strict';
   if (!matchMedia('(pointer: coarse)').matches) return;
   document.documentElement.classList.add('zb-touch');
+  // vertical scrolling only: no pinch-zoom, no sideways drift. touch-action pan-y lets the page scroll up and down and
+  // still hands sideways swipes to the page (the coin's spin), but the browser no longer pans or zooms on them
+  var vp = document.querySelector('meta[name="viewport"]');
+  if (!vp) { vp = document.createElement('meta'); vp.name = 'viewport'; document.head.appendChild(vp); }
+  vp.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
   var css = document.createElement('style');
   css.textContent =
+    'html.zb-touch, .zb-touch body { overflow-x: hidden; overflow-x: clip; max-width: 100%; touch-action: pan-y; overscroll-behavior-x: none; }' +
     '.zb-touch [data-zb-glass], .zb-touch [data-zb-liquid] {' +
     ' background: rgba(255,255,255,.56) !important; border: 1px solid rgba(255,255,255,.9) !important;' +
     ' -webkit-backdrop-filter: blur(16px) saturate(160%) !important; backdrop-filter: blur(16px) saturate(160%) !important;' +
