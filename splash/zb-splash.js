@@ -32,7 +32,7 @@
     '#zb-splash canvas{position:absolute;inset:0;width:100%;height:100%;display:block}',
     '#zb-splash-hint{position:absolute;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:12px ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.88);text-shadow:0 1px 8px rgba(7,40,61,.5);opacity:0;transition:opacity 300ms ease-out;white-space:nowrap;pointer-events:none}',
     '#zb-splash-hint.on{opacity:1}',
-    '#zb-deck{position:fixed;left:0;right:0;bottom:0;height:clamp(150px,34vh,380px);z-index:0;pointer-events:none;overflow:hidden;visibility:hidden;will-change:transform,opacity}',
+    '#zb-deck{position:fixed;left:0;right:0;bottom:0;height:clamp(150px,34vh,380px);z-index:0;pointer-events:none;overflow:hidden;visibility:hidden;will-change:transform,opacity;-webkit-mask-image:linear-gradient(to top,#000 0,#000 52%,rgba(0,0,0,.6) 72%,transparent 100%);mask-image:linear-gradient(to top,#000 0,#000 52%,rgba(0,0,0,.6) 72%,transparent 100%)}',  /* the top of the cloud floor fades into the sky, so it never shows a hard edge or line */
     '#zb-deck.on{visibility:visible}',
     '#zb-deck i{position:absolute;left:0;right:0;bottom:0;background-repeat:repeat-x;background-position:0 100%;will-change:background-position}',
     '#zb-deck .back{height:78%;bottom:16%;opacity:.8;filter:blur(.6px)}',
