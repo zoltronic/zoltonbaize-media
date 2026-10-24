@@ -7,22 +7,26 @@
        POST {type:'request', request:{...}} delivers an access request to Zolton,
        POST {type:'chat', messages:[...]} asks the model, only when a visitor goes off the tree -> {reply, chips}.
      window.ZB_CHAT_DEMO = true runs the same tree as a preview that sends nothing. With neither, no chat UI is shown.
-   Loads three.js 0.152.2 from jsDelivr. */
+   Contact mode: on a page with no password form, put data-zb-bot on any element (the "Get in touch" panel) and Zoltbot
+   docks on its corner instead, with the same tree pointed at sending Zolton a message (POST {type:'request', request:{kind:'contact',...}}).
+   Loads three.js 0.152.2 from jsDelivr (shared with the About sky). */
 (function () {
   'use strict';
   if (window.__zbPassword) return; window.__zbPassword = true;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const form = document.querySelector('form[action*="wf_auth"]') || document.querySelector('.utility-page-form') || document.querySelector('form');
-  if (!form) return;
-  const wrap = form.closest('.utility-page-wrap') || document.body;
-  const card = form.closest('.utility-page-content') || form;
-  const input = form.querySelector('input[type="password"]');
-  const failEl = document.querySelector('.w-form-fail');
+  const host = document.querySelector('[data-zb-bot]');
+  const CONTACT = !!host;
+  const form = CONTACT ? null : (document.querySelector('form[action*="wf_auth"]') || document.querySelector('.utility-page-form'));
+  if (!form && !host) return;
+  const wrap = CONTACT ? document.body : (form.closest('.utility-page-wrap') || document.body);
+  const card = CONTACT ? host : (form.closest('.utility-page-content') || form);
+  const input = CONTACT ? null : form.querySelector('input[type="password"]');
+  const failEl = CONTACT ? null : document.querySelector('.w-form-fail');
   const failed = !!(failEl && getComputedStyle(failEl).display !== 'none');
   const ENDPOINT = window.ZB_CHAT_ENDPOINT || null;
-  const DEMO = !ENDPOINT && !!window.ZB_CHAT_DEMO;
+  const DEMO = !ENDPOINT && (!!window.ZB_CHAT_DEMO || CONTACT);   // contact mode always talks; without an endpoint it's a preview
   const CHAT = !!(ENDPOINT || DEMO);
-  const hasSky = !!(window.customElements && customElements.get('zb-sky'));
+  const hasSky = !CONTACT && !!(window.customElements && customElements.get('zb-sky'));
   // Touch devices: the sky draws its glass in WebGL a beat behind native scrolling, so the card's glass would trail its text.
   // There the card and chat use CSS glass instead, which is part of the element and scrolls with it.
   const touch = matchMedia('(pointer: coarse)').matches;
@@ -35,11 +39,11 @@
   // ---------- Which page is protected ----------
   // Webflow serves this page at the protected URL and puts that path in a hidden "path" field.
   const NAMES = { '/gold': 'Gold', '/iconography': 'Icons', '/icons': 'Icons', '/atm': 'ATM' };
-  const pathEl = form.querySelector('input[name="path"]');
+  const pathEl = form && form.querySelector('input[name="path"]');
   const protPath = ((window.ZB_PROTECTED_PATH || (pathEl && pathEl.value) || location.pathname) + '').replace(/\/+$/, '') || '/';
-  const PAGE = window.ZB_PROTECTED_NAME || NAMES[protPath.toLowerCase()] ||
+  const PAGE = CONTACT ? '' : window.ZB_PROTECTED_NAME || NAMES[protPath.toLowerCase()] ||
     (protPath === '/' || protPath === '/401' ? '' : protPath.split('/').pop().replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
-  {
+  if (!CONTACT) {
     const h = card.querySelector('h1, h2, h3');
     // Site type: mono eyebrow + display title (Schibsted Grotesk 900), per the Portfolio 2.0 guidelines
     if (h) {
@@ -127,7 +131,7 @@
   .zb-pw-page .page_footer { position: fixed; left: clamp(20px,4vw,48px); right: clamp(20px,4vw,48px); bottom: 18px; margin: 0; padding-top: 14px; z-index: 2; }
   @media (max-width: 767px) {
     .zb-pw-page .page_footer { bottom: 96px; justify-content: center; text-align: center; }
-    .zb-pw-page.zb-has-thumb .zb-chat { bottom: 92px !important; height: min(52vh, 420px) !important; }
+    .zb-has-thumb .zb-chat { bottom: 92px !important; height: min(52vh, 420px) !important; }
     .zb-pw-page.zb-has-thumb .zb-chat.zb-peek { bottom: 12px !important; height: auto !important; z-index: 22; }   /* short help card sits over the thumb nav so the password field stays clear */
   }
   /* Keyboard open on a phone: the card slides up so the field and Submit sit just above the keyboard; nav, toggle and bubble step aside */
@@ -163,9 +167,11 @@
   document.head.appendChild(css);
 
   // ---------- Sky, glass card ----------
-  wrap.classList.add('zb-pw-raise');
-  card.classList.add('zb-glass', 'zb-pw-card');
-  document.documentElement.classList.add('zb-pw-page');
+  if (!CONTACT) {
+    wrap.classList.add('zb-pw-raise');
+    card.classList.add('zb-glass', 'zb-pw-card');
+    document.documentElement.classList.add('zb-pw-page');
+  }
   if (document.querySelector('.nav_thumb')) document.documentElement.classList.add('zb-has-thumb');
   // Dark mode: follows the site's night sky (zb-sky[night]) or a dark theme class, else the system setting.
   let forcedNight = null, ownSky = null;
@@ -188,10 +194,11 @@
     const sky = document.createElement('zb-sky'); sky.setAttribute('fixed', ''); ownSky = sky;
     document.body.insertBefore(sky, document.body.firstChild);
     if (skyGlass) { card.classList.add('zb-on-sky'); card.setAttribute('data-zb-glass', ''); card.setAttribute('data-zb-radius', '38'); }
-  } else {
+  } else if (!CONTACT) {
     paintSky();
   }
   applyNight();
+  setInterval(applyNight, 1000);   // follow the site's theme toggle
   function paintSky() {
     const sky = document.createElement('div'); sky.className = 'zb-pw-sky';
     const c = document.createElement('canvas'); sky.appendChild(c);
@@ -229,7 +236,7 @@
   }
 
   // ---------- Dock (Zoltbot lives here, outside the card) ----------
-  const img = form.querySelector('img'); if (img) img.style.display = 'none';
+  const img = form && form.querySelector('img'); if (img) img.style.display = 'none';
   const dock = document.createElement('div');
   dock.className = 'zb-pw-dock';
   if (CHAT) { dock.setAttribute('role', 'button'); dock.setAttribute('tabindex', '0'); dock.setAttribute('aria-label', 'Chat with Zoltbot, Zolton’s sidekick robot'); }
@@ -249,14 +256,19 @@
     let vx = 0, vy = 0;
     const K = 70, C = 2 * Math.sqrt(K) * 0.62;
     function step(now) {
-      const dt = Math.min(0.033, (now - last) / 1000); last = now;
+      const total = Math.min(0.25, (now - last) / 1000); last = now;
       const [tx, ty] = anchor();
       if (cx === null || reduce) { cx = tx; cy = ty; vx = vy = 0; }
       else {
-        const ax = K * (tx - cx) - C * vx, ay = K * (ty - cy) - C * vy;
-        vx += ax * dt; vy += ay * dt;
-        const dx = vx * dt, dy = vy * dt; cx += dx; cy += dy;
-        if (window.__zbBus) { const b = window.__zbBus; b.vx = vx; b.vy = vy; b.ax = ax; b.ay = ay; b.mdx += dx; b.mdy += dy; }
+        // fixed 1/60 s substeps, so a slow frame (heavy page, busy phone) never leaves him trailing behind
+        const n = Math.max(1, Math.ceil(total / 0.0167)), dt = total / n;
+        let ax = 0, ay = 0, sx = 0, sy = 0;
+        for (let k = 0; k < n; k++) {
+          ax = K * (tx - cx) - C * vx; ay = K * (ty - cy) - C * vy;
+          vx += ax * dt; vy += ay * dt;
+          const dx = vx * dt, dy = vy * dt; cx += dx; cy += dy; sx += dx; sy += dy;
+        }
+        if (window.__zbBus) { const b = window.__zbBus; b.vx = vx; b.vy = vy; b.ax = ax; b.ay = ay; b.mdx += sx; b.mdy += sy; }
       }
       dock.style.transform = 'translate3d(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px,0)';
       requestAnimationFrame(step);
@@ -266,7 +278,7 @@
   let bubble = null;
   if (CHAT) {
     bubble = document.createElement('div'); bubble.className = 'zb-pw-bubble zb-glass';
-    bubble.textContent = 'Need access? Have a question?';
+    bubble.textContent = CONTACT ? 'Say hi? Have a question?' : 'Need access? Have a question?';
     dock.appendChild(bubble);
     setTimeout(() => bubble.classList.add('on'), 1400);
   }
@@ -283,7 +295,7 @@
   window.zbPasswordWrong = wrongPassword;
   // Correct password: check it in the background (same request Webflow makes), celebrate, then push forward into the page.
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  const submitBtn = form.querySelector('[type="submit"]');
+  const submitBtn = form && form.querySelector('[type="submit"]');
   const btnLabel = submitBtn ? (submitBtn.value || submitBtn.textContent) : '';
   const setBtn = (txt) => { if (!submitBtn) return; if ('value' in submitBtn && submitBtn.tagName === 'INPUT') submitBtn.value = txt; else submitBtn.textContent = txt; };
   // Submitting: Webflow does the login itself (its own handler or a normal form post) — we never intercept it,
@@ -315,7 +327,7 @@
     if (failEl) failEl.style.display = 'block';
     wrongPassword(); if (input) { input.value = ''; input.focus(); }
   }
-  form.addEventListener('submit', async (e) => {
+  if (form) form.addEventListener('submit', async (e) => {
     if (DEMO) {   // preview only: simulate both outcomes without a real login
       e.preventDefault(); if (bus.busy) return;
       bus.busy = true; bus.scanning = true; setBtn('Checking…');
@@ -396,6 +408,10 @@
     // else pinned to the right edge; shrink before it ever runs off the bottom, leaving room for the footer.
     function place() {
       if (innerWidth < 820) return;
+      if (CONTACT) {   // contact: a corner panel, bottom right, whatever the scroll
+        const W = el.offsetWidth || 340, h = Math.min(480, innerHeight - 240);
+        el.style.left = (innerWidth - 24 - W) + 'px'; el.style.top = (innerHeight - 24 - h) + 'px'; el.style.height = h + 'px'; return;
+      }
       const r = card.getBoundingClientRect(), W = el.offsetWidth || 340, M = 16, FOOT = 56;
       let left = r.right + 40;
       if (left + W > innerWidth - M) left = (r.left - 40 - W >= M) ? r.left - 40 - W : innerWidth - M - W;
@@ -415,6 +431,7 @@
         setTimeout(() => { say(history.length ? 'Still no luck with the password? I can help.' : 'Hmm, that password didn’t work' + (PAGE ? ' for ' + PAGE : '') + '. Need access? Have a question? I’m Zoltbot, Zolton’s sidekick robot, and I can help.', 'bot'); setChips(['Request access', 'I have a question', 'I’ll try again']); }, 250);
         return;   // leave focus on the password field so they can retry
       }
+      if (!greeted && CONTACT) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to get in touch? I can pass Zolton a message, or answer questions about him and his work.', 'bot'); setChips(['Send Zolton a message', 'Who is Zolton?', 'What does he work on?']); }, 250); }
       if (!greeted) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. ' + (PAGE ? PAGE + ' is a password-protected page.' : 'This part of the site is password-protected.') + ' Need access? Have a question? I can tell you about Zolton’s work, or help you ask him for access.', 'bot'); setChips(['Request access', 'What’s behind the password?', 'Who is Zolton?']); }, 250); }
       setTimeout(() => inp.focus(), 320);
     }
@@ -444,16 +461,17 @@
       if (!ENDPOINT) {
         say('Good question. I don’t know that one yet, but I can pass it to Zolton.', 'bot');
         say('In the live version I’ll answer this with AI. For this preview, try the buttons.', 'note');
-        setChips(['Request access', 'What’s behind the password?']); return;
+        setChips(CONTACT ? [ASK, 'Who is Zolton?'] : ['Request access', 'What’s behind the password?']); return;
       }
       try {
-        const j = await post({ type: 'chat', messages: history.slice(-12) });
+        const j = await post({ type: 'chat', messages: history.slice(-12), page: CONTACT ? 'Contact' : (PAGE || protPath) });
         say(j.reply || 'Hmm, I lost my signal for a second. Try asking again?', 'bot');
-        setChips(Array.isArray(j.chips) && j.chips.length ? j.chips.slice(0, 3) : ['Request access', 'Who is Zolton?']);
-      } catch (err) { say('Hmm, I lost my signal for a second. I can still send Zolton a request for you.', 'bot'); setChips(['Request access']); }
+        setChips(Array.isArray(j.chips) && j.chips.length ? j.chips.slice(0, 3) : [ASK, 'Who is Zolton?']);
+      } catch (err) { say('Hmm, I lost my signal for a second. I can still send Zolton a ' + (CONTACT ? 'message' : 'request') + ' for you.', 'bot'); setChips([ASK]); }
     }
     // The scripted tree from the Zoltbot Brief. Returns false when the message is off the tree.
-    const QS = ['What’s your name?', 'What company or team are you with?', 'What’s your role? For example, recruiter, hiring manager or designer.', 'Is this about a specific role or project? A job link is welcome.', 'What’s the best email to reach you?', 'Anything you’d like Zolton to show you first? (Optional, or say “skip”.)'];
+    const QS = ['What’s your name?', 'What company or team are you with?', 'What’s your role? For example, recruiter, hiring manager or designer.', CONTACT ? 'What would you like to talk to Zolton about? A job link is welcome.' : 'Is this about a specific role or project? A job link is welcome.', 'What’s the best email to reach you?', CONTACT ? 'Anything else Zolton should know? (Optional, or say “skip”.)' : 'Anything you’d like Zolton to show you first? (Optional, or say “skip”.)'];
+    const ASK = CONTACT ? 'Send Zolton a message' : 'Request access';
     let step = -1; const answers = [];
     let pending = null;
     async function treeReply(text) {
@@ -463,8 +481,8 @@
         answers[step] = text; step++;
         if (step < QS.length) { say(QS[step], 'bot'); return true; }
         step = -1;
-        pending = { page: PAGE || protPath, name: answers[0], company: answers[1], role: answers[2], about: answers[3], email: answers[4], wantsToSee: answers[5] && !/^skip$/i.test(answers[5]) ? answers[5] : '' };
-        say('Here’s what I’ll send Zolton:\n' + (PAGE ? '• Access to: ' + PAGE + '\n' : '') + '• ' + pending.name + ', ' + pending.role + ' at ' + pending.company + '\n• About: ' + pending.about + '\n• Email: ' + pending.email + (pending.wantsToSee ? '\n• Wants to see: ' + pending.wantsToSee : '') + '\n\nSend it?', 'bot');
+        pending = { kind: CONTACT ? 'contact' : 'access', page: CONTACT ? 'Contact' : (PAGE || protPath), name: answers[0], company: answers[1], role: answers[2], about: answers[3], email: answers[4], wantsToSee: answers[5] && !/^skip$/i.test(answers[5]) ? answers[5] : '' };
+        say('Here’s what I’ll send Zolton:\n' + (PAGE ? '• Access to: ' + PAGE + '\n' : '') + '• ' + pending.name + ', ' + pending.role + ' at ' + pending.company + '\n• About: ' + pending.about + '\n• Email: ' + pending.email + (pending.wantsToSee ? (CONTACT ? '\n• Also: ' : '\n• Wants to see: ') + pending.wantsToSee : '') + '\n\nSend it?', 'bot');
         setChips(['Yes, send it', 'Start over']); return true;
       }
       if (/^i’ll try again$/.test(t)) { say('Go for it. I’ll be right here if you need me.', 'bot'); setChips(['Request access']); if (input) input.focus(); return true; }
@@ -480,25 +498,31 @@
         pending = null; bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.4;
         say('Done! I’ve sent that to Zolton. He’ll reply to the email you gave me.', 'bot');
         if (!ENDPOINT) say('Preview only: nothing was actually sent.', 'note');
-        setChips(['Who is Zolton?']); return true;
+        setChips(CONTACT ? ['What does he work on?'] : ['Who is Zolton?']); return true;
       }
-      if (!/behind/.test(t) && /^(start over|request access)$|\b(request|access|let me in|get in)\b|\bpassword\b/.test(t)) {
+      if (CONTACT && /^(start over|send zolton a message)$|\b(message|contact|reach|hire|hiring|email him|talk to (him|zolton)|get in touch)\b/.test(t) && !/^what/.test(t)) {
+        step = 0; answers.length = 0; pending = null; say('Great, a few quick questions so Zolton knows who’s writing. ' + QS[0], 'bot'); return true;
+      }
+      if (CONTACT && /^what does he work on\?$|\b(work on|case stud|portfolio|projects?|behind)\b/.test(t)) { say('Product design with a lot of motion, 3D for the web and design systems. Recent work includes Premiere Loader, an ATM modernization, an icon system (“Drawing One Language Out of Many”) and the Gold piece. Some case studies are password-protected; I can ask Zolton for access.', 'bot'); setChips(['Send Zolton a message', 'Who is Zolton?']); return true; }
+      if (!CONTACT && !/behind/.test(t) && /^(start over|request access)$|\b(request|access|let me in|get in)\b|\bpassword\b/.test(t)) {
         if (/password/.test(t) && !/request|access/.test(t)) say('I don’t have the password, and that’s on purpose. But I can send Zolton a request right now.', 'bot');
         step = 0; answers.length = 0; pending = null; if (/password/.test(t) && !/request|access/.test(t)) await wait(700); say('Great, a few quick questions. ' + QS[0], 'bot'); return true;
       }
       if (/^what’s behind the password\?$|\b(behind|case stud|portfolio)\b/.test(t)) { say('Case studies including Premiere Loader, ATM modernization, the icon system (“Drawing One Language Out of Many”) and the Gold piece.', 'bot'); setChips(['Request access', 'Who is Zolton?']); return true; }
-      if (/^who is zolton\?$|^(who are you|who is (he|zolton)|tell me about (him|zolton))/.test(t)) { say('Zolton is a senior product designer with 8+ years of experience. He specializes in motion design, 3D for the web and design systems, and he prototypes in code with AI in his workflow.', 'bot'); setChips(['Request access', 'What’s behind the password?']); return true; }
-      if (/^(hi|hello|hey|yo|sup)\b/.test(t)) { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to know about Zolton, or get access?', 'bot'); setChips(['Request access', 'Who is Zolton?']); return true; }
+      if (/^who is zolton\?$|^(who are you|who is (he|zolton)|tell me about (him|zolton))/.test(t)) { say('Zolton is a senior product designer who has been doing paid design work since 2004. He specializes in motion design, 3D for the web and design systems, and he prototypes in code with AI in his workflow.', 'bot'); setChips(CONTACT ? [ASK, 'What does he work on?'] : ['Request access', 'What’s behind the password?']); return true; }
+      if (/^(hi|hello|hey|yo|sup)\b/.test(t)) { say(CONTACT ? 'Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to send Zolton a message, or know more about him?' : 'Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to know about Zolton, or get access?', 'bot'); setChips([ASK, 'Who is Zolton?']); return true; }
       return false;
     }
     return { open, close, el };
   }
+  window.zbChat = { open: () => chat && chat.open(), close: () => chat && chat.close() };   // e.g. a "Chat with Zoltbot" button
   const toggleChat = () => { if (!chat) { bus.poke = 0; return; } bus.chatOpen ? chat.close() : chat.open(); };
   dock.addEventListener('click', toggleChat);
   dock.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleChat(); } });
 
   // ---------- 3D Zoltbot ----------
   function boot() {
+    const THREE = window.THREE;
     let renderer;
     try { renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); } catch (e) { return; }
     renderer.setClearColor(0x000000, 0);
@@ -926,12 +950,17 @@
     requestAnimationFrame(frame);
   }
 
+  // one shared three.js for every script on the page (the About sky uses the same copy)
   if (window.THREE && THREE.CapsuleGeometry) boot();
   else {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js';
-    s.onload = boot;
-    s.onerror = () => { dock.remove(); if (img) img.style.display = ''; };
-    document.head.appendChild(s);
+    const q = window.__zbThreeQ = window.__zbThreeQ || [];
+    q.push(boot);
+    if (q.length === 1) {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js';
+      s.onload = () => q.splice(0).forEach(f => f());
+      s.onerror = () => { dock.remove(); if (img) img.style.display = ''; };
+      document.head.appendChild(s);
+    }
   }
 })();

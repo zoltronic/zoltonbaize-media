@@ -1,6 +1,6 @@
 # Zoltbot backend
 
-The chat on the zoltonbaize.com password page follows a scripted tree in the browser (who Zolton is, what's behind the password, the six access-request questions). This small Netlify function does the two things the browser can't do safely:
+The chat on the zoltonbaize.com password pages and in the About page's "Get in touch" section follows a scripted tree in the browser (who Zolton is, what's behind the password, the six access-request questions). This small Netlify function does the two things the browser can't do safely:
 
 - **`type: 'request'`**: delivers a finished access request to Zolton by email (Resend) and phone push (ntfy), and saves it to a private list (Netlify Blobs store `zoltbot-requests`). One request per visitor per day.
 - **`type: 'chat'`**: only when a visitor goes off the tree, asks a Claude model for a short in-character reply. Zoltbot's facts and rules are in `FACTS` and `SYSTEM` at the top of `netlify/functions/zoltbot.mjs`. The password is never in there.
@@ -30,7 +30,9 @@ Endpoint once deployed: `https://<your-netlify-site>.netlify.app/api/zoltbot`
 <script>window.ZB_CHAT_ENDPOINT = 'https://<your-netlify-site>.netlify.app/api/zoltbot';</script>
 ```
 
-Without that line the page still works (Zoltbot, glass card, unlock flight), just without the chat.
+Add the same line to the **About** page's footer code, above zb-password.js (on About, Zoltbot docks on the element marked `data-zb-bot`, the Get in touch panel, and the tree sends Zolton a message instead of an access request).
+
+Without that line the password page still works (Zoltbot, glass card, unlock flight), just without the chat; on About the chat runs as a preview that sends nothing.
 
 ## Cost
 
