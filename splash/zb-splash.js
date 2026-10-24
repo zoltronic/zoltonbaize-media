@@ -34,7 +34,7 @@
     '#zb-splash-hint.on{opacity:1}',
     '#zb-deck{position:fixed;left:0;right:0;bottom:0;height:clamp(150px,34vh,380px);z-index:0;pointer-events:none;overflow:hidden;visibility:hidden;will-change:transform,opacity;-webkit-mask-image:linear-gradient(to top,#000 0,#000 52%,rgba(0,0,0,.6) 72%,transparent 100%);mask-image:linear-gradient(to top,#000 0,#000 52%,rgba(0,0,0,.6) 72%,transparent 100%)}',  /* the top of the cloud floor fades into the sky, so it never shows a hard edge or line */
     '#zb-deck.on{visibility:visible}',
-    '#zb-deck i{position:absolute;left:0;right:0;bottom:0;background-repeat:repeat-x;background-position:0 100%;will-change:background-position}',
+    '#zb-deck i{position:absolute;left:0;right:0;bottom:0;background-repeat:repeat-x;background-position:0 100%;will-change:background-position;-webkit-mask-image:linear-gradient(to top,#000 55%,transparent 100%);mask-image:linear-gradient(to top,#000 55%,transparent 100%)}',  /* each strip fades out at its own top edge too */
     '#zb-deck .back{height:78%;bottom:16%;opacity:.8;filter:blur(.6px)}',
     '#zb-deck .front{height:72%;bottom:-6%}',
     '#zb-deck.night i{filter:brightness(.42) sepia(.55) hue-rotate(170deg) saturate(2.2);opacity:.9}',
