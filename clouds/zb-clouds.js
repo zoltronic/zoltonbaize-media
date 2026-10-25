@@ -1,5 +1,5 @@
 /* zb-clouds — near cumulus behind the Work page's tiles, the Experience strip and Contact.
-   The clouds are stills rendered from the About page's cloud engine (same sun; day: lit tops bright white, shaded bases;
+   The clouds are stills rendered from the About page's cloud engine (sun from in front of the viewer, so the faces read bright white;
    night: darker, moonlit from a different angle) and crossfade with the site's light/dark mode.
    Two depths per spot: a near cloud the content sits on, and a farther one behind it. As the page scrolls the near
    clouds run a little ahead of the page and the far ones lag behind it, so they read as layers of sky at different distances.
@@ -30,19 +30,19 @@
   document.head.appendChild(css);
 
   // n: sprite number (1-12, see the clouds folder), w: width as a share of the host, x/y: centre, as shares of the host, aspect: h/w of the sprite
-  var AR = { 1: .80, 2: .59, 3: .56, 4: .64, 5: .57, 6: .46, 7: .91, 8: .76, 9: .60, 10: .70, 11: .55, 12: .47 };
+  var AR = { 1: .568, 2: .52, 3: .6, 4: .44, 5: .767, 6: .599, 7: .572, 8: .473, 9: .605, 10: .539, 11: .506, 12: .477 };
   var PLAN = [
     { sel: '.work_card', each: [
-      [{ n: 6, w: 1.35, x: .5, y: .36, depth: 'near' }, { n: 7, w: .75, x: .78, y: .14, depth: 'far' }],
-      [{ n: 3, w: 1.35, x: .5, y: .37, depth: 'near' }, { n: 10, w: .75, x: .24, y: .14, depth: 'far' }],
-      [{ n: 12, w: 1.35, x: .5, y: .36, depth: 'near' }, { n: 8, w: .7, x: .76, y: .14, depth: 'far' }]
+      [{ n: 4, w: 2.0, x: .5, y: .56, depth: 'near' }, { n: 5, w: 1.0, x: .8, y: .18, depth: 'far' }],
+      [{ n: 12, w: 2.0, x: .5, y: .57, depth: 'near' }, { n: 9, w: 1.0, x: .22, y: .17, depth: 'far' }],
+      [{ n: 8, w: 2.0, x: .5, y: .56, depth: 'near' }, { n: 3, w: .95, x: .78, y: .17, depth: 'far' }]
     ] },
     { sel: '[data-zb-experience]', each: [[
-      { n: 2, w: .42, x: .16, y: .72, depth: 'near' }, { n: 5, w: .4, x: .5, y: .76, depth: 'near' }, { n: 11, w: .42, x: .84, y: .72, depth: 'near' },
-      { n: 1, w: .26, x: .34, y: .5, depth: 'far' }, { n: 9, w: .26, x: .7, y: .52, depth: 'far' }
+      { n: 2, w: .5, x: .16, y: .68, depth: 'near' }, { n: 11, w: .5, x: .5, y: .72, depth: 'near' }, { n: 10, w: .5, x: .84, y: .68, depth: 'near' },
+      { n: 6, w: .32, x: .33, y: .42, depth: 'far' }, { n: 7, w: .32, x: .68, y: .44, depth: 'far' }
     ]] },
     { sel: '#contact .cta_band', each: [[
-      { n: 6, w: 1.25, x: .44, y: .58, depth: 'near' }, { n: 4, w: .5, x: .86, y: .3, depth: 'far' }
+      { n: 1, w: 1.5, x: .45, y: .56, depth: 'near' }, { n: 5, w: .55, x: .88, y: .25, depth: 'far' }
     ]] }
   ];
 
