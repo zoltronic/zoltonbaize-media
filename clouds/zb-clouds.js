@@ -1,8 +1,8 @@
-/* zb-clouds — near cumulus behind the Work page's tiles, the Experience strip and Contact.
-   The clouds are stills rendered from the About page's cloud engine (sun from in front of the viewer, so the faces read bright white;
-   night: darker, moonlit from a different angle) and crossfade with the site's light/dark mode.
-   Two depths per spot: a near cloud the content sits on, and a farther one behind it. As the page scrolls the near
-   clouds run a little ahead of the page and the far ones lag behind it, so they read as layers of sky at different distances.
+/* zb-clouds — a deck of big cumulus banks from "Selected work" to the bottom of the Work page.
+   The banks are stills rendered from the About page's cloud engine (sun in front of the viewer, so their faces are bright
+   white; at night, darker and moonlit from the upper left), each a random cluster of 5-7 clouds. They sit in three layers at
+   different depths: as the page scrolls the far layer lags, the near one runs ahead, so gaps open and close and the sky
+   shows through between them. Light/dark crossfades with the site's mode.
    Only runs when <html> has the class zb-cloud-cards (preview address, or ?clouds). */
 (function () {
   'use strict';
@@ -11,84 +11,97 @@
   if (!html.classList.contains('zb-cloud-cards')) return;
   var BASE = (document.currentScript && document.currentScript.src.replace(/zb-clouds\.js.*$/, '')) || '';
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var NEAR = 0.1, FAR = -0.12;   // parallax: share of the distance from the screen centre each layer is pushed by
+  var SEED = 11;   // change for a different random sky
+  var BANKS = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 };   // aspect ratios (h/w) are filled in from the images
+  // f: parallax (share of the scroll the layer is held back by; negative runs ahead), gap: px between rows (at 1000px wide),
+  // w: bank width range as a share of the deck width, op: opacity, per: banks per row
+  var LAYERS = [
+    { name: 'far',  f: 0.42, gap: 150, w: [0.9, 1.3],  op: 0.8,  per: 2, y: [-30, 30] },
+    { name: 'mid',  f: 0.18, gap: 190, w: [1.0, 1.45], op: 0.95, per: 2, y: [-40, 40] },
+    { name: 'near', f: -0.14, gap: 300, w: [1.1, 1.6], op: 1,    per: 1, y: [-60, 60] }
+  ];
 
   var css = document.createElement('style');
   css.textContent = [
-    '.zbc-host{position:relative;isolation:isolate}',
-    /* the work tiles' clouds overlap their neighbours, so they share the grid's layer (all clouds under all tiles' content) */
-    '.work_card.zbc-host{isolation:auto}',
-    '.zbc-layer{isolation:isolate}',
-    '.zbc-clip{overflow-x:clip}',
-    '.zbc-clip :is(h1,h2,h3,.zbx-h){position:relative;z-index:1}',   /* section headings stay in front of the clouds */   /* clouds are wider than the screen on phones: never let them widen the page */
-    '.zbc{position:absolute;pointer-events:none;will-change:transform;z-index:-2}',   /* -1 is left for the coin's own layer, so it stays in front */
-    '.zbc.far{z-index:-3;opacity:.9}',
-    '.zbc img.d{filter:brightness(1.07) saturate(.9)}',
-    '.zbc img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transition:opacity 900ms cubic-bezier(.65,0,.35,1)}',
-    '.zbc img.n{opacity:0}',
-    'html[data-mode="dark"] .zbc img.d{opacity:0}',
-    'html[data-mode="dark"] .zbc img.n{opacity:1}',
-    '.zbc .sway{position:absolute;inset:0;animation:zbcSway var(--t,26s) ease-in-out infinite alternate;animation-delay:var(--dl,0s)}',
-    '@keyframes zbcSway{from{transform:translateX(-1.6%)}to{transform:translateX(1.6%)}}',
-    '@media (prefers-reduced-motion:reduce){.zbc .sway{animation:none}}'
+    '.zbd{position:absolute;left:0;right:0;z-index:-1;pointer-events:none;overflow:hidden}',
+    '.zbd-layer{position:absolute;left:0;right:0;top:0;will-change:transform}',
+    '.zbd-b{position:absolute}',
+    '.zbd-b img{position:absolute;inset:0;width:100%;height:100%;transition:opacity 900ms cubic-bezier(.65,0,.35,1)}',
+    '.zbd-b img.d{filter:brightness(1.05)}',
+    '.zbd-b img.n{opacity:0}',
+    'html[data-mode="dark"] .zbd-b img.d{opacity:0}',
+    'html[data-mode="dark"] .zbd-b img.n{opacity:1}',
+    '.zbd-b.flip img{transform:scaleX(-1)}',
+    '.zbd-sway{position:absolute;inset:0;animation:zbdSway var(--t,30s) ease-in-out infinite alternate;animation-delay:var(--dl,0s)}',
+    '@keyframes zbdSway{from{transform:translateX(-1.2%)}to{transform:translateX(1.2%)}}',
+    '@media (prefers-reduced-motion:reduce){.zbd-sway{animation:none}}',
+    'html.zb-cloud-cards .page_root{overflow-x:clip}'
   ].join('');
   document.head.appendChild(css);
 
-  // n: sprite number (1-12, see the clouds folder), w: width as a share of the host, x/y: centre, as shares of the host, aspect: h/w of the sprite
-  var AR = { 1: .568, 2: .52, 3: .6, 4: .44, 5: .767, 6: .599, 7: .572, 8: .473, 9: .605, 10: .539, 11: .506, 12: .477 };
-  var PLAN = [
-    { sel: '.work_card', each: [
-      [{ n: 4, w: 2.0, x: .5, y: .56, depth: 'near' }, { n: 5, w: 1.0, x: .8, y: .26, depth: 'far' }],
-      [{ n: 12, w: 2.0, x: .5, y: .57, depth: 'near' }, { n: 9, w: 1.0, x: .22, y: .25, depth: 'far' }],
-      [{ n: 8, w: 2.0, x: .5, y: .56, depth: 'near' }, { n: 3, w: .95, x: .78, y: .25, depth: 'far' }]
-    ] },
-    { sel: '[data-zb-experience]', each: [[
-      { n: 2, w: .5, x: .16, y: .68, depth: 'near' }, { n: 11, w: .5, x: .5, y: .72, depth: 'near' }, { n: 10, w: .5, x: .84, y: .68, depth: 'near' },
-      { n: 6, w: .32, x: .33, y: .42, depth: 'far' }, { n: 7, w: .32, x: .68, y: .44, depth: 'far' }
-    ]] },
-    { sel: '#contact .cta_band', each: [[
-      { n: 1, w: 1.5, x: .45, y: .56, depth: 'near' }, { n: 5, w: .55, x: .88, y: .25, depth: 'far' }
-    ]] }
-  ];
+  function rng(s) { return function () { s |= 0; s = s + 0x6D2B79F5 | 0; var t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  var root, deck, layers = [], startY = 0, maxShift = 0;
 
-  var layers = [];
-  function build(only) {
-    PLAN.forEach(function (p) {
-      if (only && p.sel !== only) return;
-      // the Experience strip writes its section with innerHTML once it loads, which would wipe clouds added before it
-      if (!only && p.sel === '[data-zb-experience]') { waitFor('[data-zb-experience] .zbx-track', function () { build(p.sel); run(); }); return; }
-      var hosts = document.querySelectorAll(p.sel);
-      [].forEach.call(hosts, function (host, i) {
-        var set = p.each[i % p.each.length];
-        host.classList.add('zbc-host');
-        if (host.parentElement) host.parentElement.classList.add('zbc-layer');
-        var sec = host.closest('section') || host.parentElement; if (sec) sec.classList.add('zbc-clip');
-        set.forEach(function (c, j) {
-          var el = document.createElement('div');
-          el.className = 'zbc ' + c.depth; el.setAttribute('aria-hidden', 'true');
-          var w = c.w * 100, h = c.w * AR[c.n];   // height in host-width units
-          el.style.cssText = 'width:' + w + '%;left:' + (c.x * 100 - w / 2) + '%;aspect-ratio:' + (1 / AR[c.n]) + ';top:calc(' + (c.y * 100) + '% - ' + (h * 50) + 'cqw)';
-          el.innerHTML = '<div class="sway" style="--t:' + (22 + ((i * 3 + j * 5) % 9)) + 's;--dl:-' + ((i * 7 + j * 4) % 13) + 's">' +
-            '<img class="d" alt="" decoding="async" loading="lazy" src="' + BASE + 'cloud' + c.n + '-day.webp">' +
-            '<img class="n" alt="" decoding="async" loading="lazy" src="' + BASE + 'cloud' + c.n + '-night.webp"></div>';
-          host.appendChild(el);
-          layers.push({ el: el, host: host, k: c.depth === 'near' ? NEAR : FAR });
-        });
-        host.style.containerType = host.style.containerType || 'inline-size';
-      });
+  function loadRatios(cb) {
+    var left = 8;
+    Object.keys(BANKS).forEach(function (k) {
+      var im = new Image(); im.onload = im.onerror = function () { BANKS[k] = im.naturalWidth ? im.naturalHeight / im.naturalWidth : 0.22; if (--left === 0) cb(); };
+      im.src = BASE + 'bank' + k + '-day.webp';
     });
   }
-  function waitFor(sel, cb) { var n = 0; (function t() { if (document.querySelector(sel)) cb(); else if (++n < 60) setTimeout(t, 250); })(); }
+  function build() {
+    root = document.querySelector('.page_root') || document.body;
+    var first = document.querySelector('.work_card');
+    var sec = first && (first.closest('section') || first.parentElement);
+    if (!sec) return;
+    if (getComputedStyle(root).position === 'static') root.style.position = 'relative';
+    var rr = root.getBoundingClientRect(), sr = sec.getBoundingClientRect();
+    startY = sr.top - rr.top;
+    var H = rr.height - startY, W = rr.width;
+    deck = document.createElement('div'); deck.className = 'zbd'; deck.setAttribute('aria-hidden', 'true');
+    deck.style.top = startY + 'px'; deck.style.height = H + 'px';
+    var r = rng(SEED * 7919 + 3), keys = Object.keys(BANKS), scale = Math.max(0.6, W / 1000);
+    maxShift = H;   // how far a layer can move over the deck's scroll range
+    LAYERS.forEach(function (L, li) {
+      var lay = document.createElement('div'); lay.className = 'zbd-layer zbd-' + L.name; lay.style.opacity = L.op;
+      // cover the deck plus however far this layer travels, so no edge ever scrolls into view
+      var reach = Math.abs(L.f) * (H + innerHeight), top = L.f > 0 ? -reach : -innerHeight * 0.3, bottom = L.f > 0 ? H + innerHeight * 0.3 : H + reach;
+      lay.style.height = (bottom - top) + 'px'; lay.style.top = top + 'px';
+      var gap = L.gap * scale, y = (L.name === 'near' ? 0.6 : 0) * gap;
+      for (; y < bottom - top; y += gap) {
+        for (var p = 0; p < L.per; p++) {
+          var k = keys[Math.floor(r() * keys.length)], w = (L.w[0] + r() * (L.w[1] - L.w[0])) * W, h = w * BANKS[k];
+          var x = (p + r()) / L.per * W - w / 2 + (r() - 0.5) * W * 0.3;
+          var b = document.createElement('div'); b.className = 'zbd-b' + (r() < 0.5 ? ' flip' : '');
+          b.style.cssText = 'left:' + x.toFixed(0) + 'px;top:' + (y + L.y[0] + r() * (L.y[1] - L.y[0]) - h * 0.6).toFixed(0) + 'px;width:' + w.toFixed(0) + 'px;height:' + h.toFixed(0) + 'px';
+          b.innerHTML = '<div class="zbd-sway" style="--t:' + (24 + r() * 14).toFixed(1) + 's;--dl:-' + (r() * 20).toFixed(1) + 's">' +
+            '<img class="d" alt="" decoding="async" loading="lazy" src="' + BASE + 'bank' + k + '-day.webp">' +
+            '<img class="n" alt="" decoding="async" loading="lazy" src="' + BASE + 'bank' + k + '-night.webp"></div>';
+          lay.appendChild(b);
+        }
+      }
+      deck.appendChild(lay); layers.push({ el: lay, f: L.f });
+    });
+    root.insertBefore(deck, root.firstChild);
+  }
   var q = false;
   function run() {
-    q = false; var mid = innerHeight / 2;
-    for (var i = 0; i < layers.length; i++) {
-      var r = layers[i].host.getBoundingClientRect();
-      if (r.bottom < -innerHeight || r.top > innerHeight * 2) continue;
-      layers[i].el.style.transform = 'translate3d(0,' + (((r.top + r.height / 2) - mid) * layers[i].k).toFixed(1) + 'px,0)';
-    }
+    q = false; if (!deck) return;
+    // scroll measured from the moment the deck's top reaches the bottom of the screen
+    var s = Math.max(0, -(deck.getBoundingClientRect().top - innerHeight));
+    for (var i = 0; i < layers.length; i++) layers[i].el.style.transform = 'translate3d(0,' + (s * layers[i].f).toFixed(1) + 'px,0)';
   }
   function ask() { if (!q) { q = true; requestAnimationFrame(run); } }
-  function init() { build(); run(); if (!reduce) { addEventListener('scroll', ask, { passive: true }); addEventListener('resize', ask); } }
+  var built = false;
+  function rebuild() { if (deck) deck.remove(); layers = []; build(); run(); }
+  function init() {
+    loadRatios(function () {
+      rebuild(); built = true;
+      if (!reduce) addEventListener('scroll', ask, { passive: true });
+      var lw = innerWidth; addEventListener('resize', function () { if (Math.abs(innerWidth - lw) > 40) { lw = innerWidth; rebuild(); } else ask(); });
+      // the page grows as embeds load (logo strip, Lottie): rebuild once it settles
+      setTimeout(rebuild, 2500);
+    });
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
