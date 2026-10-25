@@ -23,8 +23,13 @@
     { src: 'lib/09-deck',                 x: -175,  y: 842,  w: 1370, h: 204,  f: 0.22 },
     { src: 'lib/03-humilis',              x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 },
     // the landscape: a sea of cloud tops seen from just above, running to the horizon; below it you are inside the cloud
-    { src: 'sea-1',                       x: -260,  y: 860,  w: 1960, h: 490,  f: 0.08, floor: true }
+    { src: 'sea-1',                       x: -260,  y: 860,  w: 1960, h: 490,  f: 0.08 },
+    // big flat-topped clouds you start sinking into
+    { src: 'lib3/card-03-square',         x: -448,  y: 944,  w: 2360, h: 1247, f: -0.03 },
+    { src: 'lib3/card-07-chunky',         x: -475,  y: 1384, w: 2554, h: 1162, f: -0.06 }
   ];
+  // Zolton's fade ("going into the clouds"): from clear at FADE.from to solid at FADE.to (design y), then solid to the bottom
+  var FADE = { from: 1013, to: 1802 };
   // section tops in the design, matched to the live page's sections
   var ANCHORS = [['hero', 0], ['work', 1008], ['experience', 1536], ['contact', 1867], ['footer', 2263], ['end', 2341]];
   var FLOOR = { day: '#f2f5f8', night: '#1d1f24' };   // inside the cloud: clean white by day, clean dark grey at night
@@ -37,8 +42,10 @@
     '.zbs-c img.n{opacity:0}',
     'html[data-mode="dark"] .zbs-c img.d{opacity:0}',
     'html[data-mode="dark"] .zbs-c img.n{opacity:1}',
-    '.zbs-floor{position:absolute;left:0;right:0;bottom:0;transition:background 900ms cubic-bezier(.65,0,.35,1);background:' + FLOOR.day + '}',
-    'html[data-mode="dark"] .zbs-floor{background:' + FLOOR.night + '}',
+    '.zbs{--zf:' + FLOOR.day + ';--zf0:rgba(242,245,248,0)}',
+    'html[data-mode="dark"] .zbs{--zf:' + FLOOR.night + ';--zf0:rgba(29,31,36,0)}',
+    '.zbs-fade{position:absolute;left:0;right:0;background:linear-gradient(to bottom,var(--zf0),var(--zf))}',
+    '.zbs-floor{position:absolute;left:0;right:0;bottom:0;background:var(--zf)}',
     '.zbs-sway{position:absolute;inset:0;animation:zbsSway var(--t,34s) ease-in-out infinite alternate;animation-delay:var(--dl,0s)}',
     '@keyframes zbsSway{from{transform:translateX(-0.6%)}to{transform:translateX(0.6%)}}',
     '@media (prefers-reduced-motion:reduce){.zbs-sway{animation:none}}',
@@ -78,11 +85,6 @@
     items = [];
     SCENE.forEach(function (c, i) {
       var w = c.w * k, h = c.h * k, x = W / 2 + (c.x - DESIGN_W / 2) * k, y = map(c.y);
-      if (c.floor) {   // below the close cloud's flat top the page is solid cloud
-        var fl = document.createElement('div'); fl.className = 'zbs-floor'; fl.style.top = (y + h * 0.5).toFixed(0) + 'px';
-        fl.style.webkitMaskImage = fl.style.maskImage = 'linear-gradient(to bottom,transparent 0,#000 ' + (h * 0.45).toFixed(0) + 'px)';
-        scene.appendChild(fl); items.push({ el: fl, f: c.f, cy: y + h / 2 });
-      }
       var el = document.createElement('div'); el.className = 'zbs-c';
       el.style.cssText = 'left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px;width:' + w.toFixed(0) + 'px;height:' + h.toFixed(0) + 'px';
       el.innerHTML = '<div class="zbs-sway" style="--t:' + (28 + i * 3) + 's;--dl:-' + (i * 4) + 's">' +
@@ -90,6 +92,9 @@
         '<img class="n" alt="" decoding="async" loading="lazy" src="' + BASE + c.src + '-night.webp"></div>';
       scene.appendChild(el); items.push({ el: el, f: c.f, cy: y + h / 2 });
     });
+    var f0 = map(FADE.from), f1 = map(FADE.to);
+    var fd = document.createElement('div'); fd.className = 'zbs-fade'; fd.style.top = f0.toFixed(0) + 'px'; fd.style.height = Math.max(1, f1 - f0 + 1).toFixed(0) + 'px'; scene.appendChild(fd);
+    var fl = document.createElement('div'); fl.className = 'zbs-floor'; fl.style.top = f1.toFixed(0) + 'px'; scene.appendChild(fl);
     root.insertBefore(scene, root.firstChild);
   }
   var q = false;
