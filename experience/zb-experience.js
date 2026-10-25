@@ -1,0 +1,79 @@
+/* zb-experience — the "Experience" logo strip at the bottom of the zoltonbaize.com Work page.
+   Mark a host element with data-zb-experience and this fills it: a heading and a slow drifting row of logos (brand colours,
+   icon above a small label). Hold and drag to move it (it coasts a moment on release); click a logo to open that site.
+   Mouse over pauses the drift; reduced motion turns the drift off (dragging still works). Follows the site's light/dark
+   setting (<html data-mode>): Apple's mark and FITLAB's F are black in light mode and white in dark mode. */
+(function () {
+  'use strict';
+  var host = document.querySelector('[data-zb-experience]');
+  if (!host || host.__zb) return; host.__zb = true;
+  var LOGO = {"apple": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701\"/></svg>", "wells-fargo": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><rect x=\"0.8\" y=\"0.5\" width=\"22.4\" height=\"23\" fill=\"#FFFFFF\"/><path fill=\"#D71E28\" d=\"M12.136 13.949c0 .392-.245.616-.719.616h-.628v-1.226h.628c.48 0 .72.212.72.61zM6.922 15.06h1.044l-.523-1.443-.521 1.443zm12.46-1.82c-.72 0-1.109.562-1.109 1.526 0 .97.384 1.526 1.108 1.526.725 0 1.108-.556 1.108-1.526 0-.964-.389-1.526-1.108-1.526zM23.73 0v24H.269V0h23.462zm-5.548 10.652c.484.245.948.354 1.571.354.895 0 1.481-.458 1.481-1.171 0-.6-.357-1.014-1.028-1.172l-.677-.158c-.394-.092-.559-.25-.559-.517 0-.322.25-.523.74-.523s.778.18.89.604l.048.186h.383v-.943a2.927 2.927 0 0 0-1.352-.338c-.911 0-1.497.447-1.497 1.166 0 .556.34.965.996 1.112l.676.152c.432.099.592.273.592.562 0 .354-.261.55-.784.55-.59 0-.894-.24-1.027-.697l-.07-.235h-.383v1.068zm-3.378.245h3.02V9.595h-.383l-.043.19c-.106.486-.255.638-.607.638h-.74V7.557h.506v-.474h-1.753v.474h.453v2.866h-.453v.474zm-3.355 0h3.02V9.595h-.384l-.042.19c-.107.486-.256.638-.608.638h-.74V7.557h.506v-.474H11.45v.474h.452v2.866h-.452v.474zm-8.758-3.34.938 3.34h.74l.778-2.768.756 2.768h.74l.932-3.34h.736v2.866h-.453v.474h3.201V9.595h-.383l-.043.19c-.106.486-.26.638-.607.638h-.922V9.241h1.071a.58.58 0 0 0 .059-.273.55.55 0 0 0-.059-.26h-1.07v-1.15h.884c.357 0 .48.157.596.615l.038.147h.383V7.083H6.49v.474h.522l-.613 2.305-.762-2.779h-.766l-.746 2.774-.624-2.3h.501v-.474H2.266v.474h.426zm1.412 7.002v-1.22h.947c.358 0 .48.158.597.615l.038.147h.383v-1.236H2.857v.474h.453v2.866h-.453v.474h1.78v-.474h-.533v-1.112H5.2a.58.58 0 0 0 .058-.272.551.551 0 0 0-.058-.262H4.104zm9.114 1.913a.461.461 0 0 0-.048-.224.663.663 0 0 1-.112.011c-.245 0-.309-.142-.34-.458l-.022-.201c-.048-.43-.245-.708-.73-.746v-.017c.48-.022.975-.349.975-.964 0-.621-.496-1.008-1.257-1.008H9.542v.474h.453v2.866H9.26l-1.332-3.34H7.22l-1.305 3.34h-.373v.474h1.412v-.474h-.448l.245-.682h1.385l.245.682h-.437v.474h3.35v-.474h-.505v-1.16h.293c.586 0 .761.212.826.762l.02.19c.06.507.31.725.826.725.15 0 .299-.01.416-.027a.46.46 0 0 0 .048-.223zm3.633-1.788h-1.417a.52.52 0 0 0-.059.256c0 .11.016.18.059.268h.634v.964a1.598 1.598 0 0 1-.629.125c-.767 0-1.166-.56-1.166-1.53s.4-1.532 1.124-1.532c.485 0 .767.245.932.67l.058.153h.384v-.976a3.063 3.063 0 0 0-1.412-.337c-1.172 0-1.96.8-1.96 2.027 0 1.231.767 2.016 1.96 2.016.474 0 .964-.136 1.492-.404v-1.7zm4.512.082c0-1.182-.831-2.021-1.982-2.021-1.145 0-1.981.839-1.981 2.021 0 1.188.83 2.022 1.981 2.022 1.156 0 1.982-.834 1.982-2.022z\"/></svg>", "fitlab": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 305 382\" fill=\"var(--zb-fitlab-ink, #000000)\"><path d=\"M218.08 0.679988H85.91C63.3753 0.679984 41.7627 9.62847 25.8236 25.5583C9.88442 41.488 0.923261 63.0953 0.910006 85.63V140.47C0.90487 141.07 1.11156 141.653 1.49387 142.116C1.87617 142.579 2.40954 142.892 2.99997 143C3.59074 143.108 4.20068 143.002 4.71994 142.7C5.24061 142.396 5.63723 141.918 5.83994 141.35C11.7224 125.559 22.2961 111.946 36.141 102.339C49.9858 92.7328 66.4388 87.5929 83.29 87.61H221.22C232.219 87.6126 243.112 85.4487 253.275 81.2418C263.438 77.0349 272.673 70.8674 280.453 63.0914C288.233 55.3154 294.405 46.0833 298.616 35.922C302.828 25.7608 304.997 14.8695 305 3.86999V2.05999C305.004 1.87493 304.971 1.69091 304.902 1.51904C304.834 1.34717 304.731 1.19101 304.6 1.05999C304.468 0.930147 304.312 0.827896 304.14 0.759211C303.969 0.690526 303.785 0.656794 303.6 0.659999L218.08 0.679988Z\"/><path d=\"M162.71 142.93H83.92C61.9071 142.93 40.7956 151.675 25.2301 167.24C9.66458 182.806 0.920044 203.917 0.920044 225.93V229.21C0.920044 229.286 0.934964 229.362 0.964111 229.432C0.993259 229.502 1.03599 229.566 1.08984 229.62C1.1437 229.674 1.20771 229.717 1.27808 229.746C1.34844 229.775 1.42383 229.79 1.5 229.79H0.920044V381.85H5.41003C27.2639 381.85 48.2227 373.169 63.6757 357.716C79.1287 342.263 87.8101 321.304 87.8101 299.45V225.31C87.7947 211.09 91.4535 197.106 98.4319 184.716C105.41 172.326 115.471 161.948 127.64 154.59C128.178 154.256 128.815 154.121 129.442 154.206C130.069 154.292 130.646 154.593 131.075 155.058C131.504 155.524 131.756 156.124 131.79 156.756C131.824 157.388 131.637 158.012 131.26 158.52C127.102 163.734 124.263 169.874 122.985 176.42C121.707 182.965 122.028 189.723 123.92 196.118C125.813 202.513 129.22 208.356 133.854 213.153C138.488 217.949 144.211 221.556 150.537 223.668C156.863 225.779 163.605 226.333 170.191 225.281C176.776 224.23 183.011 221.605 188.365 217.628C193.719 213.652 198.034 208.442 200.944 202.441C203.854 196.441 205.273 189.826 205.08 183.16C204.44 160.59 185.29 142.93 162.71 142.93Z\"/></svg>", "zelle": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"#6D1ED4\"><path d=\"M13.559 24h-2.841a.483.483 0 0 1-.483-.483v-2.765H5.638a.667.667 0 0 1-.666-.666v-2.234a.67.67 0 0 1 .142-.412l8.139-10.382h-7.25a.667.667 0 0 1-.667-.667V3.914c0-.367.299-.666.666-.666h4.23V.483c0-.266.217-.483.483-.483h2.841c.266 0 .483.217.483.483v2.765h4.323c.367 0 .666.299.666.666v2.137a.67.67 0 0 1-.141.41l-8.19 10.481h7.665c.367 0 .666.299.666.666v2.477a.667.667 0 0 1-.666.667h-4.32v2.765a.483.483 0 0 1-.483.483Z\"/></svg>", "general-assembly": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 86 609 607\" fill=\"#E0232F\"><circle cx=\"304\" cy=\"389\" r=\"235\" fill=\"#FFFFFF\"/><path d=\"M398.9,565.9L388,479.8h-29.1l-10.9,86.1h-50.6L344,212h58.6l47,353.9H398.9L398.9,565.9z M268.8,550.6 c-10.9,11.9-26.5,18.2-47.7,18.2c-20.9,0-35.8-6-47-17.9c-11.3-11.9-17.2-27.8-17.2-47.7V275.2c0-19.9,5.3-35.8,16.6-47.7 c10.9-12.2,26.5-18.2,47.3-18.2c21.2,0,36.1,6,47.3,18.2c10.9,11.9,17.2,27.8,17.2,47.7v54.6h-48v-58.6c0-8.9-7.6-15.6-16.6-15.6 c-8.9,0-15.6,7-15.6,15.9v235c0,8.6,6.6,15.6,15.6,15.6c8.9,0,16.2-7,16.2-15.9v-64.6h-16.2v-43h64.6V503 C285.4,522.8,280.1,538.7,268.8,550.6L268.8,550.6z M569.7,389.1c0-20.2,16.6-36.4,36.7-36.4l-9.3-45.4 c-18.5,7.6-40.1-1-47.7-19.9c-7.9-18.9,1-40.1,19.9-48l-25.8-38.4c-14.2,14.2-37.4,14.2-51.6,0c-14.6-14.2-14.6-37.4,0-51.6 l-38.4-25.8c-7.9,18.9-29.5,27.5-48,19.9c-18.9-7.6-27.5-29.1-19.9-48l-45.4-8.9c0,20.2-16.2,36.7-36.7,36.7 c-20.2,0-36.4-16.6-36.4-36.7l-45.4,8.9c7.6,18.9-1.3,40.4-19.9,48c-18.9,7.6-40.4-1-48-19.9l-38.4,25.8 c14.2,14.2,14.2,37.4,0,51.6c-14.2,14.2-37.4,14.2-52,0l-25.5,38.4c18.5,7.9,27.5,29.1,19.9,48c-7.6,18.9-29.1,27.5-48,19.9 L1,352.7c20.2,0,36.7,16.2,36.7,36.4c0,20.5-16.6,36.7-36.7,36.7l8.9,45.4c18.9-7.6,40.4,1.3,48,19.9c7.6,18.9-1.3,40.1-19.9,48 l25.5,38.4c14.6-14.2,37.7-14.2,52,0c14.2,14.2,14.2,37.4,0,51.6l38.4,25.8c7.6-18.9,29.1-27.8,48-19.9 c18.5,7.6,27.5,29.1,19.9,48l45.4,8.9c0-20.2,16.2-36.7,36.4-36.7c20.5,0,36.7,16.6,36.7,36.7l45.4-8.9c-7.6-18.9,1-40.4,19.9-48 c18.5-7.9,40.1,1,48,19.9l38.4-25.8c-14.6-14.2-14.6-37.4,0-51.6c14.2-14.2,37.4-14.2,51.6,0l25.8-38.4 c-18.9-7.9-27.8-29.1-19.9-48c7.6-18.5,29.1-27.5,48-19.9l8.9-45.4C586.3,425.8,569.7,409.6,569.7,389.1\"/><path d=\"M373.7,386.4c-14.9,0-26.8,12.2-26.8,27.1c0,14.9,11.9,27.1,26.8,27.1c14.6,0,26.5-12.2,26.5-27.1 C400.2,398.7,388.3,386.4,373.7,386.4\"/></svg>", "academy-of-art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"235 12 513 513\"><circle cx=\"491.6\" cy=\"268.5\" r=\"256.3\" fill=\"#ED1B2E\"/><polygon fill=\"#fff\" points=\"494.1,89.3 640,352 597.3,352 533.7,237.1 471,352 424.1,352 510.9,194.6 492.8,164.4 385.4,352 341.2,352\"/><polygon fill=\"#fff\" points=\"639.9,413 337.3,413.1 337.2,372.8 639.9,372.7\"/></svg>", "google": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"1 1 22 22\"><path fill=\"#4285F4\" d=\"M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z\"/><path fill=\"#34A853\" d=\"M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z\"/><path fill=\"#FBBC05\" d=\"M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z\"/><path fill=\"#EA4335\" d=\"M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z\"/></svg>"};
+  var ITEMS = [
+    ['Apple', 'apple', 'https://www.apple.com'], ['Google', 'google', 'https://www.google.com'],
+    ['Wells Fargo', 'wells-fargo', 'https://www.wellsfargo.com'], ['FITLAB', 'fitlab', 'https://www.fitlabstrong.com'],
+    ['Zelle', 'zelle', 'https://www.zellepay.com'], ['AAU', 'academy-of-art', 'https://www.academyart.edu'],
+    ['GA', 'general-assembly', 'https://generalassemb.ly']
+  ];
+  var css = document.createElement('style');
+  css.textContent =
+    '[data-zb-experience]{--zb-fitlab-ink:#000;padding:72px 0 24px;position:relative;z-index:1}' +
+    'html[data-mode="dark"] [data-zb-experience]{--zb-fitlab-ink:#fff}' +
+    '.zbx-wrap{width:min(1180px,calc(100% - 2*clamp(20px,4vw,48px)));margin:0 auto}' +
+    '.zbx-h{margin:0 0 26px;font-family:"Schibsted Grotesk",system-ui,sans-serif;font-size:clamp(28px,4vw,44px);line-height:1.04;font-weight:400;letter-spacing:-.03em;color:var(--_zb-mode---mode--ink,#07283D)}' +
+    '.zbx-strip{position:relative;overflow:hidden;padding:6px 0;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;' +
+    '-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}' +
+    '.zbx-strip.dragging{cursor:grabbing}' +
+    '.zbx-track{display:flex;gap:22px;width:max-content;will-change:transform}' +
+    '.zbx-chip{display:flex;flex-direction:column;align-items:center;gap:12px;min-width:120px;padding:12px 24px;white-space:nowrap;text-decoration:none;border-radius:18px;transition:transform 200ms;-webkit-user-drag:none;color:var(--_zb-mode---mode--ink,#07283D)}' +
+    '.zbx-chip:hover{transform:translateY(-3px)}.zbx-chip:focus-visible{outline:2px solid var(--_zb-mode---mode--accent,#0A5C86);outline-offset:3px}' +
+    '.zbx-chip svg{height:52px;width:auto;max-width:120px;display:block;pointer-events:none}' +
+    '.zbx-mark{height:56px;display:grid;place-items:center}' +
+    '.zbx-chip b{font:400 11px/1.4 "JetBrains Mono",ui-monospace,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--_zb-mode---mode--muted,#2A5570)}' +
+    '@media (max-width:767px){.zbx-chip{min-width:96px;padding:10px 16px}.zbx-chip svg{height:42px}.zbx-mark{height:46px}}';
+  document.head.appendChild(css);
+  function chips(copy) {
+    return ITEMS.map(function (it) {
+      return '<a class="zbx-chip" href="' + it[2] + '" target="_blank" rel="noopener" draggable="false" title="' + it[0] + '"' +
+        (copy ? ' aria-hidden="true" tabindex="-1"' : '') + '><span class="zbx-mark">' + LOGO[it[1]] + '</span><b>' + it[0] + '</b></a>';
+    }).join('');
+  }
+  host.innerHTML = '<div class="zbx-wrap"><h2 class="zbx-h">Experience</h2></div>' +
+    '<div class="zbx-wrap"><div class="zbx-strip" aria-label="Experience. Drag to move; each logo links to that company."><div class="zbx-track">' +
+    chips(false) + chips(true) + chips(true) + '</div></div></div>';
+  var strip = host.querySelector('.zbx-strip'), track = host.querySelector('.zbx-track');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, DRIFT = reduce ? 0 : 22;
+  var x = 0, v = 0, period = 0, dragging = false, moved = 0, lastX = 0, lastT = 0, hovering = false, visible = true, last = performance.now();
+  function measure() { period = track.scrollWidth / 3; }
+  function frame(now) {
+    var dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (!dragging) {
+      if (Math.abs(v) > 5) { x += v * dt; v *= Math.pow(0.04, dt); }
+      else { v = 0; if (!hovering) x -= DRIFT * dt; }
+    }
+    if (period) { while (x <= -period) x += period; while (x > 0) x -= period; }
+    track.style.transform = 'translate3d(' + x.toFixed(2) + 'px,0,0)';
+    if (visible) requestAnimationFrame(frame);
+  }
+  strip.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0) return;
+    dragging = true; moved = 0; v = 0; lastX = e.clientX; lastT = performance.now();
+    if (e.pointerType === 'mouse') e.preventDefault();
+  });
+  strip.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    var now = performance.now(), dx = e.clientX - lastX;
+    x += dx; moved += Math.abs(dx);
+    if (moved > 6 && !strip.hasPointerCapture(e.pointerId)) { strip.setPointerCapture(e.pointerId); strip.classList.add('dragging'); }
+    v = 0.8 * (dx / Math.max(1, now - lastT) * 1000) + 0.2 * v; lastX = e.clientX; lastT = now;
+  });
+  function release() { if (dragging) { dragging = false; strip.classList.remove('dragging'); } }
+  strip.addEventListener('pointerup', release); strip.addEventListener('pointercancel', release);
+  strip.addEventListener('click', function (e) { if (moved > 6) { e.preventDefault(); e.stopPropagation(); } }, true);
+  strip.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') hovering = true; });
+  strip.addEventListener('pointerleave', function () { hovering = false; });
+  strip.addEventListener('focusin', function () { hovering = true; }); strip.addEventListener('focusout', function () { hovering = false; });
+  addEventListener('resize', measure); measure(); if (document.fonts) document.fonts.ready.then(measure);
+  // only animate while on screen
+  if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { var was = visible; visible = es[0].isIntersecting; if (visible && !was) { last = performance.now(); requestAnimationFrame(frame); } }, { rootMargin: '200px' }).observe(host);
+  requestAnimationFrame(frame);
+})();
