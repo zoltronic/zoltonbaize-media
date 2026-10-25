@@ -41,7 +41,7 @@
     '<div class="zbx-wrap"><div class="zbx-strip" aria-label="Experience. Drag to move; each logo links to that company."><div class="zbx-track">' +
     chips(false) + chips(true) + chips(true) + '</div></div></div>';
   var strip = host.querySelector('.zbx-strip'), track = host.querySelector('.zbx-track');
-  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, DRIFT = reduce ? 0 : 4;   // px per second: slow enough that you barely notice it moving
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, DRIFT = reduce ? 0 : 4.4; // px per second: slow enough that you barely notice it moving
   var x = 0, v = 0, period = 0, dragging = false, moved = 0, lastX = 0, lastT = 0, hovering = false, visible = true, last = performance.now();
   function measure() { period = track.scrollWidth / 3; }
   function frame(now) {
