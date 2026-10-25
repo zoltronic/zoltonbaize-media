@@ -24,9 +24,8 @@
     // the landscape: a sea of cloud tops seen from just above, running to the horizon; it sits behind the big title cloud
     { src: 'sea-1',                       x: -800,  y: 700,  w: 3040, h: 760,  f: 0.08 },
     { src: 'lib/03-humilis',              x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 },
-    // big flat-topped clouds you start sinking into
-    { src: 'lib3/card-03-square',         x: -448,  y: 944,  w: 2360, h: 1247, f: -0.03 },
-    { src: 'lib3/card-07-chunky',         x: -475,  y: 1384, w: 2554, h: 1162, f: -0.06 }
+    // a second, closer cloud landscape behind Selected work: it rises a little faster than the page as you scroll down into it
+    { src: 'sea-2',                       x: -1100, y: 960,  w: 3640, h: 852,  f: -0.18 }
   ];
   // Zolton's fade ("going into the clouds"): from clear at FADE.from to solid at FADE.to (design y), then solid to the bottom
   var FADE = { from: 1013, to: 1802 };
