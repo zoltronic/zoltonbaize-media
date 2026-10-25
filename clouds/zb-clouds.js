@@ -16,8 +16,9 @@
   var css = document.createElement('style');
   css.textContent = [
     '.zbc-host{position:relative;isolation:isolate}',
-    '.zbc{position:absolute;pointer-events:none;will-change:transform;z-index:-1}',
-    '.zbc.far{z-index:-2;opacity:.9}',
+    '.zbc{position:absolute;pointer-events:none;will-change:transform;z-index:-2}',   /* -1 is left for the coin's own layer, so it stays in front */
+    '.zbc.far{z-index:-3;opacity:.9}',
+    '.zbc img.d{filter:brightness(1.07) saturate(.9)}',
     '.zbc img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transition:opacity 900ms cubic-bezier(.65,0,.35,1)}',
     '.zbc img.n{opacity:0}',
     'html[data-mode="dark"] .zbc img.d{opacity:0}',
@@ -32,9 +33,9 @@
   var AR = { 1: .80, 2: .59, 3: .56, 4: .64, 5: .57, 6: .46, 7: .91, 8: .76, 9: .60, 10: .70, 11: .55, 12: .47 };
   var PLAN = [
     { sel: '.work_card', each: [
-      [{ n: 6, w: 1.5, x: .5, y: .5, depth: 'near' }, { n: 7, w: .8, x: .78, y: .22, depth: 'far' }],
-      [{ n: 3, w: 1.45, x: .5, y: .52, depth: 'near' }, { n: 10, w: .78, x: .24, y: .2, depth: 'far' }],
-      [{ n: 12, w: 1.5, x: .5, y: .5, depth: 'near' }, { n: 8, w: .7, x: .76, y: .2, depth: 'far' }]
+      [{ n: 6, w: 1.35, x: .5, y: .36, depth: 'near' }, { n: 7, w: .75, x: .78, y: .14, depth: 'far' }],
+      [{ n: 3, w: 1.35, x: .5, y: .37, depth: 'near' }, { n: 10, w: .75, x: .24, y: .14, depth: 'far' }],
+      [{ n: 12, w: 1.35, x: .5, y: .36, depth: 'near' }, { n: 8, w: .7, x: .76, y: .14, depth: 'far' }]
     ] },
     { sel: '[data-zb-experience]', each: [[
       { n: 2, w: .42, x: .16, y: .72, depth: 'near' }, { n: 5, w: .4, x: .5, y: .76, depth: 'near' }, { n: 11, w: .42, x: .84, y: .72, depth: 'near' },
