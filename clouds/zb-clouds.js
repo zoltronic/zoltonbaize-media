@@ -21,14 +21,13 @@
     { src: 'lib/03-humilis',              x: 924,   y: 772,  w: 542,  h: 236,  f: 0.35 },
     { src: 'lib/12-scatter',              x: -486,  y: 120,  w: 2785, h: 532,  f: 0.30 },
     { src: 'lib/09-deck',                 x: -175,  y: 842,  w: 1370, h: 204,  f: 0.22 },
-    { src: 'lib4/close-01-wide-offright', x: -1716, y: 927,  w: 4723, h: 773,  f: 0.06, floor: true },
     { src: 'lib/03-humilis',              x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 },
-    { src: 'lib3/card-03-square',         x: -448,  y: 1171, w: 2360, h: 1247, f: -0.03 },
-    { src: 'lib3/card-07-chunky',         x: -475,  y: 1620, w: 2554, h: 1162, f: -0.06 }
+    // the landscape: a sea of cloud tops seen from just above, running to the horizon; below it you are inside the cloud
+    { src: 'sea-1',                       x: -260,  y: 860,  w: 1960, h: 490,  f: 0.08, floor: true }
   ];
   // section tops in the design, matched to the live page's sections
   var ANCHORS = [['hero', 0], ['work', 1008], ['experience', 1536], ['contact', 1867], ['footer', 2263], ['end', 2341]];
-  var FLOOR = { day: '#dbe5ec', night: '#26272b' };   // body colour of the close cloud, continued to the bottom of the page
+  var FLOOR = { day: '#f2f5f8', night: '#1d1f24' };   // inside the cloud: clean white by day, clean dark grey at night
 
   var css = document.createElement('style');
   css.textContent = [
@@ -80,9 +79,9 @@
     SCENE.forEach(function (c, i) {
       var w = c.w * k, h = c.h * k, x = W / 2 + (c.x - DESIGN_W / 2) * k, y = map(c.y);
       if (c.floor) {   // below the close cloud's flat top the page is solid cloud
-        var fl = document.createElement('div'); fl.className = 'zbs-floor'; fl.style.top = (y + h * 0.55).toFixed(0) + 'px';
-        fl.style.webkitMaskImage = fl.style.maskImage = 'linear-gradient(to bottom,transparent 0,#000 ' + (h * 0.3).toFixed(0) + 'px)';
-        scene.appendChild(fl); items.push({ el: fl, f: c.f, cy: y + h * 0.55 });
+        var fl = document.createElement('div'); fl.className = 'zbs-floor'; fl.style.top = (y + h * 0.5).toFixed(0) + 'px';
+        fl.style.webkitMaskImage = fl.style.maskImage = 'linear-gradient(to bottom,transparent 0,#000 ' + (h * 0.45).toFixed(0) + 'px)';
+        scene.appendChild(fl); items.push({ el: fl, f: c.f, cy: y + h / 2 });
       }
       var el = document.createElement('div'); el.className = 'zbs-c';
       el.style.cssText = 'left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px;width:' + w.toFixed(0) + 'px;height:' + h.toFixed(0) + 'px';
