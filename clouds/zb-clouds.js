@@ -23,7 +23,7 @@
 
   var css = document.createElement('style');
   css.textContent = [
-    '.zbd{position:absolute;left:0;right:0;z-index:-1;pointer-events:none;overflow:hidden}',
+    '.zbd{position:absolute;left:0;right:0;z-index:-1;pointer-events:none;overflow:hidden;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 260px);mask-image:linear-gradient(to bottom,transparent 0,#000 260px)}',   /* the deck's top fades in, so it never shows a hard line */
     '.zbd-layer{position:absolute;left:0;right:0;top:0;will-change:transform}',
     '.zbd-b{position:absolute}',
     '.zbd-b img{position:absolute;inset:0;width:100%;height:100%;transition:opacity 900ms cubic-bezier(.65,0,.35,1)}',
@@ -56,7 +56,7 @@
     if (!sec) return;
     if (getComputedStyle(root).position === 'static') root.style.position = 'relative';
     var rr = root.getBoundingClientRect(), sr = sec.getBoundingClientRect();
-    startY = sr.top - rr.top;
+    startY = Math.max(0, sr.top - rr.top - 180);   /* start a little above the section so the fade-in lands on it */
     var H = rr.height - startY, W = rr.width;
     deck = document.createElement('div'); deck.className = 'zbd'; deck.setAttribute('aria-hidden', 'true');
     deck.style.top = startY + 'px'; deck.style.height = H + 'px';
