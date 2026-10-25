@@ -16,6 +16,10 @@
   var css = document.createElement('style');
   css.textContent = [
     '.zbc-host{position:relative;isolation:isolate}',
+    /* the work tiles' clouds overlap their neighbours, so they share the grid's layer (all clouds under all tiles' content) */
+    '.work_card.zbc-host{isolation:auto}',
+    '.zbc-layer{isolation:isolate}',
+    '.zbc-clip{overflow-x:clip}',   /* clouds are wider than the screen on phones: never let them widen the page */
     '.zbc{position:absolute;pointer-events:none;will-change:transform;z-index:-2}',   /* -1 is left for the coin's own layer, so it stays in front */
     '.zbc.far{z-index:-3;opacity:.9}',
     '.zbc img.d{filter:brightness(1.07) saturate(.9)}',
@@ -56,6 +60,8 @@
       [].forEach.call(hosts, function (host, i) {
         var set = p.each[i % p.each.length];
         host.classList.add('zbc-host');
+        if (host.parentElement) host.parentElement.classList.add('zbc-layer');
+        var sec = host.closest('section') || host.parentElement; if (sec) sec.classList.add('zbc-clip');
         set.forEach(function (c, j) {
           var el = document.createElement('div');
           el.className = 'zbc ' + c.depth; el.setAttribute('aria-hidden', 'true');
