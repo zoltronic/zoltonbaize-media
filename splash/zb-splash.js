@@ -523,7 +523,7 @@
   }
 
   // ---------- Playback ----------
-  let playing = false, skipping = false, t = 0, last = 0;
+  let playing = false, skipping = false, t = 0, last = 0, startReal = 0;
   function release() {
     // Free the GPU for the page's own sky once the splash is done.
     try { renderer.dispose(); renderer.forceContextLoss(); } catch (e) {}
@@ -550,6 +550,9 @@
     if (!skipping) t += dt;
     draw(Math.min(t, END));
     if (t >= END && !skipping) { finish(); return; }
+    // Frame steps are capped, so a phone that can't hold the frame rate would stretch the 2.2 s splash out.
+    // Never let it run more than a second past its length in real time: fade out instead.
+    if (!skipping && now - startReal > (END + 1) * 1000) skip();
     requestAnimationFrame(tick);
   }
 
@@ -569,7 +572,7 @@
   draw(0);
   splash.classList.add('live');
   clearCover();
-  playing = true; last = performance.now();
+  playing = true; last = performance.now(); startReal = last;
   markSeen();   // mark it as soon as it starts, so leaving or tapping the logo mid-splash never replays it
   if (force) { try { history.replaceState(null, '', location.pathname + location.search.replace(/([?&])splash\b=?[^&]*&?/, '$1').replace(/[?&]$/, '') + location.hash); } catch (e) {} }   // tidy the address after a replay
   requestAnimationFrame(tick);
