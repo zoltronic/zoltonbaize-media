@@ -19,7 +19,8 @@
     /* the work tiles' clouds overlap their neighbours, so they share the grid's layer (all clouds under all tiles' content) */
     '.work_card.zbc-host{isolation:auto}',
     '.zbc-layer{isolation:isolate}',
-    '.zbc-clip{overflow-x:clip}',   /* clouds are wider than the screen on phones: never let them widen the page */
+    '.zbc-clip{overflow-x:clip}',
+    '.zbc-clip :is(h1,h2,h3,.zbx-h){position:relative;z-index:1}',   /* section headings stay in front of the clouds */   /* clouds are wider than the screen on phones: never let them widen the page */
     '.zbc{position:absolute;pointer-events:none;will-change:transform;z-index:-2}',   /* -1 is left for the coin's own layer, so it stays in front */
     '.zbc.far{z-index:-3;opacity:.9}',
     '.zbc img.d{filter:brightness(1.07) saturate(.9)}',
@@ -37,9 +38,9 @@
   var AR = { 1: .568, 2: .52, 3: .6, 4: .44, 5: .767, 6: .599, 7: .572, 8: .473, 9: .605, 10: .539, 11: .506, 12: .477 };
   var PLAN = [
     { sel: '.work_card', each: [
-      [{ n: 4, w: 2.0, x: .5, y: .56, depth: 'near' }, { n: 5, w: 1.0, x: .8, y: .18, depth: 'far' }],
-      [{ n: 12, w: 2.0, x: .5, y: .57, depth: 'near' }, { n: 9, w: 1.0, x: .22, y: .17, depth: 'far' }],
-      [{ n: 8, w: 2.0, x: .5, y: .56, depth: 'near' }, { n: 3, w: .95, x: .78, y: .17, depth: 'far' }]
+      [{ n: 4, w: 2.0, x: .5, y: .56, depth: 'near' }, { n: 5, w: 1.0, x: .8, y: .26, depth: 'far' }],
+      [{ n: 12, w: 2.0, x: .5, y: .57, depth: 'near' }, { n: 9, w: 1.0, x: .22, y: .25, depth: 'far' }],
+      [{ n: 8, w: 2.0, x: .5, y: .56, depth: 'near' }, { n: 3, w: .95, x: .78, y: .25, depth: 'far' }]
     ] },
     { sel: '[data-zb-experience]', each: [[
       { n: 2, w: .5, x: .16, y: .68, depth: 'near' }, { n: 11, w: .5, x: .5, y: .72, depth: 'near' }, { n: 10, w: .5, x: .84, y: .68, depth: 'near' },
