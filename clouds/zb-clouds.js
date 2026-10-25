@@ -47,8 +47,11 @@
   ];
 
   var layers = [];
-  function build() {
+  function build(only) {
     PLAN.forEach(function (p) {
+      if (only && p.sel !== only) return;
+      // the Experience strip writes its section with innerHTML once it loads, which would wipe clouds added before it
+      if (!only && p.sel === '[data-zb-experience]') { waitFor('[data-zb-experience] .zbx-track', function () { build(p.sel); run(); }); return; }
       var hosts = document.querySelectorAll(p.sel);
       [].forEach.call(hosts, function (host, i) {
         var set = p.each[i % p.each.length];
@@ -68,6 +71,7 @@
       });
     });
   }
+  function waitFor(sel, cb) { var n = 0; (function t() { if (document.querySelector(sel)) cb(); else if (++n < 60) setTimeout(t, 250); })(); }
   var q = false;
   function run() {
     q = false; var mid = innerHeight / 2;
