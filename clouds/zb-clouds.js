@@ -1,8 +1,10 @@
-/* zb-clouds — a deck of big cumulus banks from "Selected work" to the bottom of the Work page.
-   The banks are stills rendered from the About page's cloud engine (sun in front of the viewer, so their faces are bright
-   white; at night, darker and moonlit from the upper left), each a random cluster of 5-7 clouds. They sit in three layers at
-   different depths: as the page scrolls the far layer lags, the near one runs ahead, so gaps open and close and the sky
-   shows through between them. Light/dark crossfades with the site's mode.
+/* zb-clouds — the Work page's cloud scene, laid out from Zolton's Figma example ("Work page — Light (1440) Example").
+   Open sky behind the hero, then a close, flat-topped cloud floor at "Selected work": everything below sits on clouds.
+   Each cloud is a still from the About page's cloud engine (day: sun in front; night: moon behind, dark grey with a rim).
+   Positions come from the 1440-wide design and are mapped onto the live page section by section, so a cloud keeps its
+   place relative to the hero, Selected work, Experience, Contact and the footer whatever their real heights.
+   Parallax: each cloud is exactly where the design puts it when its middle crosses the middle of the screen; far clouds
+   lag behind the scroll, near ones run slightly ahead. Light/dark crossfades with the site's mode.
    Only runs when <html> has the class zb-cloud-cards (preview address, or ?clouds). */
 (function () {
   'use strict';
@@ -11,98 +13,103 @@
   if (!html.classList.contains('zb-cloud-cards')) return;
   var BASE = (document.currentScript && document.currentScript.src.replace(/zb-clouds\.js.*$/, '')) || '';
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var SEED = 11;   // change for a different random sky
-  var BANKS = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 };   // aspect ratios (h/w) are filled in from the images
-  // f: parallax (share of the scroll the layer is held back by; negative runs ahead), gap: px between rows (at 1000px wide),
-  // w: bank width range as a share of the deck width, op: opacity, per: banks per row
-  var LAYERS = [
-    { name: 'far',  f: 0.42, gap: 330, w: [0.7, 1.05], op: 0.7,  per: 1, y: [-40, 40] },
-    { name: 'mid',  f: 0.18, gap: 420, w: [0.8, 1.15], op: 0.92, per: 1, y: [-60, 60] },
-    { name: 'near', f: -0.14, gap: 560, w: [0.9, 1.3], op: 1,    per: 1, y: [-80, 80] }
+
+  // The design (1440 wide), bottom to top. src: file under clouds/, x/y/w/h: px in the design, f: parallax
+  // (share of the scroll the cloud lags by; negative runs ahead of the page = closer than the content).
+  var DESIGN_W = 1440;
+  var SCENE = [
+    { src: 'lib/03-humilis',              x: 924,   y: 772,  w: 542,  h: 236,  f: 0.35 },
+    { src: 'lib/12-scatter',              x: -486,  y: 120,  w: 2785, h: 532,  f: 0.30 },
+    { src: 'lib/09-deck',                 x: -175,  y: 842,  w: 1370, h: 204,  f: 0.22 },
+    { src: 'lib4/close-01-wide-offright', x: -1716, y: 927,  w: 4723, h: 773,  f: 0.06, floor: true },
+    { src: 'lib/03-humilis',              x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 },
+    { src: 'lib3/card-03-square',         x: -448,  y: 1171, w: 2360, h: 1247, f: -0.03 },
+    { src: 'lib3/card-07-chunky',         x: -475,  y: 1620, w: 2554, h: 1162, f: -0.06 }
   ];
+  // section tops in the design, matched to the live page's sections
+  var ANCHORS = [['hero', 0], ['work', 1008], ['experience', 1536], ['contact', 1867], ['footer', 2263], ['end', 2341]];
+  var FLOOR = { day: '#dbe5ec', night: '#26272b' };   // body colour of the close cloud, continued to the bottom of the page
 
   var css = document.createElement('style');
   css.textContent = [
-    '.zbd{position:absolute;left:0;right:0;z-index:-1;pointer-events:none;overflow:hidden;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 260px);mask-image:linear-gradient(to bottom,transparent 0,#000 260px)}',   /* the deck's top fades in, so it never shows a hard line */
-    '.zbd-layer{position:absolute;left:0;right:0;top:0;will-change:transform}',
-    '.zbd-b{position:absolute}',
-    '.zbd-b img{position:absolute;inset:0;width:100%;height:100%;transition:opacity 900ms cubic-bezier(.65,0,.35,1)}',
-    '.zbd-b img.d{filter:brightness(1.05)}',
-    '.zbd-b img.n{opacity:0}',
-    'html[data-mode="dark"] .zbd-b img.d{opacity:0}',
-    'html[data-mode="dark"] .zbd-b img.n{opacity:1}',
-    '.zbd-b.flip img{transform:scaleX(-1)}',
-    '.zbd-sway{position:absolute;inset:0;animation:zbdSway var(--t,30s) ease-in-out infinite alternate;animation-delay:var(--dl,0s)}',
-    '@keyframes zbdSway{from{transform:translateX(-1.2%)}to{transform:translateX(1.2%)}}',
-    '@media (prefers-reduced-motion:reduce){.zbd-sway{animation:none}}',
+    '.zbs{position:absolute;left:0;top:0;right:0;z-index:-1;pointer-events:none;overflow:hidden}',
+    '.zbs-c{position:absolute;will-change:transform}',
+    '.zbs-c img{position:absolute;inset:0;width:100%;height:100%;transition:opacity 900ms cubic-bezier(.65,0,.35,1)}',
+    '.zbs-c img.n{opacity:0}',
+    'html[data-mode="dark"] .zbs-c img.d{opacity:0}',
+    'html[data-mode="dark"] .zbs-c img.n{opacity:1}',
+    '.zbs-floor{position:absolute;left:0;right:0;bottom:0;transition:background 900ms cubic-bezier(.65,0,.35,1);background:' + FLOOR.day + '}',
+    'html[data-mode="dark"] .zbs-floor{background:' + FLOOR.night + '}',
+    '.zbs-sway{position:absolute;inset:0;animation:zbsSway var(--t,34s) ease-in-out infinite alternate;animation-delay:var(--dl,0s)}',
+    '@keyframes zbsSway{from{transform:translateX(-0.6%)}to{transform:translateX(0.6%)}}',
+    '@media (prefers-reduced-motion:reduce){.zbs-sway{animation:none}}',
     'html.zb-cloud-cards .page_root{overflow-x:clip}'
   ].join('');
   document.head.appendChild(css);
 
-  function rng(s) { return function () { s |= 0; s = s + 0x6D2B79F5 | 0; var t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-  var root, deck, layers = [], startY = 0, maxShift = 0;
-
-  function loadRatios(cb) {
-    var left = 8;
-    Object.keys(BANKS).forEach(function (k) {
-      var im = new Image(); im.onload = im.onerror = function () { BANKS[k] = im.naturalWidth ? im.naturalHeight / im.naturalWidth : 0.22; if (--left === 0) cb(); };
-      im.src = BASE + 'bank' + k + '-day.webp';
-    });
+  var root, scene, items = [];
+  function top(el) { if (!el) return null; var rr = root.getBoundingClientRect(); return el.getBoundingClientRect().top - rr.top; }
+  function sections() {
+    var card = document.querySelector('.work_card'), work = card && (card.closest('section') || card.parentElement);
+    var track = document.querySelector('.zbx-track'), exp = track && (track.closest('section') || track.parentElement);
+    var contact = document.getElementById('contact'); contact = contact && (contact.closest('section') || contact);
+    var foot = root.querySelector('footer') || document.querySelector('footer');
+    var hero = root.querySelector('section');
+    var H = root.getBoundingClientRect().height;
+    return { hero: top(hero) || 0, work: top(work), experience: top(exp), contact: top(contact), footer: top(foot), end: H };
+  }
+  // piecewise-linear map from design y to page y through the matched section tops
+  function mapper() {
+    var s = sections(), pts = [];
+    ANCHORS.forEach(function (a) { if (s[a[0]] != null && isFinite(s[a[0]])) pts.push([a[1], s[a[0]]]); });
+    pts.sort(function (a, b) { return a[0] - b[0]; });
+    return function (y) {
+      if (pts.length < 2) return y;
+      var i = 0; while (i < pts.length - 2 && y > pts[i + 1][0]) i++;
+      var a = pts[i], b = pts[i + 1], t = (y - a[0]) / Math.max(1, b[0] - a[0]);
+      return a[1] + t * (b[1] - a[1]);
+    };
   }
   function build() {
     root = document.querySelector('.page_root') || document.body;
-    var first = document.querySelector('.work_card');
-    var sec = first && (first.closest('section') || first.parentElement);
-    if (!sec) return;
     if (getComputedStyle(root).position === 'static') root.style.position = 'relative';
-    var rr = root.getBoundingClientRect(), sr = sec.getBoundingClientRect();
-    startY = Math.max(0, sr.top - rr.top - 180);   /* start a little above the section so the fade-in lands on it */
-    var H = rr.height - startY, W = rr.width;
-    deck = document.createElement('div'); deck.className = 'zbd'; deck.setAttribute('aria-hidden', 'true');
-    deck.style.top = startY + 'px'; deck.style.height = H + 'px';
-    var r = rng(SEED * 7919 + 3), keys = Object.keys(BANKS), scale = Math.max(0.6, W / 1000);
-    maxShift = H;   // how far a layer can move over the deck's scroll range
-    LAYERS.forEach(function (L, li) {
-      var lay = document.createElement('div'); lay.className = 'zbd-layer zbd-' + L.name; lay.style.opacity = L.op;
-      // cover the deck plus however far this layer travels, so no edge ever scrolls into view
-      var reach = Math.abs(L.f) * (H + innerHeight), top = L.f > 0 ? -reach : -innerHeight * 0.3, bottom = L.f > 0 ? H + innerHeight * 0.3 : H + reach;
-      lay.style.height = (bottom - top) + 'px'; lay.style.top = top + 'px';
-      var gap = L.gap * scale, y = (L.name === 'near' ? 0.6 : 0) * gap;
-      for (; y < bottom - top; y += gap) {
-        for (var p = 0; p < L.per; p++) {
-          var k = keys[Math.floor(r() * keys.length)], w = (L.w[0] + r() * (L.w[1] - L.w[0])) * W, h = w * BANKS[k];
-          var x = (p + r()) / L.per * W - w / 2 + (r() - 0.5) * W * 0.3;
-          var b = document.createElement('div'); b.className = 'zbd-b' + (r() < 0.5 ? ' flip' : '');
-          b.style.cssText = 'left:' + x.toFixed(0) + 'px;top:' + (y + L.y[0] + r() * (L.y[1] - L.y[0]) - h * 0.6).toFixed(0) + 'px;width:' + w.toFixed(0) + 'px;height:' + h.toFixed(0) + 'px';
-          b.innerHTML = '<div class="zbd-sway" style="--t:' + (24 + r() * 14).toFixed(1) + 's;--dl:-' + (r() * 20).toFixed(1) + 's">' +
-            '<img class="d" alt="" decoding="async" loading="lazy" src="' + BASE + 'bank' + k + '-day.webp">' +
-            '<img class="n" alt="" decoding="async" loading="lazy" src="' + BASE + 'bank' + k + '-night.webp"></div>';
-          lay.appendChild(b);
-        }
+    var W = root.getBoundingClientRect().width, H = root.getBoundingClientRect().height;
+    var k = Math.max(0.55, W / DESIGN_W), map = mapper();
+    scene = document.createElement('div'); scene.className = 'zbs'; scene.setAttribute('aria-hidden', 'true'); scene.style.height = H + 'px';
+    items = [];
+    SCENE.forEach(function (c, i) {
+      var w = c.w * k, h = c.h * k, x = W / 2 + (c.x - DESIGN_W / 2) * k, y = map(c.y);
+      if (c.floor) {   // below the close cloud's flat top the page is solid cloud
+        var fl = document.createElement('div'); fl.className = 'zbs-floor'; fl.style.top = (y + h * 0.55).toFixed(0) + 'px';
+        fl.style.webkitMaskImage = fl.style.maskImage = 'linear-gradient(to bottom,transparent 0,#000 ' + (h * 0.3).toFixed(0) + 'px)';
+        scene.appendChild(fl); items.push({ el: fl, f: c.f, cy: y + h * 0.55 });
       }
-      deck.appendChild(lay); layers.push({ el: lay, f: L.f });
+      var el = document.createElement('div'); el.className = 'zbs-c';
+      el.style.cssText = 'left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px;width:' + w.toFixed(0) + 'px;height:' + h.toFixed(0) + 'px';
+      el.innerHTML = '<div class="zbs-sway" style="--t:' + (28 + i * 3) + 's;--dl:-' + (i * 4) + 's">' +
+        '<img class="d" alt="" decoding="async" src="' + BASE + c.src + '-day.webp">' +
+        '<img class="n" alt="" decoding="async" loading="lazy" src="' + BASE + c.src + '-night.webp"></div>';
+      scene.appendChild(el); items.push({ el: el, f: c.f, cy: y + h / 2 });
     });
-    root.insertBefore(deck, root.firstChild);
+    root.insertBefore(scene, root.firstChild);
   }
   var q = false;
   function run() {
-    q = false; if (!deck) return;
-    // scroll measured from the moment the deck's top reaches the bottom of the screen
-    var s = Math.max(0, -(deck.getBoundingClientRect().top - innerHeight));
-    for (var i = 0; i < layers.length; i++) layers[i].el.style.transform = 'translate3d(0,' + (s * layers[i].f).toFixed(1) + 'px,0)';
+    q = false; if (!scene) return;
+    var rootTop = root.getBoundingClientRect().top, mid = innerHeight / 2;
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i], d = mid - (rootTop + it.cy);   // >0 once the cloud's middle has scrolled above the screen's middle
+      it.el.style.transform = 'translate3d(0,' + (d * it.f).toFixed(1) + 'px,0)';
+    }
   }
   function ask() { if (!q) { q = true; requestAnimationFrame(run); } }
-  var built = false;
-  function rebuild() { if (deck) deck.remove(); layers = []; build(); run(); }
+  function rebuild() { if (scene) scene.remove(); build(); run(); }
   function init() {
-    loadRatios(function () {
-      rebuild(); built = true;
-      if (!reduce) addEventListener('scroll', ask, { passive: true });
-      var lw = innerWidth; addEventListener('resize', function () { if (Math.abs(innerWidth - lw) > 40) { lw = innerWidth; rebuild(); } else ask(); });
-      // the page grows as embeds load (logo strip, Lottie): rebuild once it settles
-      setTimeout(rebuild, 2500);
-    });
+    rebuild();
+    if (!reduce) addEventListener('scroll', ask, { passive: true });
+    var lw = innerWidth; addEventListener('resize', function () { if (Math.abs(innerWidth - lw) > 40) { lw = innerWidth; rebuild(); } else ask(); });
+    setTimeout(rebuild, 2500);   // the page grows as embeds load (logo strip, Lottie): rebuild once it settles
   }
-  window.zbDeck = { layers: LAYERS, rebuild: function () { rebuild(); }, seed: function (n) { SEED = n; rebuild(); } };
+  window.zbScene = { scene: SCENE, anchors: ANCHORS, rebuild: rebuild };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
