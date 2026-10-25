@@ -16,9 +16,9 @@
   // f: parallax (share of the scroll the layer is held back by; negative runs ahead), gap: px between rows (at 1000px wide),
   // w: bank width range as a share of the deck width, op: opacity, per: banks per row
   var LAYERS = [
-    { name: 'far',  f: 0.42, gap: 150, w: [0.9, 1.3],  op: 0.8,  per: 2, y: [-30, 30] },
-    { name: 'mid',  f: 0.18, gap: 190, w: [1.0, 1.45], op: 0.95, per: 2, y: [-40, 40] },
-    { name: 'near', f: -0.14, gap: 300, w: [1.1, 1.6], op: 1,    per: 1, y: [-60, 60] }
+    { name: 'far',  f: 0.42, gap: 330, w: [0.7, 1.05], op: 0.7,  per: 1, y: [-40, 40] },
+    { name: 'mid',  f: 0.18, gap: 420, w: [0.8, 1.15], op: 0.92, per: 1, y: [-60, 60] },
+    { name: 'near', f: -0.14, gap: 560, w: [0.9, 1.3], op: 1,    per: 1, y: [-80, 80] }
   ];
 
   var css = document.createElement('style');
@@ -103,5 +103,6 @@
       setTimeout(rebuild, 2500);
     });
   }
+  window.zbDeck = { layers: LAYERS, rebuild: function () { rebuild(); }, seed: function (n) { SEED = n; rebuild(); } };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
