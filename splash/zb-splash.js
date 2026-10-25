@@ -2,7 +2,7 @@
    Flies over a raymarched cloud sea, condenses the Z mark out of vapor into liquid glass,
    then zooms through it to reveal the page. Leaves a cloud sea along the bottom of the screen, like the splash's,
    baked once from the same cloud engine into two seamless strips that drift slowly behind the content.
-   Plays once per browser session; skipped for prefers-reduced-motion. Force a replay with ?splash
+   Plays once per browser session; skipped for prefers-reduced-motion, low-power devices, slow connections, and when setup takes longer than 1.2 s. Force a replay with ?splash
    Needs WebGL2. Loads three.js r128 from cdnjs. */
 (function () {
   'use strict';
@@ -15,7 +15,21 @@
   try { seen = seen || sessionStorage.getItem(SEEN_KEY) === '1'; } catch (e) {}
   const markSeen = () => { try { sessionStorage.setItem(SEEN_KEY, '1'); } catch (e) {} document.cookie = 'zbSplashSeen=1; path=/; SameSite=Lax'; };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const wantSplash = force || (!seen && !reduce);
+  // Devices that can't carry it get the site straight away: data saver or a slow connection, a phone that reports
+  // 2 GB of memory or less or 2 or fewer cores, or no WebGL2. (?splash still forces it, for testing.)
+  const T0 = performance.now(), BUDGET = 1200;   // ms from this script starting to the splash being ready to play
+  const lowPower = (() => {
+    try {
+      const c = navigator.connection || {};
+      if (c.saveData || /(^|-)(2g|3g)$/.test(c.effectiveType || '')) return true;
+      if (navigator.deviceMemory && navigator.deviceMemory <= 2) return true;
+      if (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2) return true;
+      if (!document.createElement('canvas').getContext('webgl2')) return true;
+    } catch (e) { return true; }
+    return false;
+  })();
+  window.__zbSplashLowPower = lowPower;
+  const wantSplash = force || (!seen && !reduce && !lowPower);
   const clearCover = () => html.classList.remove('zb-splash-pending');
   let hiRes = Math.min(innerWidth, innerHeight) >= 700;
   const isDark = () => {
@@ -544,6 +558,8 @@
   const loop = now => { updateDeck(now / 1000); requestAnimationFrame(loop); };
   requestAnimationFrame(loop);
   if (!splash) { release(); return; }
+  // Setup ran long (slow download, slow phone): skip rather than keep the visitor waiting behind the cover.
+  if (!force && performance.now() - T0 > BUDGET) { markSeen(); bail(); release(); return; }
   applyTheme(); resize();
   scrollTo(0, 0);
   splash.addEventListener('pointerdown', skip);
