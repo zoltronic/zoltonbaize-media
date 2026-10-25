@@ -21,9 +21,9 @@
     { src: 'lib/03-humilis',              x: 924,   y: 772,  w: 542,  h: 236,  f: 0.35 },
     { src: 'lib/12-scatter',              x: -486,  y: 120,  w: 2785, h: 532,  f: 0.30 },
     { src: 'lib/09-deck',                 x: -175,  y: 842,  w: 1370, h: 204,  f: 0.22 },
+    // the landscape: a sea of cloud tops seen from just above, running to the horizon; it sits behind the big title cloud
+    { src: 'sea-1',                       x: -800,  y: 700,  w: 3040, h: 760,  f: 0.08 },
     { src: 'lib/03-humilis',              x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 },
-    // the landscape: a sea of cloud tops seen from just above, running to the horizon; below it you are inside the cloud
-    { src: 'sea-1',                       x: -260,  y: 860,  w: 1960, h: 490,  f: 0.08 },
     // big flat-topped clouds you start sinking into
     { src: 'lib3/card-03-square',         x: -448,  y: 944,  w: 2360, h: 1247, f: -0.03 },
     { src: 'lib3/card-07-chunky',         x: -475,  y: 1384, w: 2554, h: 1162, f: -0.06 }
