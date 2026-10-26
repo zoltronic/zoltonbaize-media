@@ -18,20 +18,18 @@
   // (share of the scroll the cloud lags by; negative runs ahead of the page = closer than the content).
   var DESIGN_W = 1440;
   var SCENE = [
-    { src: 'lib/03-humilis', nsrc: 'soft/03-humilis', x: 924,   y: 772,  w: 542,  h: 236,  f: 0.35 },
+    // a few small high clouds in the open sky
     { src: 'lib/12-scatter', nsrc: 'soft/12-scatter', x: -486,  y: 120,  w: 2785, h: 532,  f: 0.30 },
-    { src: 'lib/09-deck',    nsrc: 'soft/09-deck',    x: -175,  y: 842,  w: 1370, h: 204,  f: 0.22 },
-    // the cloud sea: flat-topped clouds seen from just above, running to the horizon; behind the big title cloud
-    { src: 'sea-flat',                                x: -800,  y: 700,  w: 3040, h: 668,  f: 0.08 },
-    { src: 'lib/03-humilis', nsrc: 'soft/03-humilis', x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 },
-    // the close layer behind Selected work: a few huge flat-top clouds merging into one rolling deck; it rises a little faster than the page
-    { src: 'sea-close',                               x: -360,  y: 1000, w: 2160, h: 810,  f: -0.18 }
+    // the sea of clouds the hero floats above, running to the horizon
+    { src: 'sea-1',          nsrc: 'soft/sea-1',      x: -800,  y: 640,  w: 3040, h: 760,  f: 0.10 },
+    // the H1's own cloud, in front of the sea
+    { src: 'lib/03-humilis', nsrc: 'soft/03-humilis', x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 }
   ];
   // Zolton's fade ("going into the clouds"): from clear at FADE.from to solid at FADE.to (design y), then solid to the bottom
   var FADE = { from: 1013, to: 1802 };
   // section tops in the design, matched to the live page's sections
   var ANCHORS = [['hero', 0], ['work', 1008], ['experience', 1536], ['contact', 1867], ['footer', 2263], ['end', 2341]];
-  var FLOOR = { day: '#f2f5f8', night: '#1d1f24' };   // inside the cloud: clean white by day, clean dark grey at night
+  var FLOOR = { day: '#f2f5f8', night: '#0b1628' };   // inside the cloud: clean white by day, clean dark grey at night
 
   var css = document.createElement('style');
   css.textContent = [
@@ -43,7 +41,7 @@
     'html[data-mode="dark"] .zbs-c img.d{opacity:0}',
     'html[data-mode="dark"] .zbs-c img.n{opacity:1}',
     '.zbs{--zf:' + FLOOR.day + ';--zf0:rgba(242,245,248,0)}',
-    'html[data-mode="dark"] .zbs{--zf:' + FLOOR.night + ';--zf0:rgba(29,31,36,0)}',
+    'html[data-mode="dark"] .zbs{--zf:' + FLOOR.night + ';--zf0:rgba(11,22,40,0)}',
     '.zbs-fade{position:absolute;left:0;right:0;background:linear-gradient(to bottom,var(--zf0),var(--zf))}',
     '.zbs-floor{position:absolute;left:0;right:0;bottom:0;background:var(--zf)}',
     '.zbs-sway{position:absolute;inset:0;animation:zbsSway var(--t,34s) ease-in-out infinite alternate;animation-delay:var(--dl,0s)}',
