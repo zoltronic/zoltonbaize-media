@@ -29,6 +29,11 @@
   const ENDPOINT = window.ZB_CHAT_ENDPOINT || null;
   const DEMO = !ENDPOINT && (!!window.ZB_CHAT_DEMO || CONTACT);   // contact mode always talks; without an endpoint it's a preview
   const CHAT = !!(ENDPOINT || DEMO);
+  // No backend yet on a real (non-preview) page: the contact tree hands the message to the visitor's email app instead,
+  // addressed to the email already on the page, so nothing they write is lost and nothing says "preview".
+  const PREVIEW_HOST = /\.webflow\.io$/.test(location.hostname);
+  const mailEl = document.querySelector('a[href^="mailto:"]');
+  const MAILTO = !ENDPOINT && CONTACT && !PREVIEW_HOST && mailEl ? mailEl.getAttribute('href').replace(/^mailto:/, '').split('?')[0] : '';
   const hasSky = !CONTACT && !!(window.customElements && customElements.get('zb-sky'));
   // Touch devices: the sky draws its glass in WebGL a beat behind native scrolling, so the card's glass would trail its text.
   // There the card and chat use CSS glass instead, which is part of the element and scrolls with it.
@@ -509,7 +514,7 @@
     async function offTrack() {
       if (!ENDPOINT) {
         say('Good question. I don’t know that one yet, but I can pass it to Zolton.', 'bot');
-        say('In the live version I’ll answer this with AI. For this preview, try the buttons.', 'note');
+        if (!MAILTO) say('In the live version I’ll answer this with AI. For this preview, try the buttons.', 'note');
         setChips(CONTACT ? [ASK, 'Who is Zolton?'] : ['Request access', 'What’s behind the password?']); return;
       }
       try {
@@ -531,7 +536,7 @@
         if (step < QS.length) { say(QS[step], 'bot'); return true; }
         step = -1;
         pending = { kind: CONTACT ? 'contact' : 'access', page: CONTACT ? 'Contact' : (PAGE || protPath), name: answers[0], company: answers[1], role: answers[2], about: answers[3], email: answers[4], wantsToSee: answers[5] && !/^skip$/i.test(answers[5]) ? answers[5] : '' };
-        say('Here’s what I’ll send Zolton:\n' + (PAGE ? '• Access to: ' + PAGE + '\n' : '') + '• ' + pending.name + ', ' + pending.role + ' at ' + pending.company + '\n• About: ' + pending.about + '\n• Email: ' + pending.email + (pending.wantsToSee ? (CONTACT ? '\n• Also: ' : '\n• Wants to see: ') + pending.wantsToSee : '') + '\n\nSend it?', 'bot');
+        say((MAILTO ? 'Here’s the email I’ll write to Zolton for you:\n' : 'Here’s what I’ll send Zolton:\n') + (PAGE ? '• Access to: ' + PAGE + '\n' : '') + '• ' + pending.name + ', ' + pending.role + ' at ' + pending.company + '\n• About: ' + pending.about + '\n• Email: ' + pending.email + (pending.wantsToSee ? (CONTACT ? '\n• Also: ' : '\n• Wants to see: ') + pending.wantsToSee : '') + '\n\n' + (MAILTO ? 'Open it in your email?' : 'Send it?'), 'bot');
         setChips(['Yes, send it', 'Start over']); return true;
       }
       if (/^i’ll try again$/.test(t)) { say('Go for it. I’ll be right here if you need me.', 'bot'); setChips(['Request access']); if (input) input.focus(); return true; }
@@ -543,6 +548,13 @@
             if (err.status === 429) { pending = null; say('Looks like you already sent Zolton a request today, so he has it. Anything else I can help with?', 'bot'); setChips(['Who is Zolton?']); return true; }
             say('Hmm, that didn’t go through. Mind trying again in a minute?', 'bot'); setChips(['Yes, send it', 'Start over']); return true;
           }
+        }
+        if (MAILTO) {
+          const p = pending, body = 'Hi Zolton,\n\n' + p.about + (p.wantsToSee ? '\n\n' + p.wantsToSee : '') + '\n\n' + p.name + '\n' + p.role + ', ' + p.company + '\n' + p.email;
+          location.href = 'mailto:' + MAILTO + '?subject=' + encodeURIComponent('Hello from ' + p.name + (p.company ? ' (' + p.company + ')' : '')) + '&body=' + encodeURIComponent(body);
+          pending = null; bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.4;
+          say('I’ve opened an email to Zolton with that filled in. Just hit send. If nothing opened, write to ' + MAILTO + '.', 'bot');
+          setChips(['What does he work on?']); return true;
         }
         pending = null; bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.4;
         say('Done! I’ve sent that to Zolton. He’ll reply to the email you gave me.', 'bot');
