@@ -17,7 +17,7 @@
   const host = document.querySelector('[data-zb-bot]');
   const CONTACT = !!host;
   // Late mode (Work page): Zoltbot waits below the screen, in the clouds, and only rushes up once someone has stayed at the
-  // footer for a while ("sorry I'm late!"). Turn on with data-zb-bot-late on the host; the wait is window.ZB_BOT_LATE ms (default 5000).
+  // footer for a while ("sorry I'm late!"). Turn on with data-zb-bot-late on the host; the wait is window.ZB_BOT_LATE ms (default 6000).
   const LATE = CONTACT && host.hasAttribute('data-zb-bot-late');
   const form = CONTACT ? null : (document.querySelector('form[action*="wf_auth"]') || document.querySelector('.utility-page-form'));
   if (!form && !host) return;
@@ -100,6 +100,7 @@
   /* Night: the site's dark-mode tokens (same values as the Webflow mode variables) */
   :root.zb-night, .zb-night body { --_zb-mode---mode--ink: #EAF6FD; --_zb-mode---mode--muted: #B3D3E5; --_zb-mode---mode--accent: #5FDBFF; --_zb-mode---mode--live: #00E0B8; --_zb-mode---mode--glass-bg: rgba(10,28,48,.58); --_zb-mode---mode--glass-border: rgba(160,220,250,.22); --_zb-mode---mode--hair: rgba(160,220,250,.16); --_zb-mode---mode--btn-primary-bg: #00E0B8; --_zb-mode---mode--btn-primary-ink: #03231D; --_zb-mode---mode--btn-secondary-bg: rgba(160,205,240,.13); --_zb-mode---mode--ghost-wash: rgba(0,224,184,.14); --_zb-mode---mode--danger-bg: #FF8474; --_zb-mode---mode--danger-ink: #2B0904; --_zb-mode---mode--liquid-bg: rgba(10,28,48,.42); --_zb-mode---mode--mark: #EAF6FD; --_zb-mode---mode--field-bg: rgba(3,15,26,.5); --_zb-mode---mode--btn-secondary-border: rgba(180,220,248,.26); }
   .zb-pw-dock.zb-waiting { pointer-events: none; }
+  @media (max-width: 819px) { .zb-pw-dock.zb-late { width: 190px; height: 190px; } .zb-pw-dock.zb-late .zb-pw-bubble { white-space: normal; width: 150px; } }
   .zb-puff { position: fixed; z-index: 5; width: 260px; height: 160px; margin: -80px 0 0 -130px; border-radius: 50%; pointer-events: none; background: radial-gradient(closest-side, rgba(255,255,255,.95), rgba(255,255,255,.6) 45%, rgba(255,255,255,0)); opacity: 0; transform: scale(.4); }
   .zb-night .zb-puff { background: radial-gradient(closest-side, rgba(150,175,210,.7), rgba(120,145,185,.35) 45%, rgba(120,145,185,0)); }
   .zb-puff.go { animation: zb-puff 1.4s cubic-bezier(.2,.8,.2,1) forwards; }
@@ -267,7 +268,10 @@
         // where the text really ends (the heading box is full width): beside the heading if there's room, else beside the line under it
         const textBox = el => { if (!el) return null; const rg = document.createRange(); rg.selectNodeContents(el); const b = rg.getBoundingClientRect(); return b.width ? b : el.getBoundingClientRect(); };
         const room = innerWidth - (mobile ? 8 : 170), hd = textBox(host.querySelector('h1, h2, h3')), pp = textBox(host.querySelector('p'));
-        if (mobile || !hd) { const q = (hd || host.getBoundingClientRect()); return [Math.max(8, Math.min(q.left + q.width / 2 - s / 2, innerWidth - s - 8)), q.top - s * 0.78]; }
+        if (mobile || !hd) {   // phones: in the gap between the logo strip and the Contact heading, on the left so his bubble fits beside him
+          const q = (hd || host.getBoundingClientRect()), sb = document.querySelector('.zbx-strip'), top = sb ? sb.getBoundingClientRect().bottom : q.top - 170;
+          return [Math.max(-s * 0.12, 4 - s * 0.14), (top + q.top) / 2 - s * 0.5];
+        }
         if (hd.right + s * 0.75 <= room) return [hd.right - s * 0.12, hd.top + hd.height / 2 - s * 0.5];
         const q = pp || hd; return [Math.min(q.right + 24 - s * 0.22, room - s * 0.8), hd.bottom - s * 0.16];   // under the heading, right of the copy
       }
@@ -312,6 +316,7 @@
   const bus = window.__zbBus = { vx: 0, vy: 0, ax: 0, ay: 0, mdx: 0, mdy: 0, busy: false, scanning: false, unlocked: false, checkUntil: 0, hopReq: false, mood: 'idle', moodUntil: 0, talkUntil: 0, chatOpen: false, poke: -1, shakeReq: false, thinking: false, chatKey: -9, chatInput: null, chatLog: null };
   // ---------- Late arrival: stay at the footer ZB_BOT_LATE ms and he flies up out of the clouds ----------
   if (LATE) {
+    dock.classList.add('zb-late');
     bus.arrived = false; dock.classList.add('zb-waiting'); dock.setAttribute('aria-hidden', 'true'); dock.tabIndex = -1;
     const foot = document.querySelector('footer, .page_footer') || host;
     let timer = 0;
@@ -324,7 +329,7 @@
       bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 2; bus.hopReq = true;
       if (bubble) setTimeout(() => { if (!bus.chatOpen) bubble.classList.add('on'); }, 900);
     };
-    const wait = () => { const v = window.ZB_BOT_LATE; return v != null && isFinite(v) ? +v : 5000; };
+    const wait = () => { const v = window.ZB_BOT_LATE; return v != null && isFinite(v) ? +v : 6000; };
     const io = new IntersectionObserver(es => {
       const on = es[0].isIntersecting;
       clearTimeout(timer);

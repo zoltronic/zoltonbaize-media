@@ -127,7 +127,7 @@
     // fade to solid: between these points of the descent (0 top .. 1 landed) the clouds blend toward the page colour, up to this much
     solidFrom: 0.8, solidTo: 1.3, solidAmount: 0.92,
     // Zoltbot: seconds at the footer before he flies up out of the clouds
-    botLate: 5
+    botLate: 6
   };
   var SEA = {};
   (function () { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; try { var s = JSON.parse(localStorage.getItem('zbSeaTune') || 'null'); if (s) for (var j in s) if (j in SEA) SEA[j] = s[j]; } catch (e) {} })();

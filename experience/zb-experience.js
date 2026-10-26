@@ -29,7 +29,7 @@
     '.zbx-chip svg{height:52px;width:auto;max-width:120px;display:block;pointer-events:none}' +
     '.zbx-mark{height:56px;display:grid;place-items:center}' +
     '.zbx-chip b{font:400 11px/1.4 "JetBrains Mono",ui-monospace,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--_zb-mode---mode--muted,#2A5570)}' +
-    '@media (max-width:767px){.zbx-chip{min-width:96px;padding:10px 16px}.zbx-chip svg{height:42px}.zbx-mark{height:46px}}';
+    '@media (max-width:767px){.zbx-chip{min-width:96px;padding:10px 16px}.zbx-chip svg{height:42px}.zbx-mark{height:46px}[data-zb-experience]{padding-bottom:150px}}';   /* phones: room between the logos and Contact (Zoltbot lands there) */
   document.head.appendChild(css);
   function chips(copy) {
     return ITEMS.map(function (it) {
