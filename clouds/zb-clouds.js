@@ -128,8 +128,8 @@
   function ask() { if (!q) { q = true; requestAnimationFrame(run); } }
   function rebuild() { if (scene) scene.remove(); build(); run(); }
   function init() {
-    if (!reduce) findDrift();
     rebuild();
+    if (!reduce) { try { findDrift(); } catch (e) {} run(); }
     if (!reduce) addEventListener('scroll', ask, { passive: true });
     var lw = innerWidth; addEventListener('resize', function () { if (Math.abs(innerWidth - lw) > 40) { lw = innerWidth; rebuild(); } else ask(); });
     setTimeout(rebuild, 2500);   // the page grows as embeds load (logo strip, Lottie): rebuild once it settles
