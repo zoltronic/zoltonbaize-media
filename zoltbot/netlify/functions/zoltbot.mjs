@@ -7,11 +7,11 @@ import { getStore } from '@netlify/blobs';
 
 const env = (k, d = '') => (globalThis.Netlify ? Netlify.env.get(k) : process.env[k]) || d;
 const ORIGINS = env('ZB_ALLOWED_ORIGINS', 'https://www.zoltonbaize.com,https://zoltonbaize.com,https://zoltons-portfolio-2-0.webflow.io').split(',').map(s => s.trim());
-// Which AI answers off-script questions: ZB_PROVIDER = 'anthropic' (ANTHROPIC_API_KEY) or 'openai' (OPENAI_API_KEY).
-// Without ZB_PROVIDER it uses whichever key is set. ZB_MODEL picks the model (set it for OpenAI: their cheapest current chat model).
-const PROVIDER = env('ZB_PROVIDER', env('ANTHROPIC_API_KEY') ? 'anthropic' : (env('OPENAI_API_KEY') ? 'openai' : 'anthropic')).toLowerCase();
-const MODEL = env('ZB_MODEL', PROVIDER === 'openai' ? 'gpt-4o-mini' : 'claude-haiku-5-5');
-const AI_KEY = PROVIDER === 'openai' ? env('OPENAI_API_KEY') : env('ANTHROPIC_API_KEY');
+// Which AI answers off-script questions: ZB_PROVIDER = 'openrouter' (OPENROUTER_API_KEY), 'anthropic' (ANTHROPIC_API_KEY)
+// or 'openai' (OPENAI_API_KEY). Without ZB_PROVIDER it uses whichever key is set. ZB_MODEL picks the model.
+const PROVIDER = env('ZB_PROVIDER', env('OPENROUTER_API_KEY') ? 'openrouter' : env('ANTHROPIC_API_KEY') ? 'anthropic' : (env('OPENAI_API_KEY') ? 'openai' : 'anthropic')).toLowerCase();
+const MODEL = env('ZB_MODEL', { openrouter: 'meta-llama/llama-3.1-8b-instruct', openai: 'gpt-4o-mini' }[PROVIDER] || 'claude-haiku-5-5');
+const AI_KEY = { openrouter: env('OPENROUTER_API_KEY'), openai: env('OPENAI_API_KEY') }[PROVIDER] || env('ANTHROPIC_API_KEY');
 const PER_VISITOR_CHATS = +env('ZB_CHATS_PER_VISITOR_PER_DAY', '5');    // AI replies per visitor per day; after that he loops back to the script
 const DAILY_CHATS = +env('ZB_CHATS_PER_DAY', '300');            // whole-site cap, keeps the bill small
 const REQUESTS_PER_VISITOR = +env('ZB_REQUESTS_PER_VISITOR_PER_DAY', '1');
@@ -117,7 +117,7 @@ export default async (req, context) => {
     if (!messages.length || messages[messages.length - 1].role !== 'user') return json({ error: 'no question' }, 400, origin);
     try {
       const sys = SYSTEM + `\n\nThe visitor is on: ${contact ? 'a contact section (' + clean(body.page, 60) + ')' : 'a password page' + (body.page ? ' (' + clean(body.page, 60) + ')' : '')}.` + steer;
-      const reply = PROVIDER === 'openai' ? await askOpenAI(sys, messages) : await askAnthropic(sys, messages);
+      const reply = PROVIDER === 'anthropic' ? await askAnthropic(sys, messages) : await askOpenAI(sys, messages);   // OpenRouter speaks OpenAI's format
       return json({ reply: reply || "Good question. I don't know that one, but I can pass it to Zolton.", chips: left <= 2 ? [ASK, 'Tell Zolton about the role'] : [ASK, 'Who is Zolton?'], left }, 200, origin);
     } catch (e) {
       console.error('model error', e.message);
@@ -160,9 +160,10 @@ async function askAnthropic(system, messages) {
   return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join(' ').trim();
 }
 async function askOpenAI(system, messages) {
-  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+  const or = PROVIDER === 'openrouter';
+  const r = await fetch(or ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${AI_KEY}` },
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${AI_KEY}`, ...(or ? { 'HTTP-Referer': 'https://www.zoltonbaize.com', 'X-Title': 'Zoltbot' } : {}) },
     body: JSON.stringify({ model: MODEL, max_tokens: 120, temperature: 0.3, messages: [{ role: 'system', content: system }, ...messages] })
   });
   const j = await r.json();
