@@ -24,8 +24,8 @@
     // the cloud sea: flat-topped clouds seen from just above, running to the horizon; behind the big title cloud
     { src: 'sea-flat',                                x: -800,  y: 700,  w: 3040, h: 668,  f: 0.08 },
     { src: 'lib/03-humilis', nsrc: 'soft/03-humilis', x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 },
-    // a second, closer layer of the same sea (mirrored) behind Selected work: it rises a little faster than the page
-    { src: 'sea-flat', flip: true,                    x: -1300, y: 980,  w: 4040, h: 888,  f: -0.18 }
+    // the close layer behind Selected work: a few huge flat-top clouds merging into one rolling deck; it rises a little faster than the page
+    { src: 'sea-close',                               x: -360,  y: 1000, w: 2160, h: 360,  f: -0.18 }
   ];
   // Zolton's fade ("going into the clouds"): from clear at FADE.from to solid at FADE.to (design y), then solid to the bottom
   var FADE = { from: 1013, to: 1802 };
