@@ -7,7 +7,11 @@ import { getStore } from '@netlify/blobs';
 
 const env = (k, d = '') => (globalThis.Netlify ? Netlify.env.get(k) : process.env[k]) || d;
 const ORIGINS = env('ZB_ALLOWED_ORIGINS', 'https://www.zoltonbaize.com,https://zoltonbaize.com,https://zoltons-portfolio-2-0.webflow.io').split(',').map(s => s.trim());
-const MODEL = env('ZB_MODEL', 'claude-haiku-5-5');
+// Which AI answers off-script questions: ZB_PROVIDER = 'anthropic' (ANTHROPIC_API_KEY) or 'openai' (OPENAI_API_KEY).
+// Without ZB_PROVIDER it uses whichever key is set. ZB_MODEL picks the model (set it for OpenAI: their cheapest current chat model).
+const PROVIDER = env('ZB_PROVIDER', env('ANTHROPIC_API_KEY') ? 'anthropic' : (env('OPENAI_API_KEY') ? 'openai' : 'anthropic')).toLowerCase();
+const MODEL = env('ZB_MODEL', PROVIDER === 'openai' ? 'gpt-4o-mini' : 'claude-haiku-5-5');
+const AI_KEY = PROVIDER === 'openai' ? env('OPENAI_API_KEY') : env('ANTHROPIC_API_KEY');
 const PER_VISITOR_CHATS = +env('ZB_CHATS_PER_VISITOR_PER_DAY', '5');    // AI replies per visitor per day; after that he loops back to the script
 const DAILY_CHATS = +env('ZB_CHATS_PER_DAY', '300');            // whole-site cap, keeps the bill small
 const REQUESTS_PER_VISITOR = +env('ZB_REQUESTS_PER_VISITOR_PER_DAY', '1');
@@ -95,7 +99,7 @@ export default async (req, context) => {
 
   if (body.type === 'chat') {
     const contact = /contact/i.test(clean(body.page, 60)), ASK = contact ? 'Send Zolton a message' : 'Request access';
-    if (!env('ANTHROPIC_API_KEY')) return json({ reply: "Good question. I don't know that one, but I can pass it to Zolton.", chips: [ASK] }, 200, origin);
+    if (!AI_KEY) return json({ reply: "Good question. I don't know that one, but I can pass it to Zolton.", chips: [ASK] }, 200, origin);
     const usedKey = `chat:${today()}:${visitor}`, used = +(await limits.get(usedKey)) || 0;
     if (!(await bump(limits, usedKey, PER_VISITOR_CHATS)) || !(await bump(limits, `chat:${today()}:all`, DAILY_CHATS)))
       return json({ reply: "That's a great one for Zolton himself. Want me to pass it on? I can also tell you about his work.", chips: [ASK, 'What does he work on?'], left: 0 }, 200, origin);
@@ -112,14 +116,8 @@ export default async (req, context) => {
     while (messages.length && messages[0].role !== 'user') messages.shift();
     if (!messages.length || messages[messages.length - 1].role !== 'user') return json({ error: 'no question' }, 400, origin);
     try {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-api-key': env('ANTHROPIC_API_KEY'), 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: MODEL, max_tokens: 120, temperature: 0.3, system: SYSTEM + `\n\nThe visitor is on: ${contact ? 'a contact section (' + clean(body.page, 60) + ')' : 'a password page' + (body.page ? ' (' + clean(body.page, 60) + ')' : '')}.` + steer, messages })
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j?.error?.message || r.status);
-      const reply = (j.content || []).filter(c => c.type === 'text').map(c => c.text).join(' ').trim();
+      const sys = SYSTEM + `\n\nThe visitor is on: ${contact ? 'a contact section (' + clean(body.page, 60) + ')' : 'a password page' + (body.page ? ' (' + clean(body.page, 60) + ')' : '')}.` + steer;
+      const reply = PROVIDER === 'openai' ? await askOpenAI(sys, messages) : await askAnthropic(sys, messages);
       return json({ reply: reply || "Good question. I don't know that one, but I can pass it to Zolton.", chips: left <= 2 ? [ASK, 'Tell Zolton about the role'] : [ASK, 'Who is Zolton?'], left }, 200, origin);
     } catch (e) {
       console.error('model error', e.message);
@@ -150,6 +148,27 @@ export default async (req, context) => {
 // Webflow returns S3 form fields in camelCase; S3 wants its own spellings.
 function s3Field(k) { return ({ acl: 'acl', bucket: 'bucket', key: 'key', policy: 'Policy', xAmzAlgorithm: 'X-Amz-Algorithm', xAmzCredential: 'X-Amz-Credential', xAmzDate: 'X-Amz-Date', xAmzSignature: 'X-Amz-Signature', successActionStatus: 'success_action_status', contentType: 'Content-Type', cacheControl: 'Cache-Control' })[k] || k; }
 async function md5hex(s) { const { createHash } = await import('node:crypto'); return createHash('md5').update(s).digest('hex'); }
+
+async function askAnthropic(system, messages) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': AI_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: MODEL, max_tokens: 120, temperature: 0.3, system, messages })
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j?.error?.message || r.status);
+  return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join(' ').trim();
+}
+async function askOpenAI(system, messages) {
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${AI_KEY}` },
+    body: JSON.stringify({ model: MODEL, max_tokens: 120, temperature: 0.3, messages: [{ role: 'system', content: system }, ...messages] })
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j?.error?.message || r.status);
+  return String(j?.choices?.[0]?.message?.content || '').trim();
+}
 
 async function sha(s) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
 
