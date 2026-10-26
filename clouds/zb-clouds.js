@@ -19,10 +19,10 @@
   var DESIGN_W = 1440;
   var SCENE = [
     // a few small high clouds in the open sky
-    { src: 'lib/12-scatter', nsrc: 'soft/12-scatter', x: -486,  y: 120,  w: 2785, h: 532,  f: 0.30 },
+    { key: 'far', src: 'lib/12-scatter', nsrc: 'soft/12-scatter', x: -486,  y: 120,  w: 2785, h: 532,  f: 0.30 },
     // (the sea of clouds itself is the live 3D plane below, not an image)
     // the H1's own cloud, in front of the sea
-    { src: 'lib/03-humilis', nsrc: 'soft/03-humilis', x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 }
+    { key: 'title', src: 'lib/03-humilis', nsrc: 'soft/03-humilis', x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 }
   ];
   // Zolton's fade ("going into the clouds"): from clear at FADE.from to solid at FADE.to (design y), then solid to the bottom
   var FADE = { from: 1040, to: 1500 };
@@ -33,7 +33,7 @@
   var css = document.createElement('style');
   css.textContent = [
     '.zbs{position:absolute;left:0;top:0;right:0;z-index:-2;pointer-events:none;overflow:hidden}',
-    '.zbs-c{position:absolute;will-change:transform}',
+    '.zbs-c{position:absolute;will-change:transform;z-index:2}','.zbs-c.behind{z-index:0}',
     '.zbs-c img{position:absolute;inset:0;width:100%;height:100%;transition:opacity 900ms cubic-bezier(.65,0,.35,1)}',
     '.zbs-c img.n{opacity:0}',
     '.zbs-c.flip img{transform:scaleX(-1)}',
@@ -51,7 +51,7 @@
     'html.zb-cloud-cards section :is(h1,h2,h3,p,.label-mono){text-shadow:0 1px 18px rgba(242,245,248,.75),0 0 2px rgba(242,245,248,.35)}',
     'html.zb-cloud-cards[data-mode="dark"] section :is(h1,h2,h3,p,.label-mono){text-shadow:0 1px 18px rgba(5,10,22,.8),0 0 2px rgba(5,10,22,.5)}',
     '.zbs-drift{will-change:transform}',
-    '.zbs-sea{position:fixed;left:0;top:0;width:100vw;height:100vh;display:block;pointer-events:none}'
+    '.zbs-sea{z-index:1;position:fixed;left:0;top:0;width:100vw;height:100vh;display:block;pointer-events:none}'
   ].join('');
   document.head.appendChild(css);
 
@@ -93,7 +93,7 @@
       el.innerHTML = '<div class="zbs-sway" style="--t:' + (28 + i * 3) + 's;--dl:-' + (i * 4) + 's">' +
         '<img class="d" alt="" decoding="async" src="' + BASE + c.src + '-day.webp">' +
         '<img class="n" alt="" decoding="async" loading="lazy" src="' + BASE + (c.nsrc || c.src) + '-night.webp"></div>';
-      scene.appendChild(el); items.push({ el: el, f: c.f, cy: y + h / 2 });
+      scene.appendChild(el); items.push({ el: el, f: c.f, key: c.key, cy: y + h / 2 });
     });
     if (sea.canvas) scene.insertBefore(sea.canvas, scene.firstChild);   // the 3D sea sits under the image clouds
     root.insertBefore(scene, root.firstChild);
@@ -121,7 +121,9 @@
     relief: 0.5, puff: 1, swell: 0.35, fluff: 0.22, coverage: 0.6, density: 6, billowScale: 0.55, detail: 0.35, detailScale: 1.6,
     // lighting
     absorption: 2.2, multiScatter: 0.3, silver: 0.65, ambient: 0.55, nightAmbient: 1, exposure: 1.25, haze: 0.025,
-    quality: 1
+    quality: 1,
+    // high clouds: when each goes behind the cloud horizon (share of the descent: 0 top of page .. 1 landed), and its parallax
+    farBehind: 0, titleBehind: 0.5, farParallax: 0.30, titleParallax: 0.16
   };
   var SEA = {};
   (function () { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; try { var s = JSON.parse(localStorage.getItem('zbSeaTune') || 'null'); if (s) for (var j in s) if (j in SEA) SEA[j] = s[j]; } catch (e) {} })();
@@ -291,7 +293,7 @@
     var vh = innerHeight, s = scrollY, wt = work.getBoundingClientRect().top;    // Selected work, on screen
     var L = Math.max(1, wt + s - SEA.land * vh);                                // scroll at which you land on the cloud tops
     var k = Math.max(0, 1 - s / L);                                             // 1 high above the sea .. 0 level with its top
-    return { hz: wt - SEA.lineGap + SEA.rise * Math.max(0, L - s), cam: SEA.camLand + (SEA.camTop - SEA.camLand) * Math.pow(k, 1.4), z: s * SEA.fly };
+    return { hz: wt - SEA.lineGap + SEA.rise * Math.max(0, L - s), cam: SEA.camLand + (SEA.camTop - SEA.camLand) * Math.pow(k, 1.4), z: s * SEA.fly, L: L };
   }
   function seaKick() { if (!sea.raf) sea.raf = requestAnimationFrame(function () { sea.raf = 0; seaFrame(); }); }
   var still = /zbstill/.test(location.search), fpsN = 0, fpsT = performance.now();
@@ -318,6 +320,9 @@
 
   // ---- The tuning panel (same as the About page cloud's): only on the preview address, or with ?tune ----
   var SEA_GROUPS = [
+    ['High clouds', true, [
+      ['farBehind', 'Far clouds go behind horizon at (0 top · 1 landed)', 0, 1.5, .01], ['farParallax', 'Far clouds parallax (higher = sinks)', -.3, .9, .01],
+      ['titleBehind', 'Title cloud goes behind horizon at', 0, 1.5, .01], ['titleParallax', 'Title cloud parallax', -.3, .9, .01]]],
     ['Scroll', true, [
       ['camTop', 'Camera height at top', .8, 5, .05], ['camLand', 'Camera height landed', .3, 1.6, .01],
       ['land', 'Land when work is this far down', .1, .8, .01], ['lineGap', 'Horizon above Selected work (px)', -100, 200, 1],
@@ -406,9 +411,13 @@
       var t = Math.max(-MAX_DRIFT, Math.min(MAX_DRIFT, dd * CONTENT_F));
       drift[j].el.style.transform = 'translate3d(0,' + t.toFixed(1) + 'px,0)';
     }
+    var stp = seaState(), prog = stp && stp.L ? scrollY / stp.L : 0;
     for (var i = 0; i < items.length; i++) {
       var it = items[i], d = mid - (rootTop + it.cy);   // >0 once the cloud's middle has scrolled above the screen's middle
-      it.el.style.transform = 'translate3d(0,' + (d * it.f).toFixed(1) + 'px,0)';
+      var f = it.key && SEA[it.key + 'Parallax'] != null ? SEA[it.key + 'Parallax'] : it.f;
+      it.el.style.transform = 'translate3d(0,' + (d * f).toFixed(1) + 'px,0)';
+      // keyframe: from this point of the descent (0 = top of page, 1 = landed) the cloud sits behind the cloud horizon
+      if (it.key && SEA[it.key + 'Behind'] != null) it.el.classList.toggle('behind', prog >= SEA[it.key + 'Behind']);
     }
     seaFrame();
   }
