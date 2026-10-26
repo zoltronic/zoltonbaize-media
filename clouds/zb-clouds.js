@@ -169,7 +169,7 @@
     '  vec3 ro = vec3(0., uCam, 0.);',
     '  vec2 off = vec2(uT*.004, uZ);',
     '  float top = uA*(1.6 + uSwell*1.2) + .02, t = .02;',
-    '  if (ro.y > top) { if (rd.y >= 0.) { fc = vec4(hazeC, glow); return; } t = (ro.y-top)/-rd.y; }',
+    '  if (ro.y > top) { if (rd.y >= 0.) { fc = vec4(hazeC*glow, glow); return; } t = (ro.y-top)/-rd.y; }',
     '  vec3 sunCol = mix(vec3(1.,.97,.92)*uSunI, vec3(.55,.66,.95)*uMoon, uN);',
     '  vec3 ambTop = mix(vec3(.50,.66,.98)*uAmb, vec3(.05,.08,.17)*uNAmb, uN);',
     '  vec3 ambBot = ambTop*vec3(.42,.46,.55);',
@@ -211,7 +211,7 @@
     '  col = mix(col, floorC, uSolid);',                                   // keyframe: the clouds fade toward one solid colour
     '  if (px.y < uHz) { col = mix(mix(hazeC, floorC, uSolid), col, a); a = 1.; }',              // below eye level, what is left is the far hazy sea
     '  else { col = mix(hazeC, col, a/max(a + (1.-a)*glow, 1e-3)); a = a + (1.-a)*glow; }',
-    '  fc = vec4(col, a);',
+    '  fc = vec4(col*a, a);',                                               // premultiplied: iPhone Safari composites WebGL as premultiplied',
     '}'].join('\n').replace('uniform float uA,', 'uniform float uSolid, uQ, uA,');
 
   // ---- baked textures: the cloud-head height map (2D, tileable) and the About page's 3D Worley noise ----
@@ -275,7 +275,7 @@
     new MutationObserver(function () { sea.nightTo = html.getAttribute('data-mode') === 'dark' ? 1 : 0; seaApply(); })
       .observe(html, { attributes: true, attributeFilter: ['data-mode'] });
     import('three').catch(function () { return import('https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js'); }).then(function (THREE) {   // the page's own three (import map, shared with the coin)
-      var r = new THREE.WebGLRenderer({ canvas: c, alpha: true, antialias: false, premultipliedAlpha: false, powerPreference: 'high-performance' });
+      var r = new THREE.WebGLRenderer({ canvas: c, alpha: true, antialias: false, premultipliedAlpha: true, powerPreference: 'high-performance' });
       if (!r.capabilities.isWebGL2) throw new Error('webgl2');
       r.setClearColor(0x000000, 0);
       var NH = 256, ht = new THREE.DataTexture(bakeHeights(NH), NH, NH, THREE.RedFormat, THREE.UnsignedByteType);
