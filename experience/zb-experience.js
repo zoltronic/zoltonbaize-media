@@ -1,8 +1,9 @@
-/* zb-experience — the "Experience" logo strip at the bottom of the zoltonbaize.com Work page.
-   Mark a host element with data-zb-experience and this fills it: a heading and a slow drifting row of logos (brand colours,
-   icon above a small label). Hold and drag to move it (it coasts a moment on release); click a logo to open that site.
-   Mouse over pauses the drift; reduced motion turns the drift off (dragging still works). Follows the site's light/dark
-   setting (<html data-mode>): Apple's mark and FITLAB's F are black in light mode and white in dark mode. */
+/* zb-experience — the "Experience" section of the zoltonbaize.com Work page: a field of client logos at five depths.
+   Mark a host element with data-zb-experience and this fills it. Each logo appears once, scattered around a short line in the
+   middle. As the page scrolls each depth moves at its own speed (near logos are bigger and move faster, far ones smaller,
+   slower and a little faded), so the logos drift past one another like things floating in the cloud. Click a logo to open
+   that site. Reduced motion keeps them still. Follows the site's light/dark setting (<html data-mode>): Apple's mark and
+   FITLAB's F are black in light mode and white in dark mode. Inspired by the client-logo field on ollivere.webflow.io. */
 (function () {
   'use strict';
   var host = document.querySelector('[data-zb-experience]');
@@ -14,66 +15,49 @@
     ['Zelle', 'zelle', 'https://www.zellepay.com'], ['AAU', 'academy-of-art', 'https://www.academyart.edu'],
     ['GA', 'general-assembly', 'https://generalassemb.ly']
   ];
+  // x, y: % of the field; d: depth 1 (nearest) .. 5 (farthest)
+  var PLACE = { apple: [10, 8, 2], google: [70, 4, 4], 'wells-fargo': [38, 22, 1], fitlab: [84, 34, 3],
+    zelle: [8, 62, 5], 'academy-of-art': [62, 74, 2], 'general-assembly': [30, 90, 4] };
+  var DEPTH = { 1: { s: 1.0, f: -0.32, o: 1 }, 2: { s: 0.82, f: -0.18, o: 1 }, 3: { s: 0.68, f: -0.06, o: 0.95 },
+    4: { s: 0.56, f: 0.06, o: 0.85 }, 5: { s: 0.46, f: 0.16, o: 0.75 } };
   var css = document.createElement('style');
   css.textContent =
     '[data-zb-experience]{--zb-fitlab-ink:#000;padding:72px 0 24px;position:relative;z-index:1}' +
     'html[data-mode="dark"] [data-zb-experience]{--zb-fitlab-ink:#fff}' +
     '.zbx-wrap{width:min(1180px,calc(100% - 2*clamp(20px,4vw,48px)));margin:0 auto}' +
-    '.zbx-h{margin:0 0 26px;font-family:"Schibsted Grotesk",system-ui,sans-serif;font-size:clamp(28px,4vw,44px);line-height:1.04;font-weight:400;letter-spacing:-.03em;color:var(--_zb-mode---mode--ink,#07283D)}' +
-    '.zbx-strip{position:relative;overflow:hidden;padding:6px 0;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;' +
-    '-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}' +
-    '.zbx-strip.dragging{cursor:grabbing}' +
-    '.zbx-track{display:flex;gap:22px;width:max-content;will-change:transform}' +
-    '.zbx-chip{display:flex;flex-direction:column;align-items:center;gap:12px;min-width:120px;padding:12px 24px;white-space:nowrap;text-decoration:none;border-radius:18px;transition:transform 200ms;-webkit-user-drag:none;color:var(--_zb-mode---mode--ink,#07283D)}' +
-    '.zbx-chip:hover{transform:translateY(-3px)}.zbx-chip:focus-visible{outline:2px solid var(--_zb-mode---mode--accent,#0A5C86);outline-offset:3px}' +
-    '.zbx-chip svg{height:52px;width:auto;max-width:120px;display:block;pointer-events:none}' +
-    '.zbx-mark{height:56px;display:grid;place-items:center}' +
+    '.zbx-h{margin:0 0 8px;font-family:"Schibsted Grotesk",system-ui,sans-serif;font-size:clamp(28px,4vw,44px);line-height:1.04;font-weight:400;letter-spacing:-.03em;color:var(--_zb-mode---mode--ink,#07283D)}' +
+    '.zbx-track{position:relative;height:clamp(520px,82vh,860px)}' +
+    '.zbx-line{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,80%);margin:0;text-align:center;font-family:"Schibsted Grotesk",system-ui,sans-serif;font-size:clamp(20px,2.4vw,28px);line-height:1.3;letter-spacing:-.01em;color:var(--_zb-mode---mode--ink,#07283D);text-wrap:balance}' +
+    '.zbx-chip{position:absolute;display:flex;flex-direction:column;align-items:center;gap:10px;text-decoration:none;will-change:transform;-webkit-user-drag:none;color:var(--_zb-mode---mode--ink,#07283D);transform:translate(-50%,-50%)}' +
+    '.zbx-chip:focus-visible{outline:2px solid var(--_zb-mode---mode--accent,#0A5C86);outline-offset:6px;border-radius:12px}' +
+    '.zbx-mark{display:grid;place-items:center;transition:transform 220ms cubic-bezier(.2,.8,.2,1)}.zbx-chip:hover .zbx-mark{transform:scale(1.06)}' +
+    '.zbx-mark svg{height:100%;width:auto;display:block;pointer-events:none}' +
     '.zbx-chip b{font:400 11px/1.4 "JetBrains Mono",ui-monospace,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--_zb-mode---mode--muted,#2A5570)}' +
-    '@media (max-width:767px){.zbx-chip{min-width:96px;padding:10px 16px}.zbx-chip svg{height:42px}.zbx-mark{height:46px}}';
+    '@media (max-width:767px){.zbx-track{height:620px}.zbx-chip b{font-size:10px}}';
   document.head.appendChild(css);
-  function chips(copy) {
-    return ITEMS.map(function (it) {
-      return '<a class="zbx-chip" href="' + it[2] + '" target="_blank" rel="noopener" draggable="false" title="' + it[0] + '"' +
-        (copy ? ' aria-hidden="true" tabindex="-1"' : '') + '><span class="zbx-mark">' + LOGO[it[1]] + '</span><b>' + it[0] + '</b></a>';
-    }).join('');
-  }
+  var BASE = 96;   // mark height in px for the nearest depth (desktop); others scale down
   host.innerHTML = '<div class="zbx-wrap"><h2 class="zbx-h">Experience</h2></div>' +
-    '<div class="zbx-wrap"><div class="zbx-strip" aria-label="Experience. Drag to move; each logo links to that company."><div class="zbx-track">' +
-    chips(false) + chips(true) + chips(true) + '</div></div></div>';
-  var strip = host.querySelector('.zbx-strip'), track = host.querySelector('.zbx-track');
-  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, DRIFT = reduce ? 0 : 4.4; // px per second: slow enough that you barely notice it moving
-  var x = 0, v = 0, period = 0, dragging = false, moved = 0, lastX = 0, lastT = 0, hovering = false, visible = true, last = performance.now();
-  function measure() { period = track.scrollWidth / 3; }
-  function frame(now) {
-    var dt = Math.min(0.05, (now - last) / 1000); last = now;
-    if (!dragging) {
-      if (Math.abs(v) > 5) { x += v * dt; v *= Math.pow(0.04, dt); }
-      else { v = 0; if (!hovering) x -= DRIFT * dt; }
+    '<div class="zbx-wrap"><div class="zbx-track" aria-label="Experience: companies Zolton has designed for. Each logo links to that company.">' +
+    '<p class="zbx-line">Teams I’ve designed for since 2004.</p>' +
+    ITEMS.map(function (it) {
+      var p = PLACE[it[1]] || [50, 50, 3], d = DEPTH[p[2]];
+      return '<a class="zbx-chip" data-d="' + p[2] + '" href="' + it[2] + '" target="_blank" rel="noopener" draggable="false" title="' + it[0] + '"' +
+        ' style="left:' + p[0] + '%;top:' + p[1] + '%;opacity:' + d.o + ';z-index:' + (6 - p[2]) + '">' +
+        '<span class="zbx-mark" style="height:calc(var(--zbx-k,1) * ' + Math.round(BASE * d.s) + 'px)">' + LOGO[it[1]] + '</span><b>' + it[0] + '</b></a>';
+    }).join('') + '</div></div>';
+  var track = host.querySelector('.zbx-track'), chips = [].slice.call(host.querySelectorAll('.zbx-chip'));
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, visible = true, q = false;
+  function size() { track.style.setProperty('--zbx-k', innerWidth < 768 ? 0.62 : 1); }
+  function run() {
+    q = false; if (reduce || !visible) return;
+    var r = track.getBoundingClientRect(), off = (r.top + r.height / 2) - innerHeight / 2;   // 0 when the field is centred on screen
+    for (var i = 0; i < chips.length; i++) {
+      var f = DEPTH[chips[i].getAttribute('data-d')].f;
+      chips[i].style.transform = 'translate(-50%,calc(-50% + ' + (-off * f).toFixed(1) + 'px))';
     }
-    if (period) { while (x <= -period) x += period; while (x > 0) x -= period; }
-    track.style.transform = 'translate3d(' + x.toFixed(2) + 'px,0,0)';
-    if (visible) requestAnimationFrame(frame);
   }
-  strip.addEventListener('pointerdown', function (e) {
-    if (e.button !== 0) return;
-    dragging = true; moved = 0; v = 0; lastX = e.clientX; lastT = performance.now();
-    if (e.pointerType === 'mouse') e.preventDefault();
-  });
-  strip.addEventListener('pointermove', function (e) {
-    if (!dragging) return;
-    var now = performance.now(), dx = e.clientX - lastX;
-    x += dx; moved += Math.abs(dx);
-    if (moved > 6 && !strip.hasPointerCapture(e.pointerId)) { strip.setPointerCapture(e.pointerId); strip.classList.add('dragging'); }
-    v = 0.8 * (dx / Math.max(1, now - lastT) * 1000) + 0.2 * v; lastX = e.clientX; lastT = now;
-  });
-  function release() { if (dragging) { dragging = false; strip.classList.remove('dragging'); } }
-  strip.addEventListener('pointerup', release); strip.addEventListener('pointercancel', release);
-  strip.addEventListener('click', function (e) { if (moved > 6) { e.preventDefault(); e.stopPropagation(); } }, true);
-  strip.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') hovering = true; });
-  strip.addEventListener('pointerleave', function () { hovering = false; });
-  strip.addEventListener('focusin', function () { hovering = true; }); strip.addEventListener('focusout', function () { hovering = false; });
-  addEventListener('resize', measure); measure(); if (document.fonts) document.fonts.ready.then(measure);
-  // only animate while on screen
-  if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { var was = visible; visible = es[0].isIntersecting; if (visible && !was) { last = performance.now(); requestAnimationFrame(frame); } }, { rootMargin: '200px' }).observe(host);
-  requestAnimationFrame(frame);
+  function ask() { if (!q) { q = true; requestAnimationFrame(run); } }
+  addEventListener('scroll', ask, { passive: true }); addEventListener('resize', function () { size(); ask(); });
+  if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { visible = es[0].isIntersecting; if (visible) ask(); }, { rootMargin: '300px' }).observe(host);
+  size(); run();
 })();
