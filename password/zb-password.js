@@ -300,7 +300,7 @@
   // ---------- Late arrival: stay at the footer ZB_BOT_LATE ms and he flies up out of the clouds ----------
   if (LATE) {
     bus.arrived = false; dock.classList.add('zb-waiting'); dock.setAttribute('aria-hidden', 'true'); dock.tabIndex = -1;
-    const foot = document.querySelector('footer') || host;
+    const foot = document.querySelector('footer, .page_footer') || host;
     let timer = 0;
     const arrive = () => {
       if (bus.arrived) return;

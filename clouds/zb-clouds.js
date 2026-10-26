@@ -396,7 +396,7 @@
         body.appendChild(row);
       });
       if (g[3] === 'bot') { var rb = document.createElement('button'); rb.type = 'button'; rb.textContent = 'Replay his entrance'; rb.style.justifySelf = 'start';
-        rb.addEventListener('click', function () { if (window.zbBotReplay) { window.zbBotReplay(); var f = document.querySelector('footer'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'end' }); } else rb.textContent = 'Scroll to the footer first'; });
+        rb.addEventListener('click', function () { if (window.zbBotReplay) { window.zbBotReplay(); var f = document.querySelector('footer, .page_footer'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'end' }); } else rb.textContent = 'Scroll to the footer first'; });
         body.appendChild(rb); }
       groups.appendChild(d);
     });
