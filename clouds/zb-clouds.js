@@ -123,7 +123,7 @@
     absorption: 2.2, multiScatter: 0.3, silver: 0.65, ambient: 0.55, nightAmbient: 1, exposure: 1.25, haze: 0.025,
     quality: 1,
     // high clouds: when each goes behind the cloud horizon (share of the descent: 0 top of page .. 1 landed), and its parallax
-    farBehind: 0, titleBehind: 0.5, farParallax: 0.30, titleParallax: 0.16
+    farBehind: 1.37, titleBehind: 0.5, farParallax: 0.30, titleParallax: 0.16
   };
   var SEA = {};
   (function () { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; try { var s = JSON.parse(localStorage.getItem('zbSeaTune') || 'null'); if (s) for (var j in s) if (j in SEA) SEA[j] = s[j]; } catch (e) {} })();
@@ -284,7 +284,7 @@
       sea.r = r; sea.cam = cam; sea.scn = scn; sea.U = U; sea.ok = true;
       seaApply(); seaFrame();
     }).catch(function () { sea.fail = true; seaFrame(); });
-    if (/\.webflow\.io$/.test(location.hostname) || /[?&]tune\b/.test(location.search)) seaPanel();
+    if (/\.webflow\.io$/.test(location.hostname) || /[?&]tune\b/.test(location.search)) seaPanel();   // the panel: preview address, or ?tune on the live site
   }
   function seaState() {
     if (window.__zbSeaForce) return window.__zbSeaForce;                         // test hook: pin camera + horizon
