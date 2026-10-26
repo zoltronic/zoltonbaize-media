@@ -44,7 +44,7 @@
       '<div class="zbt-head"><b>Draft Controls</b><span class="zbt-note"></span><button type="button" data-a="close" aria-label="Close panel">×</button></div><div class="zbt-groups"></div>' +
       '<div class="zbt-foot"><button type="button" data-a="mode">Light / dark</button><button type="button" data-a="reset">Reset all</button><button type="button" data-a="copy">Copy settings</button><textarea hidden readonly aria-label="Settings as JSON"></textarea></div>' +
       '<div class="zbt-foot zbt-bk"><b style="width:100%;font-size:11px;letter-spacing:.1em;text-transform:uppercase">Backups</b>' +
-      '<button type="button" data-a="backup">Save backup</button><select aria-label="Saved backups" style="font:12px system-ui;max-width:100%;flex:1;min-width:120px"></select>' +
+      '<button type="button" data-a="backup">Save backup</button><button type="button" data-a="webflow">Save to Webflow</button><select aria-label="Saved backups" style="font:12px system-ui;max-width:100%;flex:1;min-width:120px"></select>' +
       '<button type="button" data-a="restore">Restore</button><button type="button" data-a="load">Load file…</button><input type="file" accept="application/json,.json" hidden></div></div>';
     list = box.querySelector('.zbt-groups'); ta = box.querySelector('textarea');
     var sel = box.querySelector('.zbt-bk select'), file = box.querySelector('.zbt-bk input');
@@ -67,6 +67,18 @@
         var url = URL.createObjectURL(new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' })), dl = document.createElement('a');
         dl.href = url; dl.download = 'zb-draft-' + snap.date.replace(/[: ]/g, '-') + '.json'; document.body.appendChild(dl); dl.click(); dl.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
         fill(); e.target.textContent = 'Saved'; setTimeout(function () { e.target.textContent = 'Save backup'; }, 1400); }
+      if (a === 'webflow') {   // through the Zoltbot backend (it holds the Webflow token; the browser never sees it)
+        var ep = window.ZB_CHAT_ENDPOINT || (function () { try { return localStorage.getItem('zbDraftEndpoint'); } catch (er) { return null; } })();
+        if (!ep) { alert('Saving straight to Webflow turns on once the Zoltbot backend is live. Until then, Save backup downloads the file and Claude can put it on Webflow for you.'); return; }
+        var key = ''; try { key = localStorage.getItem('zbDraftKey') || ''; } catch (er) {}
+        if (!key) { key = window.prompt('Draft backup key (the ZB_DRAFT_KEY you set on Netlify):') || ''; if (!key) return; try { localStorage.setItem('zbDraftKey', key); } catch (er) {} }
+        var btn = e.target; btn.textContent = 'Saving…';
+        fetch(ep, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'backup', key: key, backup: { date: stamp(), site: location.host, data: snapshot() } }) })
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
+          .then(function (x) { if (x.status === 403) { try { localStorage.removeItem('zbDraftKey'); } catch (er) {} }
+            btn.textContent = x.ok ? 'Saved to Webflow' : (x.status === 403 ? 'Wrong key' : 'Didn’t save'); setTimeout(function () { btn.textContent = 'Save to Webflow'; }, 1800); })
+          .catch(function () { btn.textContent = 'Didn’t save'; setTimeout(function () { btn.textContent = 'Save to Webflow'; }, 1800); });
+      }
       if (a === 'restore') { var bb = backups()[+sel.value]; if (bb && confirmRestore(bb.date)) restore(bb.data); }
       if (a === 'load') file.click();
       if (a === 'copy') { var all = {}; groups.forEach(function (g) { var o = {}; g.rows.forEach(function (r) { o[r[0]] = g.values[r[0]]; }); all[g.id] = Object.assign(all[g.id] || {}, o); });

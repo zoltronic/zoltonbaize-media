@@ -493,7 +493,7 @@
         setTimeout(() => { say(history.length ? 'Still no luck with the password? I can help.' : 'Hmm, that password didn’t work' + (PAGE ? ' for ' + PAGE : '') + '. Need access? Have a question? I’m Zoltbot, Zolton’s sidekick robot, and I can help.', 'bot'); setChips(['Request access', 'I have a question', 'I’ll try again']); }, 250);
         return;   // leave focus on the password field so they can retry
       }
-      if (!greeted && CONTACT) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to get in touch? I can pass Zolton a message, or answer questions about him and his work.', 'bot'); setChips(['Send Zolton a message', 'Who is Zolton?', 'What does he work on?']); }, 250); }
+      if (!greeted && CONTACT) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. Got a role for Zolton, a question, or a message? I can pass it on, or tell you about him and his work.', 'bot'); setChips(['Tell Zolton about the role', 'Send Zolton a message', 'What does he work on?']); }, 250); }
       if (!greeted) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. ' + (PAGE ? PAGE + ' is a password-protected page.' : 'This part of the site is password-protected.') + ' Need access? Have a question? I can tell you about Zolton’s work, or help you ask him for access.', 'bot'); setChips(['Request access', 'What’s behind the password?', 'Who is Zolton?']); }, 250); }
       setTimeout(() => inp.focus(), 320);
     }
@@ -525,22 +525,53 @@
         if (!MAILTO) say('In the live version I’ll answer this with AI. For this preview, try the buttons.', 'note');
         setChips(CONTACT ? [ASK, 'Who is Zolton?'] : ['Request access', 'What’s behind the password?']); return;
       }
+      // A few AI answers a day (window.ZB_AI_REPLIES, default 5, set in Draft Controls); the server has its own cap too.
+      // As they run out he steers back to the script, and after the last one he only offers the scripted paths.
+      const max = window.ZB_AI_REPLIES != null && isFinite(window.ZB_AI_REPLIES) ? +window.ZB_AI_REPLIES : 5;
+      const dayKey = 'zbAI:' + new Date().toISOString().slice(0, 10); let used = 0; try { used = +localStorage.getItem(dayKey) || 0; } catch (e) {}
+      if (used >= max) {
+        say('That’s a great one for Zolton himself. Want me to pass it on? I can also tell you about his work.', 'bot');
+        setChips(CONTACT ? [ASK, 'Tell Zolton about the role', 'What does he work on?'] : ['Request access', 'What’s behind the password?']); return;
+      }
       try {
-        const j = await post({ type: 'chat', messages: history.slice(-12), page: CONTACT ? 'Contact' : (PAGE || protPath) });
+        const j = await post({ type: 'chat', messages: history.slice(-12), page: CONTACT ? (location.pathname === '/' ? 'Work page contact' : 'Contact') : (PAGE || protPath) });
+        try { localStorage.setItem(dayKey, String(used + 1)); } catch (e) {}
         say(j.reply || 'Hmm, I lost my signal for a second. Try asking again?', 'bot');
-        setChips(Array.isArray(j.chips) && j.chips.length ? j.chips.slice(0, 3) : [ASK, 'Who is Zolton?']);
+        const left = Math.min(max - used - 1, j.left != null ? j.left : 99);
+        const back = CONTACT ? [ASK, 'Tell Zolton about the role', 'What does he work on?'] : ['Request access', 'What’s behind the password?', 'Who is Zolton?'];
+        setChips(left <= 2 ? back : (Array.isArray(j.chips) && j.chips.length ? j.chips.slice(0, 3) : back));
       } catch (err) { say('Hmm, I lost my signal for a second. I can still send Zolton a ' + (CONTACT ? 'message' : 'request') + ' for you.', 'bot'); setChips([ASK]); }
     }
     // The scripted tree from the Zoltbot Brief. Returns false when the message is off the tree.
     const QS = ['What’s your name?', 'What company or team are you with?', 'What’s your role? For example, recruiter, hiring manager or designer.', CONTACT ? 'What would you like to talk to Zolton about? A job link is welcome.' : 'Is this about a specific role or project? A job link is welcome.', 'What’s the best email to reach you?', CONTACT ? 'Anything else Zolton should know? (Optional, or say “skip”.)' : 'Anything you’d like Zolton to show you first? (Optional, or say “skip”.)'];
     const ASK = CONTACT ? 'Send Zolton a message' : 'Request access';
     let step = -1; const answers = [];
-    let pending = null;
+    let pending = null, pwAsk = false, lastFlow = '';
+    // Role intake (contact mode): scripted, so it costs nothing. Any question can be skipped.
+    const RQ = ['Exciting! What’s the role title and level?', 'What company and team is it with?', 'Full-time or contract? And remote, hybrid or on-site?',
+      'How would you describe the team culture?', 'Who would Zolton report to, and who’s the CEO?', 'What’s the pay range? Totally fine to skip.',
+      'What’s the timeline for filling it?', 'Got a link to the job posting? (Or say “skip”.)', 'And your name?', 'What’s the best email for Zolton to reply to?'];
+    const RL = ['Role', 'Company and team', 'Type and location', 'Team culture', 'Reports to / CEO', 'Pay range', 'Timeline', 'Job link'];
+    let rstep = -1; const ra = [];
+    const isSkip = t => /^(skip|pass|no|nope|n\/?a|none|not sure|prefer not( to say)?|rather not( say)?|-)$/i.test(t.trim());
     async function treeReply(text) {
       const t = text.toLowerCase().trim();
+      if (rstep >= 0) {
+        if (rstep === 9 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim())) { say('That email doesn’t look quite right. Mind checking it?', 'bot'); return true; }
+        if (rstep === 8 && isSkip(text)) { say('I need a name so Zolton knows who to thank. What should I call you?', 'bot'); return true; }
+        const skipped = isSkip(text); ra[rstep] = skipped ? '' : text.trim(); rstep++;
+        if (rstep < RQ.length) { say((skipped ? (rstep === 6 ? 'No problem at all. ' : 'No worries. ') : '') + RQ[rstep], 'bot'); return true; }
+        rstep = -1;
+        const lines = RL.map((l, i) => ra[i] ? '• ' + l + ': ' + ra[i] : '').filter(Boolean);
+        pending = { kind: 'contact', page: 'Role', name: ra[8], company: ra[1] || '', role: ra[0] || 'a role', about: 'A role for Zolton' + (ra[0] ? ': ' + ra[0] : ''), email: ra[9], wantsToSee: '', details: lines.join('\n') };
+        say('Zolton makes a huge positive impact everywhere he goes, so this could be a great fit. ' + (MAILTO ? 'Here’s the email I’ll write to Zolton for you:\n' : 'Here’s what I’ll send Zolton:\n') + lines.join('\n') + '\n• From: ' + ra[8] + ' (' + ra[9] + ')\n\n' + (MAILTO ? 'Open it in your email?' : 'Send it?'), 'bot');
+        setChips(['Yes, send it', 'Start over']); return true;
+      }
       if (step >= 0) {
+        if (pwAsk && step === 3) { answers[3] = 'I’d like the password to see Zolton’s selected work.'; step = 4; }
         if (step === 4 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim())) { say('That email doesn’t look quite right. Mind checking it?', 'bot'); return true; }
         answers[step] = text; step++;
+        if (pwAsk && step === 3) { answers[3] = 'I’d like the password to see Zolton’s selected work.'; step = 4; }
         if (step < QS.length) { say(QS[step], 'bot'); return true; }
         step = -1;
         pending = { kind: CONTACT ? 'contact' : 'access', page: CONTACT ? 'Contact' : (PAGE || protPath), name: answers[0], company: answers[1], role: answers[2], about: answers[3], email: answers[4], wantsToSee: answers[5] && !/^skip$/i.test(answers[5]) ? answers[5] : '' };
@@ -558,7 +589,7 @@
           }
         }
         if (MAILTO) {
-          const p = pending, body = 'Hi Zolton,\n\n' + p.about + (p.wantsToSee ? '\n\n' + p.wantsToSee : '') + '\n\n' + p.name + '\n' + p.role + ', ' + p.company + '\n' + p.email;
+          const p = pending, body = 'Hi Zolton,\n\n' + p.about + (p.details ? '\n\n' + p.details : '') + (p.wantsToSee ? '\n\n' + p.wantsToSee : '') + '\n\n' + p.name + (p.page === 'Role' ? '' : '\n' + p.role + ', ' + p.company) + '\n' + p.email;
           location.href = 'mailto:' + MAILTO + '?subject=' + encodeURIComponent('Hello from ' + p.name + (p.company ? ' (' + p.company + ')' : '')) + '&body=' + encodeURIComponent(body);
           pending = null; bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.4;
           say('I’ve opened an email to Zolton with that filled in. Just hit send. If nothing opened, write to ' + MAILTO + '.', 'bot');
@@ -569,10 +600,16 @@
         if (!ENDPOINT) say('Preview only: nothing was actually sent.', 'note');
         setChips(CONTACT ? ['What does he work on?'] : ['Who is Zolton?']); return true;
       }
-      if (CONTACT && /^(start over|send zolton a message)$|\b(message|contact|reach|hire|hiring|email him|talk to (him|zolton)|get in touch)\b/.test(t) && !/^what/.test(t)) {
-        step = 0; answers.length = 0; pending = null; say('Great, a few quick questions so Zolton knows who’s writing. ' + QS[0], 'bot'); return true;
+      if (CONTACT && (/^tell zolton about (the|a) role$|^i have a role/.test(t) || (/^start over$/.test(t) && lastFlow === 'role') || (/\b(role|position|job|opening|opportunit|recruit|hiring|hire)\b/.test(t) && !/^what/.test(t) && step < 0))) {
+        lastFlow = 'role'; rstep = 0; ra.length = 0; pending = null; say(RQ[0], 'bot'); setChips([]); return true;
       }
-      if (CONTACT && /^what does he work on\?$|\b(work on|case stud|portfolio|projects?|behind)\b/.test(t)) { say('Product design with a lot of motion, 3D for the web and design systems. Recent work includes Premiere Loader, an ATM modernization, an icon system (“Drawing One Language Out of Many”) and the Gold piece. Some case studies are password-protected; I can ask Zolton for access.', 'bot'); setChips(['Send Zolton a message', 'Who is Zolton?']); return true; }
+      if (CONTACT && /^ask zolton for the password$|\bpassword\b/.test(t)) {
+        lastFlow = 'message'; pwAsk = true; step = 0; answers.length = 0; pending = null; say('Happy to! I’ll ask Zolton to send you the password. A few quick questions first. ' + QS[0], 'bot'); return true;
+      }
+      if (CONTACT && /^(start over|send zolton a message)$|\b(message|contact|reach|hire|hiring|email him|talk to (him|zolton)|get in touch)\b/.test(t) && !/^what/.test(t)) {
+        lastFlow = 'message'; pwAsk = false; step = 0; answers.length = 0; pending = null; say('Great, a few quick questions so Zolton knows who’s writing. ' + QS[0], 'bot'); return true;
+      }
+      if (CONTACT && /^what does he work on\?$|\b(work on|case stud|portfolio|projects?|behind)\b/.test(t)) { say('Product design with lots of motion, 3D for the web and design systems. “Bringing Gold to Wells Fargo” makes the case for rendering material in 3D, “Drawing One Cohesive System” is an icon system built on grids and rules, and “A Teaching Machine” guides people through an ATM’s hardest moments. He has a lot more to show. I can have Zolton send you the password.', 'bot'); setChips(['Ask Zolton for the password', 'Tell Zolton about the role', 'Who is Zolton?']); return true; }
       if (!CONTACT && !/behind/.test(t) && /^(start over|request access)$|\b(request|access|let me in|get in)\b|\bpassword\b/.test(t)) {
         if (/password/.test(t) && !/request|access/.test(t)) say('I don’t have the password, and that’s on purpose. But I can send Zolton a request right now.', 'bot');
         step = 0; answers.length = 0; pending = null; if (/password/.test(t) && !/request|access/.test(t)) await wait(700); say('Great, a few quick questions. ' + QS[0], 'bot'); return true;
