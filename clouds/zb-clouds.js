@@ -33,7 +33,7 @@
 
   var css = document.createElement('style');
   css.textContent = [
-    '.zbs{position:absolute;left:0;top:0;right:0;z-index:-1;pointer-events:none;overflow:hidden}',
+    '.zbs{position:absolute;left:0;top:0;right:0;z-index:-2;pointer-events:none;overflow:hidden}',
     '.zbs-c{position:absolute;will-change:transform}',
     '.zbs-c img{position:absolute;inset:0;width:100%;height:100%;transition:opacity 900ms cubic-bezier(.65,0,.35,1)}',
     '.zbs-c img.n{opacity:0}',
