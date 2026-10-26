@@ -21,7 +21,8 @@
     // a few small high clouds in the open sky
     { src: 'lib/12-scatter', nsrc: 'soft/12-scatter', x: -486,  y: 120,  w: 2785, h: 532,  f: 0.30 },
     // the sea of clouds the hero floats above, running to the horizon
-    { src: 'undercast',                               x: -80,   y: 900,  w: 1600, h: 1044, f: -0.32 },
+    // one big volumetric cloud: an endless cloud layer rendered with the same 3D cloud engine, out to the horizon, then solid
+    { src: 'deck',                                    x: -80,   y: 900,  w: 1600, h: 871,  f: -0.32 },
     // the H1's own cloud, in front of the sea
     { src: 'lib/03-humilis', nsrc: 'soft/03-humilis', x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 }
   ];
