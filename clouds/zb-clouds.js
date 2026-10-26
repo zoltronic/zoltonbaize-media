@@ -194,7 +194,7 @@
     sea.night = sea.nightTo = html.getAttribute('data-mode') === 'dark' ? 1 : 0;
     new MutationObserver(function () { sea.nightTo = html.getAttribute('data-mode') === 'dark' ? 1 : 0; seaKick(); })
       .observe(html, { attributes: true, attributeFilter: ['data-mode'] });
-    import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js').then(function (THREE) {
+    import('three').catch(function () { return import('https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js'); }).then(function (THREE) {   // the page's own three (import map, shared with the coin)
       var r = new THREE.WebGLRenderer({ canvas: c, alpha: true, antialias: false, premultipliedAlpha: false, powerPreference: 'low-power' });
       r.setClearColor(0x000000, 0);
       var cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), scn = new THREE.Scene();
