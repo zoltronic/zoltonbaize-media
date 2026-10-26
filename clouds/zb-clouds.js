@@ -18,14 +18,14 @@
   // (share of the scroll the cloud lags by; negative runs ahead of the page = closer than the content).
   var DESIGN_W = 1440;
   var SCENE = [
-    { src: 'lib/03-humilis',              x: 924,   y: 772,  w: 542,  h: 236,  f: 0.35 },
-    { src: 'lib/12-scatter',              x: -486,  y: 120,  w: 2785, h: 532,  f: 0.30 },
-    { src: 'lib/09-deck',                 x: -175,  y: 842,  w: 1370, h: 204,  f: 0.22 },
-    // the landscape: a sea of cloud tops seen from just above, running to the horizon; it sits behind the big title cloud
-    { src: 'sea-1',                       x: -800,  y: 700,  w: 3040, h: 760,  f: 0.08 },
-    { src: 'lib/03-humilis',              x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 },
-    // a second, closer cloud landscape behind Selected work: it rises a little faster than the page as you scroll down into it
-    { src: 'sea-2',                       x: -1100, y: 960,  w: 3640, h: 852,  f: -0.18 }
+    { src: 'lib/03-humilis', nsrc: 'soft/03-humilis', x: 924,   y: 772,  w: 542,  h: 236,  f: 0.35 },
+    { src: 'lib/12-scatter', nsrc: 'soft/12-scatter', x: -486,  y: 120,  w: 2785, h: 532,  f: 0.30 },
+    { src: 'lib/09-deck',    nsrc: 'soft/09-deck',    x: -175,  y: 842,  w: 1370, h: 204,  f: 0.22 },
+    // the cloud sea: flat-topped clouds seen from just above, running to the horizon; behind the big title cloud
+    { src: 'sea-flat',                                x: -800,  y: 700,  w: 3040, h: 668,  f: 0.08 },
+    { src: 'lib/03-humilis', nsrc: 'soft/03-humilis', x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 },
+    // a second, closer layer of the same sea (mirrored) behind Selected work: it rises a little faster than the page
+    { src: 'sea-flat', flip: true,                    x: -1300, y: 980,  w: 4040, h: 888,  f: -0.18 }
   ];
   // Zolton's fade ("going into the clouds"): from clear at FADE.from to solid at FADE.to (design y), then solid to the bottom
   var FADE = { from: 1013, to: 1802 };
@@ -39,6 +39,7 @@
     '.zbs-c{position:absolute;will-change:transform}',
     '.zbs-c img{position:absolute;inset:0;width:100%;height:100%;transition:opacity 900ms cubic-bezier(.65,0,.35,1)}',
     '.zbs-c img.n{opacity:0}',
+    '.zbs-c.flip img{transform:scaleX(-1)}',
     'html[data-mode="dark"] .zbs-c img.d{opacity:0}',
     'html[data-mode="dark"] .zbs-c img.n{opacity:1}',
     '.zbs{--zf:' + FLOOR.day + ';--zf0:rgba(242,245,248,0)}',
@@ -48,7 +49,11 @@
     '.zbs-sway{position:absolute;inset:0;animation:zbsSway var(--t,34s) ease-in-out infinite alternate;animation-delay:var(--dl,0s)}',
     '@keyframes zbsSway{from{transform:translateX(-0.6%)}to{transform:translateX(0.6%)}}',
     '@media (prefers-reduced-motion:reduce){.zbs-sway{animation:none}}',
-    'html.zb-cloud-cards .page_root{overflow-x:clip}'
+    'html.zb-cloud-cards .page_root{overflow-x:clip}',
+    /* keep text readable over the clouds: a soft halo in the page's own ground colour */
+    'html.zb-cloud-cards section :is(h1,h2,h3,p,.label-mono){text-shadow:0 1px 18px rgba(242,245,248,.75),0 0 2px rgba(242,245,248,.35)}',
+    'html.zb-cloud-cards[data-mode="dark"] section :is(h1,h2,h3,p,.label-mono){text-shadow:0 1px 18px rgba(5,10,22,.8),0 0 2px rgba(5,10,22,.5)}',
+    '.zbs-drift{will-change:transform}'
   ].join('');
   document.head.appendChild(css);
 
@@ -86,9 +91,10 @@
       var w = c.w * k, h = c.h * k, x = W / 2 + (c.x - DESIGN_W / 2) * k, y = map(c.y);
       var el = document.createElement('div'); el.className = 'zbs-c';
       el.style.cssText = 'left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px;width:' + w.toFixed(0) + 'px;height:' + h.toFixed(0) + 'px';
+      if (c.flip) el.classList.add('flip');
       el.innerHTML = '<div class="zbs-sway" style="--t:' + (28 + i * 3) + 's;--dl:-' + (i * 4) + 's">' +
         '<img class="d" alt="" decoding="async" src="' + BASE + c.src + '-day.webp">' +
-        '<img class="n" alt="" decoding="async" loading="lazy" src="' + BASE + c.src + '-night.webp"></div>';
+        '<img class="n" alt="" decoding="async" loading="lazy" src="' + BASE + (c.nsrc || c.src) + '-night.webp"></div>';
       scene.appendChild(el); items.push({ el: el, f: c.f, cy: y + h / 2 });
     });
     var f0 = map(FADE.from), f1 = map(FADE.to);
@@ -96,10 +102,24 @@
     var fl = document.createElement('div'); fl.className = 'zbs-floor'; fl.style.top = f1.toFixed(0) + 'px'; scene.appendChild(fl);
     root.insertBefore(scene, root.firstChild);
   }
+  // content drifts a little with the clouds: each section's content lags the scroll slightly around the middle of the screen
+  var CONTENT_F = 0.05, MAX_DRIFT = 36, drift = [];
+  function findDrift() {
+    drift = [];
+    [].forEach.call(root.querySelectorAll('section'), function (sec) {
+      if (sec.hasAttribute('data-zb-experience') || sec.querySelector('[data-zb-experience]')) return;   // the logo field has its own depth motion
+      [].forEach.call(sec.children, function (ch) { ch.classList.add('zbs-drift'); drift.push({ el: ch, sec: sec }); });
+    });
+  }
   var q = false;
   function run() {
     q = false; if (!scene) return;
     var rootTop = root.getBoundingClientRect().top, mid = innerHeight / 2;
+    for (var j = 0; j < drift.length; j++) {
+      var r = drift[j].sec.getBoundingClientRect(), dd = mid - (r.top + r.height / 2);
+      var t = Math.max(-MAX_DRIFT, Math.min(MAX_DRIFT, dd * CONTENT_F));
+      drift[j].el.style.transform = 'translate3d(0,' + t.toFixed(1) + 'px,0)';
+    }
     for (var i = 0; i < items.length; i++) {
       var it = items[i], d = mid - (rootTop + it.cy);   // >0 once the cloud's middle has scrolled above the screen's middle
       it.el.style.transform = 'translate3d(0,' + (d * it.f).toFixed(1) + 'px,0)';
@@ -108,6 +128,7 @@
   function ask() { if (!q) { q = true; requestAnimationFrame(run); } }
   function rebuild() { if (scene) scene.remove(); build(); run(); }
   function init() {
+    if (!reduce) findDrift();
     rebuild();
     if (!reduce) addEventListener('scroll', ask, { passive: true });
     var lw = innerWidth; addEventListener('resize', function () { if (Math.abs(innerWidth - lw) > 40) { lw = innerWidth; rebuild(); } else ask(); });
