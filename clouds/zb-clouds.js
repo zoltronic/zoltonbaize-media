@@ -107,129 +107,294 @@
       [].forEach.call(sec.children, function (ch) { ch.classList.add('zbs-drift'); drift.push({ el: ch, sec: sec }); });
     });
   }
-  // ---- The sea of clouds: one endless cloud plane in real 3D (three.js), drawn live behind everything ----
-  // Zolton's EffectCraft example: the cloud layer tips toward edge-on as you scroll until its top is a flat line on the
-  // horizon, and below that line the page is one solid colour. Here a camera descends onto an infinite flat cloud deck:
-  // the band of cloud tops between the horizon and the deck's near edge shrinks as the camera drops, and at
-  // "Selected work" the camera sits level with the cloud top, so the whole sea is a single flat line. Below it: solid.
-  var SEA = {
-    M: 46,          // the flat line sits this far above the Selected work section
-    RISE: 0.08,     // the horizon rises this much faster than the page while you descend (EC rig: 1.32x)
-    CAM_TOP: 2.4,   // camera height over the cloud tops at the top of the page (a cloud head is ~2 across)
-    CAM_LAND: 0.78, // level with the nearest heads once you land: near clouds stand above the line, far ones flatten into it
-    LAND: 0.42      // you "land" (line flat) when Selected work is this far down the screen
+  // ---- The sea of clouds: one endless cloud layer in real 3D (three.js, ray-marched volume), drawn live behind everything ----
+  // Zolton's EffectCraft example: as you scroll, the camera descends onto the sea until it is level with the cloud tops at
+  // "Selected work": near heads stand above the horizon, far ones flatten into it. Below that the page is one solid colour.
+  // Lighting is the About page cumulus model: 3D Worley erosion for cauliflower edges, Beer-Lambert + powder, a
+  // forward/back scattering phase (silver lining) and a cheap multi-scatter lift. Every number is on the tuning panel.
+  var SEA_DEFAULTS = {
+    // scroll / camera
+    camTop: 2.4, camLand: 0.58, land: 0.42, lineGap: 46, rise: 0.08, fly: 0.004, drift: 1,
+    // sun / moon
+    sunHeight: 22, sunAzimuth: 70, sunIntensity: 1, moon: 0.5,
+    // cloud
+    relief: 0.5, puff: 1, swell: 0.35, fluff: 0.22, coverage: 0.6, density: 6, billowScale: 0.55, detail: 0.35, detailScale: 1.6,
+    // lighting
+    absorption: 2.2, multiScatter: 0.3, silver: 0.65, ambient: 0.55, nightAmbient: 1, exposure: 1.25, haze: 0.025,
+    quality: 1
   };
-  var sea = { canvas: null, ok: false, night: 0, nightTo: 0, t0: performance.now(), raf: 0 };
+  var SEA = {};
+  (function () { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; try { var s = JSON.parse(localStorage.getItem('zbSeaTune') || 'null'); if (s) for (var j in s) if (j in SEA) SEA[j] = s[j]; } catch (e) {} })();
+  var sea = { canvas: null, ok: false, night: 0, nightTo: 0, t0: performance.now(), raf: 0, scale: 0.6 };
+
   var SEA_FS = [
-    'precision highp float;',
-    'uniform vec2 uR; uniform float uPR, uHz, uCam, uZ, uT, uN; uniform vec3 uFD, uFN;',
-    'float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }',
-    'vec2 h22(vec2 p){ float a=h21(p); return vec2(a, h21(p+a+17.17)); }',
-    'float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);',
-    '  return mix(mix(h21(i),h21(i+vec2(1,0)),f.x), mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x), f.y); }',
-    // cloud heads: packed rounded domes (one per cell, random size), merged with a smooth max so they bulge into each other
-    'float domes(vec2 p){ vec2 i=floor(p), f=fract(p); float acc=0.;',
-    '  for(int y=-1;y<=1;y++) for(int x=-1;x<=1;x++){ vec2 g=vec2(float(x),float(y)); vec2 o=h22(i+g); vec2 r=g+o-f;',
-    '    float rad=.62+.38*h21(i+g+5.3); float v=1.-dot(r,r)/(rad*rad); acc+=exp(7.*rad*sqrt(max(v,0.)))-1.; }',
-    '  return log(1.+acc)/7.; }',
-    // cloud-top height in world units: heads on heads (cauliflower), the finest only where a pixel can show it
-    'float Hc(vec2 p){ return domes(p) + .5*domes(p*2.1+3.7) + .15*n2(p*.12+3.1); }',
-    'float H(vec2 p, float fp){ float w = 1.-smoothstep(.12,.3,fp*4.4); return Hc(p) + (w>0. ? .22*w*(domes(p*4.4+7.1)-.4) : 0.); }',
-    'const float A = .5;',
+    'precision highp float; precision highp sampler3D;',
+    'out vec4 fc;',
+    'uniform sampler2D uH; uniform sampler3D uNoise;',
+    'uniform vec2 uR; uniform float uPR, uHz, uCam, uZ, uT, uN;',
+    'uniform vec3 uFD, uFN, uSun;',
+    'uniform float uA, uTile, uSwell, uSkin, uCov, uDens, uBill, uDet, uDetS, uSunI, uMoon, uAbs, uMulti, uSilver, uAmb, uNAmb, uExp, uHaze;',
+    // the cloud-top height under a point: packed rounded heads (baked, tileable, mipmapped) plus long swells
+    'float hgt(vec2 xz){ float h = texture(uH, xz/uTile).r; vec2 s2 = mat2(.8,.6,-.6,.8)*xz/(uTile*4.7); float s = texture(uH, s2).r;',
+    '  return uA*(h*1.6 + (s-.45)*uSwell*2.); }',
+    // density: solid below the top, a soft skin at the top eaten away by Worley noise (cauliflower puffs)
+    'float dens(vec3 p, float hs, bool det){',
+    '  float sh = clamp((hs - p.y)/uSkin, 0., 1.); if (sh <= 0.) return 0.;',
+    '  vec3 rise = vec3(.006, -.012, .004)*uT;',
+    '  float n = texture(uNoise, p*uBill*.25 + rise).r;',
+    '  if (det) n = mix(n, texture(uNoise, p*uDetS*.25 + rise*2.4 + .37).r, uDet);',
+    '  float er = (1.-n)*(1.15-uCov);',
+    '  return clamp((sh - er)/(1.-er+1e-3), 0., 1.)*uDens; }',
+    'float hg(float c, float g){ float g2=g*g; return (1.-g2)/(12.566*pow(1.+g2-2.*g*c,1.5)); }',
+    'vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.); }',
+    'float h11(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }',
     'void main(){',
-    '  vec2 px = gl_FragCoord.xy/uPR;',                    // CSS px, origin bottom-left
+    '  vec2 px = gl_FragCoord.xy/uPR;',
     '  vec3 floorC = mix(uFD, uFN, uN);',
     '  vec3 hazeC = mix(vec3(.88,.92,.97), vec3(.18,.23,.34), uN);',
-    '  vec3 lit = mix(vec3(1.,1.,.985), vec3(.45,.52,.65), uN);',
-    '  vec3 shd = mix(vec3(.60,.68,.82), vec3(.11,.15,.24), uN);',
-    '  if (uHz > uR.y + 220.) { gl_FragColor = vec4(floorC, 1.); return; }',   // deep in the cloud: one solid colour
+    '  float glow = exp(min(0.,(uHz-px.y))/26.)*.55;',
+    '  if (uHz > uR.y + 220.) { fc = vec4(floorC, 1.); return; }',   // deep in the cloud: one solid colour
     '  float F = uR.y*1.05;',
-    '  vec3 rd = normalize(vec3((px.x-uR.x*.5)/F, (px.y-uHz)/F, 1.));',   // the horizon (eye level) sits at uHz on screen
+    '  vec3 rd = normalize(vec3((px.x-uR.x*.5)/F, (px.y-uHz)/F, 1.));',      // eye level sits at uHz on screen
     '  vec3 ro = vec3(0., uCam, 0.);',
     '  vec2 off = vec2(uT*.004, uZ);',
-    '  vec3 L = normalize(mix(vec3(.5,.75,-.15), vec3(-.35,.75,.25), uN));',
-    '  float top = A*1.8, t = .03;',
-    '  float glow = exp(min(0.,(uHz-px.y))/26.)*.55;',
-    '  if (ro.y > top) { if (rd.y >= 0.) { gl_FragColor = vec4(hazeC, glow); return; } t = (ro.y-top)/-rd.y; }',
-    '  vec3 col = vec3(0.), cc = vec3(1.); float T = 1., pt = t, pd = 1.; bool shaded = false;',
-    // soft march: density rises over a soft skin under the surface, so heads have fluffy edges, not a hard shell
-    '  for (int i=0;i<96;i++){',
-    '    vec3 q = ro + rd*t;',
-    '    if (t > 80. || (q.y > top && rd.y > 0.)) break;',
-    '    vec2 p = q.xz + off; float fp = t/F*1.25;',
-    '    float clr = smoothstep(.15, 1.3, length(q.xz));',        // a clearing around the camera, so you are never inside a head
-    '    float sy = A*H(p, fp)*clr;',
-    '    float skin = .05 + t*.012;',
-    '    float dh = q.y - sy;',
-    '    if (dh > skin) { pt = t; pd = dh - skin; t += max(dh*.5, .004 + t*.005); continue; }',
-    '    float den = smoothstep(skin, -skin, dh);',
-    '    if (!shaded) { shaded = true;',
-    '      float th = pt + (t-pt) * pd / max(pd - (dh - skin), 1e-4);',   // secant back to where the ray meets the surface
-    '      vec3 qh = ro + rd*th; p = qh.xz + off; sy = A*H(p, fp)*smoothstep(.15, 1.3, length(qh.xz));',                      // light the head once, where the ray first meets it
-    '      float e = max(.03, fp*.9);',
-    '      float hx = A*H(p+vec2(e,0.), fp) - sy, hz = A*H(p+vec2(0.,e), fp) - sy;',
-    '      vec3 n = normalize(vec3(-hx/e, 1., -hz/e));',
-    '      float dif = clamp(dot(n,L), 0., 1.);',
-    '      float sh = clamp(1.-(A*H(p+normalize(L.xz)*.35, fp)-sy)*4., 0., 1.);',  // a taller head toward the sun shades this one
-    '      float up = clamp(sy/A*.6, 0., 1.);',              // valleys between heads go blue-grey
-    '      float rim = pow(1.-clamp(dot(n,-rd),0.,1.), 4.);',
-    '      cc = mix(shd, lit, clamp(dif*mix(.45,1.,sh)*.8 + up*.25 + rim*.15, 0., 1.));',
-    '      cc = mix(cc, hazeC, clamp(1.-exp(-th*.04),0.,1.));',
-    '      cc = mix(cc, floorC, 1.-smoothstep(.7, 2.8, th)); }',   // the closest cloud melts into the page colour
-    '    vec3 c = cc;',
-    '    float st = max(.012, t*.01);',
-    '    float a = 1.-exp(-den*st*38.);',
-    '    col += T*a*c; T *= 1.-a; if (T < .02) break;',
-    '    t += st; }',
-    '  float alpha = 1.-T;',
-    '  if (px.y < uHz) { col += T*hazeC; alpha = 1.; }',     // rays that ran out below eye level: the hazy far sea
-    '  else { col += T*hazeC*glow; alpha = alpha + T*glow; }',
-    '  vec3 outc = alpha > 0. ? col/alpha : hazeC;',
-    '  gl_FragColor = vec4(outc, alpha);',
-    '}'].join('\n');
+    '  float top = uA*(1.6 + uSwell*1.2) + .02, t = .02;',
+    '  if (ro.y > top) { if (rd.y >= 0.) { fc = vec4(hazeC, glow); return; } t = (ro.y-top)/-rd.y; }',
+    '  vec3 sunCol = mix(vec3(1.,.97,.92)*uSunI, vec3(.55,.66,.95)*uMoon, uN);',
+    '  vec3 ambTop = mix(vec3(.50,.66,.98)*uAmb, vec3(.05,.08,.17)*uNAmb, uN);',
+    '  vec3 ambBot = ambTop*vec3(.42,.46,.55);',
+    '  float mu = dot(rd, uSun);',
+    '  float phase = mix(hg(mu, uSilver), hg(mu, -.2), .45);',
+    '  vec3 L = vec3(0.); float T = 1., tHit = -1.;',
+    '  float ign = fract(52.9829189*fract(dot(gl_FragCoord.xy, vec2(.06711056,.00583715))));',
+    '  for (int i=0;i<140;i++){',
+    '    if (t > 90.) break;',
+    '    vec3 p = ro + rd*t;',
+    '    if (p.y > top && rd.y > 0.) break;',
+    '    float clr = smoothstep(.15, 1.3, length(p.xz));',                 // a clearing round the camera: never inside a head
+    '    vec2 xz = p.xz + off; float hs = hgt(xz)*clr;',
+    '    float dh = p.y - hs;',
+    '    if (dh > .015) { t += max(dh*.55, .006 + t*.004); continue; }',
+    '    if (tHit < 0.) { tHit = t; t += ign*max(uSkin*.07, t*.006)/uQ; }',   // offset the first step per pixel: no banding
+    '    float dt = max(uSkin*.07, t*.006) / uQ;',
+    '    vec3 q = vec3(xz.x, p.y, xz.y);',
+    '    float d = dens(q, hs, true);',
+    '    if (d > .002) {',
+    '      float od = 0., st = .07; vec3 lp = q;',                          // optical depth toward the sun
+    '      for (int j=0;j<4;j++){ lp += uSun*st; od += dens(lp, hgt(lp.xz), false)*st; st *= 1.7; }',
+    '      float beer = max(exp(-od*uAbs), exp(-od*uAbs*.22)*uMulti);',
+    '      float powder = 1.-exp(-d*2.2);',
+    '      vec3 sunL = sunCol*beer*phase*mix(1., powder, .55)*14.;',
+    '      float dep = clamp((hs - p.y)/(uSkin*2.5), 0., 1.);',
+    '      vec3 amb = mix(ambTop, ambBot, dep);',
+    '      float Tr = exp(-d*dt*1.6);',
+    '      L += T*(sunL + amb)*(1.-Tr); T *= Tr;',
+    '      if (T < .02) break; }',
+    '    if (hs - p.y > uSkin*3.) { L += T*ambBot; T = 0.; break; }',       // deep inside: opaque
+    '    t += dt; }',
+    '  vec3 col = aces(L*uExp/max(1.-T, 1e-3));',
+    '  col = pow(col, vec3(1./2.2));',
+    '  float a = 1.-T;',
+    '  if (tHit < 0.) { tHit = 90.; }',
+    '  col = mix(col, hazeC, clamp(1.-exp(-tHit*uHaze),0.,1.));',            // aerial haze toward the horizon
+    '  col = mix(col, floorC, 1.-smoothstep(.35, 1.3, tHit));',              // the closest cloud melts into the page colour
+    '  if (px.y < uHz) { col = mix(hazeC, col, a); a = 1.; }',              // below eye level, what is left is the far hazy sea
+    '  else { col = mix(hazeC, col, a/max(a + (1.-a)*glow, 1e-3)); a = a + (1.-a)*glow; }',
+    '  fc = vec4(col, a);',
+    '}'].join('\n').replace('uniform float uA,', 'uniform float uQ, uA,');
+
+  // ---- baked textures: the cloud-head height map (2D, tileable) and the About page's 3D Worley noise ----
+  function bakeHeights(N) {
+    var out = new Uint8Array(N * N), layers = [[14, 1, 11], [30, .5, 23], [62, .22, 37]], H = new Float32Array(N * N), mx = 0;
+    function rnd(s) { return function () { s |= 0; s = s + 0x6D2B79F5 | 0; var t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+    layers.forEach(function (L) {
+      var C = L[0], w = L[1], r = rnd(L[2]), pts = new Float32Array(C * C * 3);
+      for (var i = 0; i < pts.length; i++) pts[i] = r();
+      for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+        var px = x / N * C, py = y / N * C, cx = Math.floor(px), cy = Math.floor(py), acc = 0;
+        for (var j = -1; j <= 1; j++) for (var k = -1; k <= 1; k++) {
+          var gx = cx + k, gy = cy + j, wx = (gx % C + C) % C, wy = (gy % C + C) % C, o = (wx + wy * C) * 3;
+          var dx = gx + pts[o] - px, dy = gy + pts[o + 1] - py, rad = .62 + .38 * pts[o + 2], v = 1 - (dx * dx + dy * dy) / (rad * rad);
+          acc += Math.exp(7 * rad * Math.sqrt(Math.max(v, 0))) - 1;
+        }
+        H[x + y * N] += w * Math.log(1 + acc) / 7;
+      }
+    });
+    for (var i2 = 0; i2 < H.length; i2++) if (H[i2] > mx) mx = H[i2];
+    for (var i3 = 0; i3 < H.length; i3++) out[i3] = Math.round(H[i3] / mx * 255);
+    return out;
+  }
+  function bakeWorley(N) {
+    function rnd(s) { return function () { s |= 0; s = s + 0x6D2B79F5 | 0; var t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+    function worley(cells, seed) {
+      var r = rnd(seed), pts = new Float32Array(cells * cells * cells * 3), out = new Float32Array(N * N * N), cs = N / cells;
+      for (var i = 0; i < pts.length; i++) pts[i] = r();
+      for (var z = 0; z < N; z++) for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+        var px = x / cs, py = y / cs, pz = z / cs, cx = Math.floor(px), cy = Math.floor(py), cz = Math.floor(pz), best = 9;
+        for (var k = -1; k <= 1; k++) for (var j = -1; j <= 1; j++) for (var i4 = -1; i4 <= 1; i4++) {
+          var gx = cx + i4, gy = cy + j, gz = cz + k, o = (((gx + cells) % cells) + ((gy + cells) % cells) * cells + ((gz + cells) % cells) * cells * cells) * 3;
+          var dx = gx + pts[o] - px, dy = gy + pts[o + 1] - py, dz = gz + pts[o + 2] - pz, d = dx * dx + dy * dy + dz * dz;
+          if (d < best) best = d;
+        }
+        out[x + y * N + z * N * N] = Math.min(Math.sqrt(best), 1);
+      }
+      return out;
+    }
+    var a = worley(4, 11), b = worley(8, 23), c = worley(16, 37), data = new Uint8Array(N * N * N);
+    for (var i = 0; i < data.length; i++) data[i] = Math.max(0, Math.min(255, Math.round(((1 - a[i]) * .625 + (1 - b[i]) * .25 + (1 - c[i]) * .125) * 255)));
+    return data;
+  }
 
   function hexRGB(h) { var n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
+  function seaApply() {
+    if (!sea.U) return; var U = sea.U, S = SEA;
+    var e = S.sunHeight * Math.PI / 180, az = S.sunAzimuth * Math.PI / 180;
+    var sx = Math.cos(e) * Math.sin(az), sy = Math.sin(e), sz = Math.cos(e) * Math.cos(az);
+    if (sea.nightTo > .5 || sea.night > .5) { sx = -sx; sz = Math.abs(sz); }                  // the moon sits behind the sea, low
+    U.uSun.value.set(sx, sy, sz).normalize();
+    U.uA.value = S.relief; U.uTile.value = 14 * S.puff; U.uSwell.value = S.swell; U.uSkin.value = S.fluff;
+    U.uCov.value = S.coverage; U.uDens.value = S.density; U.uBill.value = S.billowScale / S.puff; U.uDet.value = S.detail; U.uDetS.value = S.detailScale / S.puff;
+    U.uSunI.value = S.sunIntensity; U.uMoon.value = S.moon; U.uAbs.value = S.absorption; U.uMulti.value = S.multiScatter; U.uSilver.value = S.silver;
+    U.uAmb.value = S.ambient; U.uNAmb.value = S.nightAmbient; U.uExp.value = S.exposure; U.uHaze.value = S.haze; U.uQ.value = S.quality;
+    seaKick();
+  }
   function seaInit() {
     var c = document.createElement('canvas'); c.className = 'zbs-sea'; sea.canvas = c;
     sea.night = sea.nightTo = html.getAttribute('data-mode') === 'dark' ? 1 : 0;
-    new MutationObserver(function () { sea.nightTo = html.getAttribute('data-mode') === 'dark' ? 1 : 0; seaKick(); })
+    new MutationObserver(function () { sea.nightTo = html.getAttribute('data-mode') === 'dark' ? 1 : 0; seaApply(); })
       .observe(html, { attributes: true, attributeFilter: ['data-mode'] });
     import('three').catch(function () { return import('https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js'); }).then(function (THREE) {   // the page's own three (import map, shared with the coin)
-      var r = new THREE.WebGLRenderer({ canvas: c, alpha: true, antialias: false, premultipliedAlpha: false, powerPreference: 'low-power' });
+      var r = new THREE.WebGLRenderer({ canvas: c, alpha: true, antialias: false, premultipliedAlpha: false, powerPreference: 'high-performance' });
+      if (!r.capabilities.isWebGL2) throw new Error('webgl2');
       r.setClearColor(0x000000, 0);
+      var NH = 256, ht = new THREE.DataTexture(bakeHeights(NH), NH, NH, THREE.RedFormat, THREE.UnsignedByteType);
+      ht.wrapS = ht.wrapT = THREE.RepeatWrapping; ht.minFilter = THREE.LinearMipmapLinearFilter; ht.magFilter = THREE.LinearFilter; ht.generateMipmaps = true; ht.unpackAlignment = 1; ht.needsUpdate = true;
+      var NW = 64, wt = new THREE.Data3DTexture(bakeWorley(NW), NW, NW, NW);
+      wt.format = THREE.RedFormat; wt.type = THREE.UnsignedByteType; wt.minFilter = wt.magFilter = THREE.LinearFilter;
+      wt.wrapS = wt.wrapT = wt.wrapR = THREE.RepeatWrapping; wt.unpackAlignment = 1; wt.needsUpdate = true;
+      var fd = hexRGB(FLOOR.day), fn = hexRGB(FLOOR.night), V3 = function (a) { return new THREE.Vector3(a[0], a[1], a[2]); };
+      var U = { uH: { value: ht }, uNoise: { value: wt }, uR: { value: new THREE.Vector2(1, 1) }, uPR: { value: 1 }, uHz: { value: -1 }, uCam: { value: 3 },
+        uZ: { value: 0 }, uT: { value: 0 }, uN: { value: sea.night }, uFD: { value: V3(fd) }, uFN: { value: V3(fn) }, uSun: { value: new THREE.Vector3(0, 1, 0) }, uQ: { value: 1 } };
+      'uA uTile uSwell uSkin uCov uDens uBill uDet uDetS uSunI uMoon uAbs uMulti uSilver uAmb uNAmb uExp uHaze'.split(' ').forEach(function (k) { U[k] = { value: 0 }; });
+      var m = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, uniforms: U, fragmentShader: SEA_FS, vertexShader: 'void main(){ gl_Position = vec4(position.xy,0.,1.); }', blending: THREE.NoBlending, depthTest: false, depthWrite: false });
       var cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), scn = new THREE.Scene();
-      var fd = hexRGB(FLOOR.day), fn = hexRGB(FLOOR.night);
-      var U = { uR: { value: new THREE.Vector2(1, 1) }, uPR: { value: 1 }, uHz: { value: -1 }, uCam: { value: 3 }, uZ: { value: 0 },
-        uT: { value: 0 }, uN: { value: sea.night }, uFD: { value: new THREE.Vector3(fd[0], fd[1], fd[2]) }, uFN: { value: new THREE.Vector3(fn[0], fn[1], fn[2]) } };
-      var m = new THREE.ShaderMaterial({ uniforms: U, fragmentShader: SEA_FS, vertexShader: 'void main(){ gl_Position = vec4(position.xy,0.,1.); }', blending: THREE.NoBlending, depthTest: false });
       scn.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), m));
       sea.r = r; sea.cam = cam; sea.scn = scn; sea.U = U; sea.ok = true;
-      seaFrame();
+      seaApply(); seaFrame();
     }).catch(function () { sea.fail = true; seaFrame(); });
+    if (/\.webflow\.io$/.test(location.hostname) || /[?&]tune\b/.test(location.search)) seaPanel();
   }
   function seaState() {
+    if (window.__zbSeaForce) return window.__zbSeaForce;                         // test hook: pin camera + horizon
     var card = document.querySelector('.work_card'), work = card && (card.closest('section') || card.parentElement);
     if (!work) return null;
-    var vh = innerHeight, s = scrollY, wt = work.getBoundingClientRect().top;   // Selected work, on screen
-    var L = Math.max(1, wt + s - SEA.LAND * vh);                               // scroll at which you land on the cloud top
-    var k = Math.max(0, 1 - s / L);                                            // 1 high above the sea .. 0 level with its top
-    return { hz: wt - SEA.M + SEA.RISE * Math.max(0, L - s), cam: SEA.CAM_LAND + (SEA.CAM_TOP - SEA.CAM_LAND) * Math.pow(k, 1.4), band: k, z: s * 0.004, k: k };
+    var vh = innerHeight, s = scrollY, wt = work.getBoundingClientRect().top;    // Selected work, on screen
+    var L = Math.max(1, wt + s - SEA.land * vh);                                // scroll at which you land on the cloud tops
+    var k = Math.max(0, 1 - s / L);                                             // 1 high above the sea .. 0 level with its top
+    return { hz: wt - SEA.lineGap + SEA.rise * Math.max(0, L - s), cam: SEA.camLand + (SEA.camTop - SEA.camLand) * Math.pow(k, 1.4), z: s * SEA.fly };
   }
   function seaKick() { if (!sea.raf) sea.raf = requestAnimationFrame(function () { sea.raf = 0; seaFrame(); }); }
+  var still = /zbstill/.test(location.search), fpsN = 0, fpsT = performance.now();
   function seaFrame() {
     var st = seaState(); if (!st || !sea.canvas) return;
     if (sea.fail) { sea.canvas.style.cssText = 'background:linear-gradient(to bottom,transparent ' + st.hz.toFixed(0) + 'px,var(--zf) ' + st.hz.toFixed(0) + 'px)'; return; }
     if (!sea.ok) return;
-    var w = innerWidth, h = innerHeight, pr = Math.min(devicePixelRatio || 1, 1.5);
-    if (sea.w !== w || sea.h !== h || sea.pr !== pr) { sea.r.setPixelRatio(pr * 0.6); sea.r.setSize(w, h, false); sea.w = w; sea.h = h; sea.pr = pr; }
+    var w = innerWidth, h = innerHeight, pr = Math.min(devicePixelRatio || 1, 2) * sea.scale;
+    if (sea.w !== w || sea.h !== h || sea.pr !== pr) { sea.r.setPixelRatio(pr); sea.r.setSize(w, h, false); sea.w = w; sea.h = h; sea.pr = pr; }
     sea.night += (sea.nightTo - sea.night) * 0.12; if (Math.abs(sea.nightTo - sea.night) < 0.01) sea.night = sea.nightTo;
     var U = sea.U;
-    U.uR.value.set(w, h); U.uPR.value = pr * 0.6; U.uHz.value = h - st.hz; U.uCam.value = st.cam; U.uZ.value = st.z;
-    U.uT.value = reduce ? 0 : (performance.now() - sea.t0) / 1000; U.uN.value = sea.night;
+    U.uR.value.set(w, h); U.uPR.value = pr; U.uHz.value = h - st.hz; U.uCam.value = st.cam; U.uZ.value = st.z;
+    U.uT.value = (reduce || still) ? 0 : (performance.now() - sea.t0) / 1000 * SEA.drift; U.uN.value = sea.night;
     sea.r.render(sea.scn, sea.cam);
-    // keep drifting slowly while cloud tops are on screen; settle when the sea is only a line, or off screen
     var visible = st.hz < h + 40 && st.hz > -80;
-    if ((visible && !reduce && !/zbstill/.test(location.search)) || sea.night !== sea.nightTo) seaKick();
+    if (visible && !still) {                                                    // hold the frame rate: drop resolution when slow
+      fpsN++; var now = performance.now();
+      if (now - fpsT > 1200) { var fps = fpsN * 1000 / (now - fpsT); fpsN = 0; fpsT = now;
+        if (sea.fpsEl) sea.fpsEl.textContent = Math.round(fps) + ' fps · ' + Math.round(sea.scale * 100) + '%';
+        if (fps < 45 && sea.scale > .3) sea.scale = Math.max(.3, sea.scale - .07); else if (fps > 58 && sea.scale < .75) sea.scale = Math.min(.75, sea.scale + .04); }
+    }
+    if ((visible && !reduce && !still) || sea.night !== sea.nightTo) seaKick();
+  }
+
+  // ---- The tuning panel (same as the About page cloud's): only on the preview address, or with ?tune ----
+  var SEA_GROUPS = [
+    ['Scroll', true, [
+      ['camTop', 'Camera height at top', .8, 5, .05], ['camLand', 'Camera height landed', .3, 1.6, .01],
+      ['land', 'Land when work is this far down', .1, .8, .01], ['lineGap', 'Horizon above Selected work (px)', -100, 200, 1],
+      ['rise', 'Horizon rise speed', 0, .6, .01], ['fly', 'Fly forward', 0, .012, .0005], ['drift', 'Drift speed', 0, 4, .1]]],
+    ['Sun & moon', true, [
+      ['sunHeight', 'Sun height', 4, 80, 1], ['sunAzimuth', 'Sun direction', -180, 180, 1],
+      ['sunIntensity', 'Sun intensity', .2, 2.5, .05], ['moon', 'Moonlight (dark mode)', 0, 1.5, .02]]],
+    ['Cloud', true, [
+      ['relief', 'Head height', .1, 1.2, .01], ['puff', 'Head size', .4, 2.5, .01], ['swell', 'Swells', 0, 1, .01],
+      ['fluff', 'Fluff (soft edge depth)', .05, .8, .01], ['coverage', 'Coverage', .2, .95, .01], ['density', 'Density', .5, 10, .1],
+      ['billowScale', 'Billow scale', .1, 2, .01], ['detail', 'Edge detail', 0, .8, .01], ['detailScale', 'Detail scale', .4, 5, .05]]],
+    ['Lighting', false, [
+      ['absorption', 'Absorption', .3, 4, .05], ['multiScatter', 'Multi-scatter', 0, .8, .01], ['silver', 'Silver lining', 0, .9, .01],
+      ['ambient', 'Sky light', 0, 2, .05], ['nightAmbient', 'Night sky light', 0, 3, .05], ['exposure', 'Exposure', .4, 2.4, .05],
+      ['haze', 'Haze', 0, .15, .002], ['quality', 'Quality', .5, 2, .05]]]
+  ];
+  function seaPanel() {
+    var st = document.createElement('style');
+    st.textContent = [
+      '.zbt{--ink:#0f1a2b;--soft:#4a5b74;--line:rgba(15,26,43,.14);--acc:#2f6fd6;position:fixed;left:16px;bottom:16px;z-index:2147482000;font:12px/1.3 system-ui,-apple-system,sans-serif;color:var(--ink)}',
+      '.zbt-chip,.zbt button{font:600 12px system-ui,-apple-system,sans-serif;color:var(--ink);background:rgba(240,246,252,.85);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}',
+      '.zbt button{border-radius:6px;padding:5px 9px;background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none}',
+      '.zbt button:hover,.zbt-chip:hover{border-color:var(--acc);color:var(--acc)}',
+      '.zbt-card{width:min(300px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow-y:auto;background:rgba(240,246,252,.86);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;box-shadow:0 8px 30px rgba(15,26,43,.18)}',
+      '.zbt-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-bottom:4px}',
+      '.zbt-head b{font-size:14px}.zbt-fps{font:11px ui-monospace,Menlo,monospace;color:var(--soft)}',
+      '.zbt details{border-top:1px solid var(--line)}',
+      '.zbt summary{list-style:none;cursor:pointer;padding:8px 0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;display:flex;justify-content:space-between}',
+      '.zbt summary::-webkit-details-marker{display:none}.zbt summary::after{content:"+";color:var(--soft)}.zbt details[open] summary::after{content:"–"}',
+      '.zbt-body{display:grid;gap:8px;padding-bottom:10px}',
+      '.zbt-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}',
+      '.zbt-row label{color:var(--soft)}.zbt-row output{font:11px ui-monospace,Menlo,monospace}',
+      '.zbt-row input{grid-column:1/-1;width:100%;margin:0;accent-color:var(--acc)}',
+      '.zbt-foot{display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid var(--line);padding-top:10px}',
+      '.zbt textarea{width:100%;box-sizing:border-box;font:11px ui-monospace,Menlo,monospace;min-height:90px;border:1px solid var(--line);border-radius:6px}',
+      '.zbt [hidden]{display:none!important}'
+    ].join('');
+    document.head.appendChild(st);
+    var box = document.createElement('div'); box.className = 'zbt';
+    var open = /[?&]tune\b/.test(location.search);
+    try { open = open || localStorage.getItem('zbSeaPanel') === '1'; } catch (e) {}
+    box.innerHTML = '<button class="zbt-chip" type="button">Cloud controls</button><div class="zbt-card" hidden><div class="zbt-head"><b>Cloud sea</b><span class="zbt-fps">—</span><button type="button" data-a="close" aria-label="Close panel">×</button></div><div class="zbt-groups"></div>' +
+      '<div class="zbt-foot"><button type="button" data-a="mode">Light / dark</button><button type="button" data-a="reset">Reset</button><button type="button" data-a="copy">Copy settings</button><textarea hidden readonly aria-label="Settings as JSON"></textarea></div></div>';
+    var chip = box.querySelector('.zbt-chip'), card = box.querySelector('.zbt-card'), groups = box.querySelector('.zbt-groups'), ta = box.querySelector('textarea'), inputs = {};
+    sea.fpsEl = box.querySelector('.zbt-fps');
+    function show(v) { card.hidden = !v; chip.hidden = v; try { localStorage.setItem('zbSeaPanel', v ? '1' : '0'); } catch (e) {} }
+    function fmt(v, step) { var d = String(step).split('.')[1]; return (+v).toFixed(d ? d.length : 0); }
+    function save() { try { localStorage.setItem('zbSeaTune', JSON.stringify(SEA)); } catch (e) {} }
+    SEA_GROUPS.forEach(function (g) {
+      var d = document.createElement('details'); if (g[1]) d.open = true;
+      d.innerHTML = '<summary>' + g[0] + '</summary><div class="zbt-body"></div>';
+      var body = d.querySelector('.zbt-body');
+      g[2].forEach(function (r) {
+        var key = r[0], row = document.createElement('div'); row.className = 'zbt-row';
+        row.innerHTML = '<label for="zbt-' + key + '">' + r[1] + '</label><output></output><input id="zbt-' + key + '" type="range" min="' + r[2] + '" max="' + r[3] + '" step="' + r[4] + '">';
+        var inp = row.querySelector('input'), out = row.querySelector('output');
+        inputs[key] = function () { inp.value = SEA[key]; out.textContent = fmt(SEA[key], r[4]); };
+        inp.addEventListener('input', function () { SEA[key] = +inp.value; out.textContent = fmt(SEA[key], r[4]); save(); seaApply(); run(); });
+        body.appendChild(row);
+      });
+      groups.appendChild(d);
+    });
+    function sync() { for (var k in inputs) inputs[k](); }
+    sync();
+    chip.addEventListener('click', function () { show(true); });
+    box.addEventListener('click', function (e) {
+      var a = e.target.getAttribute && e.target.getAttribute('data-a'); if (!a) return;
+      if (a === 'close') show(false);
+      if (a === 'reset') { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; save(); sync(); seaApply(); run(); ta.hidden = true; }
+      if (a === 'mode') { var t = [].filter.call(document.querySelectorAll('button,a,[role=button]'), function (el) { return !box.contains(el) && /^\s*(light|dark)\s*$/i.test(el.textContent); })[0];
+        if (t) t.click(); else html.setAttribute('data-mode', html.getAttribute('data-mode') === 'dark' ? 'light' : 'dark'); }
+      if (a === 'copy') { var json = JSON.stringify(SEA, null, 2), b = e.target;
+        var fall = function () { ta.value = json; ta.hidden = false; ta.select(); b.textContent = 'Select & copy'; };
+        try { navigator.clipboard.writeText(json).then(function () { b.textContent = 'Copied'; ta.hidden = true; setTimeout(function () { b.textContent = 'Copy settings'; }, 1400); }, fall); } catch (er) { fall(); } }
+    });
+    document.body.appendChild(box);
+    show(open);
   }
 
   var q = false;
