@@ -9,7 +9,16 @@
   if (window.__zbSplash) return; window.__zbSplash = true;
   const html = document.documentElement;
   // Draft Controls (draft/zb-draft.js): tunable on the preview address or with ?tune; a saved draft is read here, before the splash plays
-  const SPL_DEFAULTS = { speed: 1, coverage: 0.6, sunHeight: 22, sunAzimuth: 138, sunIntensity: 1, ambient: 1, deck: 1 };
+  const SPL_DEFAULTS = {
+    // timeline, in seconds at the default 2.2 s length (the whole timeline stretches with Length)
+    length: 2.2, flyEnd: 1.4, gatherStart: 0.3, gatherEnd: 1.05, glassStart: 0.95, glassEnd: 1.3, zoomStart: 1.45, zoomEnd: 2.1,
+    // camera
+    startDist: 36, endDist: 13, startHeight: 1.5, rise: 1.0, sway: 0.6, lookDown: 3.4, zoomFov: 12,
+    // clouds, sky and light
+    coverage: 0.6, sunHeight: 22, sunAzimuth: 138, sunIntensity: 1, ambient: 1, deck: 1,
+    // the glass Z
+    hueA: 195, hueB: 168, spin: 0.55
+  };
   const SPL = Object.assign({}, SPL_DEFAULTS);
   const DRAFT = /\.webflow\.io$/.test(location.hostname) || /[?&]tune\b/.test(location.search);
   if (DRAFT) { try { const sv = JSON.parse(localStorage.getItem('zbDraft:splash') || 'null'); if (sv) for (const k in SPL) if (k in sv) SPL[k] = +sv[k]; } catch (e) {} }
@@ -296,7 +305,7 @@
   const glassU = {
     uSky: { value: skyRT.texture }, uRes: { value: new THREE.Vector2(1, 1) },
     uGlass: { value: 0 }, uReveal: { value: 0 }, uSunV: { value: new THREE.Vector3(0, 1, 0) },
-    uA: { value: new THREE.Color('#00BEFF') }, uB: { value: new THREE.Color('#00E0B8') }, uNight: { value: 0 }
+    uA: { value: new THREE.Color().setHSL(SPL.hueA / 360, 1, 0.5) }, uB: { value: new THREE.Color().setHSL(SPL.hueB / 360, 1, 0.44) }, uNight: { value: 0 }
   };
   const glassMat = new THREE.ShaderMaterial({
     uniforms: glassU, blending: THREE.NoBlending, depthTest: true, depthWrite: true,
@@ -479,7 +488,8 @@
   addEventListener('resize', () => { if (playing) resize(); });
 
   // ---------- Timeline (seconds) ----------
-  const END = 2.2;
+  const TS = SPL.length / 2.2, K = n => n * TS;   // every keyframe stretches with the length
+  const END = SPL.length;
   const clamp01 = x => Math.max(0, Math.min(1, x));
   const seg = (t, a, b) => clamp01((t - a) / (b - a));
   const eOut = x => 1 - Math.pow(1 - x, 3);
@@ -488,30 +498,31 @@
   const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), look = new THREE.Vector3(), zEnd = W.clone().add(new THREE.Vector3(0, 0, 0.9));
 
   function pose(t) {
+    const S = SPL;
     // Fly forward through the cloud layer, easing out as the Z gathers ahead.
-    const fly = eOut(seg(t, 0, 1.4)), sway = 1 - fly;
+    const fly = eOut(seg(t, 0, K(S.flyEnd))), sway = (1 - fly) * S.sway / 0.6;
     // Skim low over the cloud sea, rising to meet the mark.
-    tmpA.set(0.6 * Math.sin(t * 2.1) * sway, 1.5 + 1.0 * fly + 0.12 * Math.sin(t * 1.3) * sway, 36 + (13 - 36) * fly);
+    tmpA.set(0.6 * Math.sin(t / TS * 2.1) * sway, S.startHeight + S.rise * fly + 0.12 * Math.sin(t / TS * 1.3) * sway, S.startDist + (S.endDist - S.startDist) * fly);
     // Zoom through the top stroke of the mark.
-    const zoom = eIn(seg(t, 1.45, 2.1));
+    const zoom = eIn(seg(t, K(S.zoomStart), K(S.zoomEnd)));
     camera.position.lerpVectors(tmpA, zEnd, zoom);
-    tmpB.set(tmpA.x * 0.3, tmpA.y - 3.4, 0);                 // pitched down: horizon in the upper third
-    look.lerpVectors(tmpB, ZC, eInOut(seg(t, 0.55, 1.35)));
-    look.lerp(W, eInOut(seg(t, 1.45, 1.9)));
+    tmpB.set(tmpA.x * 0.3, tmpA.y - S.lookDown, 0);                 // pitched down: horizon in the upper third
+    look.lerpVectors(tmpB, ZC, eInOut(seg(t, K(S.gatherStart + 0.25), K(S.gatherEnd + 0.3))));
+    look.lerp(W, eInOut(seg(t, K(S.zoomStart), K(S.zoomStart + 0.45))));
     camera.up.set(0, 1, 0);
     camera.lookAt(look);
-    camera.rotateZ(0.07 * Math.sin(t * 1.6) * sway);
-    camera.fov = 45 + 12 * zoom; camera.updateProjectionMatrix();
+    camera.rotateZ(0.07 * Math.sin(t / TS * 1.6) * sway);
+    camera.fov = 45 + S.zoomFov * zoom; camera.updateProjectionMatrix();
     camera.updateMatrixWorld();
 
     // Vapor gathers into the mark, the glass condenses out of it, then the cloud burns off.
-    const settle = eInOut(seg(t, 0.4, 1.45));
-    zGroup.rotation.set(-0.12 * (1 - settle), 0.55 * (1 - settle), 0);
+    const settle = eInOut(seg(t, K(S.gatherStart + 0.1), K(S.zoomStart)));
+    zGroup.rotation.set(-0.12 * (1 - settle), S.spin * (1 - settle), 0);
     zGroup.updateMatrixWorld(true);
-    skyU.uGather.value = eInOut(seg(t, 0.3, 1.05));
-    skyU.uZCloud.value = eOut(seg(t, 0.2, 0.6)) * (1 - eInOut(seg(t, 1.0, 1.4)));
-    glassU.uGlass.value = eInOut(seg(t, 0.95, 1.3));
-    glassU.uReveal.value = eInOut(seg(t, 1.6, 1.9));
+    skyU.uGather.value = eInOut(seg(t, K(S.gatherStart), K(S.gatherEnd)));
+    skyU.uZCloud.value = eOut(seg(t, K(S.gatherStart - 0.1), K(S.gatherStart + 0.3))) * (1 - eInOut(seg(t, K(S.glassStart + 0.05), K(S.glassEnd + 0.1))));
+    glassU.uGlass.value = eInOut(seg(t, K(S.glassStart), K(S.glassEnd)));
+    glassU.uReveal.value = eInOut(seg(t, K(S.zoomStart + 0.15), K(S.zoomStart + 0.45)));
     markMesh.visible = glassU.uGlass.value > 0.001;
 
     skyU.uCam.value.copy(camera.position);
@@ -520,8 +531,8 @@
     skyU.uTime.value = t + 10;
     skyU.uFrame.value++;
     glassU.uSunV.value.copy(sunDir).transformDirection(camera.matrixWorldInverse);
-    canvas.style.opacity = String(1 - seg(t, 2.0, END));
-    hint.classList.toggle('on', t > 0.35 && t < 1.8);
+    canvas.style.opacity = String(1 - seg(t, END - K(0.2), END));
+    hint.classList.toggle('on', t > K(0.35) && t < K(1.8));
   }
   function draw(t) {
     pose(t);
@@ -554,21 +565,27 @@
   function tick(now) {
     if (!playing) return;
     const dt = Math.min((now - last) / 1000, 0.05); last = now;
-    if (!skipping) t += dt * SPL.speed;
+    if (!skipping) t += dt;
     draw(Math.min(t, END));
     if (t >= END && !skipping) { finish(); return; }
     // Frame steps are capped, so a phone that can't hold the frame rate would stretch the 2.2 s splash out.
     // Never let it run more than a second past its length in real time: fade out instead.
-    if (!skipping && now - startReal > (END / SPL.speed + 1) * 1000) skip();
+    if (!skipping && now - startReal > (END + 1) * 1000) skip();
     requestAnimationFrame(tick);
   }
 
   // ---------- Draft Controls group ----------
   if (DRAFT) {
-    const grp = { id: 'splash', title: 'Splash', open: true, order: 5, values: SPL, defaults: SPL_DEFAULTS,
+    const grp = { id: 'splash', title: 'Splash (changes show on Replay)', open: true, order: 5, values: SPL, defaults: SPL_DEFAULTS,
       onChange: () => {},
-      rows: [['speed', 'Speed (1 = 2.2 s)', 0.3, 2, 0.05], ['coverage', 'Cloud coverage', 0.3, 0.9, 0.01], ['sunHeight', 'Sun height', 5, 70, 1],
-        ['sunAzimuth', 'Sun direction', 0, 360, 1], ['sunIntensity', 'Sun brightness', 0.3, 2, 0.05], ['ambient', 'Sky light', 0.3, 2, 0.05],
+      rows: [['length', 'Length (seconds)', 1, 8, 0.1],
+        ['flyEnd', 'Fly-in ends at (s)', 0.3, 2.2, 0.05], ['gatherStart', 'Vapor starts gathering (s)', 0, 1.5, 0.05], ['gatherEnd', 'Z fully gathered (s)', 0.3, 2, 0.05],
+        ['glassStart', 'Glass starts forming (s)', 0.3, 2, 0.05], ['glassEnd', 'Glass solid (s)', 0.5, 2.1, 0.05], ['zoomStart', 'Zoom through starts (s)', 0.8, 2.1, 0.05], ['zoomEnd', 'Zoom through ends (s)', 1, 2.2, 0.05],
+        ['startDist', 'Camera start distance', 15, 70, 1], ['endDist', 'Camera distance at the Z', 6, 25, 0.5], ['startHeight', 'Camera height over the clouds', 0.3, 5, 0.05],
+        ['rise', 'Camera rise', 0, 4, 0.05], ['sway', 'Camera sway', 0, 2, 0.05], ['lookDown', 'Look down (horizon height)', 0, 8, 0.1], ['zoomFov', 'Lens widen on zoom', 0, 40, 1],
+        ['coverage', 'Cloud coverage', 0.3, 0.9, 0.01], ['sunHeight', 'Sun height', 5, 70, 1], ['sunAzimuth', 'Sun direction', 0, 360, 1],
+        ['sunIntensity', 'Sun brightness', 0.3, 2, 0.05], ['ambient', 'Sky light', 0.3, 2, 0.05],
+        ['hueA', 'Glass colour 1 (hue)', 0, 360, 1], ['hueB', 'Glass colour 2 (hue)', 0, 360, 1], ['spin', 'Z turn as it forms', 0, 1.5, 0.05],
         ['deck', 'Cloud strip after the splash (0 hides it)', 0, 1, 0.05]],
       buttons: [['Replay splash', () => { location.href = location.pathname + '?splash' + (/[?&]tune\b/.test(location.search) ? '&tune' : ''); }]] };
     if (window.zbDraft) window.zbDraft.add(grp); else (window.__zbDraftQ = window.__zbDraftQ || []).push(grp);

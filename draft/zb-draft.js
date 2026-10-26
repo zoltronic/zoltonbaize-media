@@ -42,8 +42,16 @@
     box = document.createElement('div'); box.className = 'zbt';
     box.innerHTML = '<button class="zbt-chip" type="button">Draft Controls</button><div class="zbt-card" hidden role="dialog" aria-label="Draft Controls">' +
       '<div class="zbt-head"><b>Draft Controls</b><span class="zbt-note"></span><button type="button" data-a="close" aria-label="Close panel">×</button></div><div class="zbt-groups"></div>' +
-      '<div class="zbt-foot"><button type="button" data-a="mode">Light / dark</button><button type="button" data-a="reset">Reset all</button><button type="button" data-a="copy">Copy settings</button><textarea hidden readonly aria-label="Settings as JSON"></textarea></div></div>';
+      '<div class="zbt-foot"><button type="button" data-a="mode">Light / dark</button><button type="button" data-a="reset">Reset all</button><button type="button" data-a="copy">Copy settings</button><textarea hidden readonly aria-label="Settings as JSON"></textarea></div>' +
+      '<div class="zbt-foot zbt-bk"><b style="width:100%;font-size:11px;letter-spacing:.1em;text-transform:uppercase">Backups</b>' +
+      '<button type="button" data-a="backup">Save backup</button><select aria-label="Saved backups" style="font:12px system-ui;max-width:100%;flex:1;min-width:120px"></select>' +
+      '<button type="button" data-a="restore">Restore</button><button type="button" data-a="load">Load file…</button><input type="file" accept="application/json,.json" hidden></div></div>';
     list = box.querySelector('.zbt-groups'); ta = box.querySelector('textarea');
+    var sel = box.querySelector('.zbt-bk select'), file = box.querySelector('.zbt-bk input');
+    function fill() { var b = backups(); sel.innerHTML = b.length ? b.map(function (x, i) { return '<option value="' + i + '">' + x.date + '</option>'; }).join('') : '<option value="">No backups yet</option>'; }
+    fill();
+    file.addEventListener('change', function () { var f = file.files && file.files[0]; if (!f) return; var r = new FileReader();
+      r.onload = function () { try { var d = JSON.parse(r.result); restore(d.data || d); } catch (er) { alert('That file isn’t a Draft Controls backup.'); } }; r.readAsText(f); });
     var chip = box.querySelector('.zbt-chip'), card = box.querySelector('.zbt-card');
     api.note = box.querySelector('.zbt-note');
     function show(v) { card.hidden = !v; chip.hidden = v; try { localStorage.setItem('zbDraftOpen', v ? '1' : '0'); } catch (e) {} }
@@ -54,6 +62,13 @@
       if (a === 'mode') { var t = [].filter.call(document.querySelectorAll('button,a,[role=button]'), function (el) { return !box.contains(el) && /^\s*(light|dark)\s*$/i.test(el.textContent); })[0];
         if (t) t.click(); else html.setAttribute('data-mode', html.getAttribute('data-mode') === 'dark' ? 'light' : 'dark'); }
       if (a === 'reset') { groups.forEach(reset); ta.hidden = true; }
+      if (a === 'backup') { var snap = { date: stamp(), site: location.host, data: snapshot() }, b = backups(); b.unshift(snap); b = b.slice(0, 40);
+        try { localStorage.setItem('zbDraftBackups', JSON.stringify(b)); } catch (er) {}
+        var url = URL.createObjectURL(new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' })), dl = document.createElement('a');
+        dl.href = url; dl.download = 'zb-draft-' + snap.date.replace(/[: ]/g, '-') + '.json'; document.body.appendChild(dl); dl.click(); dl.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+        fill(); e.target.textContent = 'Saved'; setTimeout(function () { e.target.textContent = 'Save backup'; }, 1400); }
+      if (a === 'restore') { var bb = backups()[+sel.value]; if (bb && confirmRestore(bb.date)) restore(bb.data); }
+      if (a === 'load') file.click();
       if (a === 'copy') { var all = {}; groups.forEach(function (g) { var o = {}; g.rows.forEach(function (r) { o[r[0]] = g.values[r[0]]; }); all[g.id] = Object.assign(all[g.id] || {}, o); });
         var json = JSON.stringify({ page: location.pathname, settings: all }, null, 2), b = e.target;
         var fall = function () { ta.value = json; ta.hidden = false; ta.select(); b.textContent = 'Select & copy'; };
@@ -63,6 +78,17 @@
     var open = /[?&]tune\b/.test(location.search); try { open = open || localStorage.getItem('zbDraftOpen') === '1'; } catch (e) {}
     show(open);
     groups.forEach(render);
+  }
+  // ---- dated backups: every Draft Controls setting on this site (all pages), kept in this browser and downloaded as a file ----
+  function isKey(k) { return /^zbDraft:/.test(k) || k === 'zbSeaTune'; }
+  function snapshot() { var o = {}; try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (isKey(k)) o[k] = localStorage.getItem(k); } } catch (e) {} return o; }
+  function backups() { try { return JSON.parse(localStorage.getItem('zbDraftBackups') || '[]'); } catch (e) { return []; } }
+  function stamp() { var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); }
+  function confirmRestore(date) { return window.confirm('Restore the backup from ' + date + '? Your current settings are replaced (save a backup first to keep them).'); }
+  function restore(data) {
+    if (!data || typeof data !== 'object') return;
+    try { Object.keys(snapshot()).forEach(function (k) { localStorage.removeItem(k); }); Object.keys(data).forEach(function (k) { if (isKey(k)) localStorage.setItem(k, data[k]); }); } catch (e) {}
+    location.reload();
   }
   function reset(g) { if (!g.defaults) return; g.rows.forEach(function (r) { if (r[0] in g.defaults) g.values[r[0]] = g.defaults[r[0]]; }); save(g); sync(g); if (g.onChange) g.onChange('*'); }
   function sync(g) { if (g.sync) g.sync(); }
