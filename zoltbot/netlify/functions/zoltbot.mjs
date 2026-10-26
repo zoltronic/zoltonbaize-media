@@ -12,6 +12,8 @@ const ORIGINS = env('ZB_ALLOWED_ORIGINS', 'https://www.zoltonbaize.com,https://z
 // on OpenRouter it can be a comma list, tried in order (free models come and go, so list a fallback or two).
 const PROVIDER = env('ZB_PROVIDER', env('OPENROUTER_API_KEY') ? 'openrouter' : env('ANTHROPIC_API_KEY') ? 'anthropic' : (env('OPENAI_API_KEY') ? 'openai' : 'anthropic')).toLowerCase();
 const MODEL = env('ZB_MODEL', { openrouter: 'google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free', openai: 'gpt-4o-mini' }[PROVIDER] || 'claude-haiku-5-5');
+// OpenRouter free-only lock (on unless ZB_FREE_ONLY=false): only models ending in ':free' are ever requested, so the key can't be billed.
+const FREE_ONLY = PROVIDER === 'openrouter' && env('ZB_FREE_ONLY', 'true') !== 'false';
 const AI_KEY = { openrouter: env('OPENROUTER_API_KEY'), openai: env('OPENAI_API_KEY') }[PROVIDER] || env('ANTHROPIC_API_KEY');
 const PER_VISITOR_CHATS = +env('ZB_CHATS_PER_VISITOR_PER_DAY', '5');    // AI replies per visitor per day; after that he loops back to the script
 const DAILY_CHATS = +env('ZB_CHATS_PER_DAY', '300');            // whole-site cap, keeps the bill small
@@ -162,10 +164,13 @@ async function askAnthropic(system, messages) {
 }
 async function askOpenAI(system, messages) {
   const or = PROVIDER === 'openrouter';
+  let list = MODEL.split(',').map(m => m.trim()).filter(Boolean);
+  if (FREE_ONLY) list = list.filter(m => /:free$/.test(m));
+  if (!list.length) throw new Error('no free model configured');
   const r = await fetch(or ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${AI_KEY}`, ...(or ? { 'HTTP-Referer': 'https://www.zoltonbaize.com', 'X-Title': 'Zoltbot' } : {}) },
-    body: JSON.stringify({ ...(or && MODEL.includes(',') ? { models: MODEL.split(',').map(m => m.trim()).filter(Boolean).slice(0, 3) } : { model: MODEL.split(',')[0].trim() }), max_tokens: 120, temperature: 0.3, messages: [{ role: 'system', content: system }, ...messages] })
+    body: JSON.stringify({ ...(or && list.length > 1 ? { models: list.slice(0, 3) } : { model: list[0] }), max_tokens: 120, temperature: 0.3, messages: [{ role: 'system', content: system }, ...messages] })
   });
   const j = await r.json();
   if (!r.ok) throw new Error(j?.error?.message || r.status);

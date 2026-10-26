@@ -15,6 +15,7 @@ Endpoint once deployed: `https://<your-netlify-site>.netlify.app/api/zoltbot`
 | Variable | Required | What it is |
 |---|---|---|
 | `ZB_PROVIDER` | no | `openrouter`, `anthropic` or `openai`. Without it, whichever key below is set is used. |
+| `ZB_FREE_ONLY` | no | OpenRouter only. Default `true`: the backend only ever asks for models ending in `:free`. Set `false` to allow paid ones. |
 | `OPENROUTER_API_KEY` | for AI replies (OpenRouter) | Key from openrouter.ai (give the key a credit limit). Set `ZB_MODEL` to the model you pick there, e.g. a cheap or `:free` one. |
 | `OPENAI_API_KEY` | for AI replies (OpenAI) | Key from platform.openai.com, if you'd rather use OpenAI. Set `ZB_MODEL` to their cheapest current chat model. |
 | `ANTHROPIC_API_KEY` | for AI replies | Key from console.anthropic.com. Without it, off-tree questions get "I can pass it to Zolton." |
