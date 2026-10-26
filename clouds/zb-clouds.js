@@ -21,15 +21,15 @@
     // a few small high clouds in the open sky
     { src: 'lib/12-scatter', nsrc: 'soft/12-scatter', x: -486,  y: 120,  w: 2785, h: 532,  f: 0.30 },
     // the sea of clouds the hero floats above, running to the horizon
-    { src: 'undercast',                               x: -80,   y: 673,  w: 1600, h: 1044, f: 0.10 },
+    { src: 'undercast',                               x: -80,   y: 900,  w: 1600, h: 1044, f: -0.32 },
     // the H1's own cloud, in front of the sea
     { src: 'lib/03-humilis', nsrc: 'soft/03-humilis', x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 }
   ];
   // Zolton's fade ("going into the clouds"): from clear at FADE.from to solid at FADE.to (design y), then solid to the bottom
-  var FADE = { from: 1013, to: 1802 };
+  var FADE = { from: 1040, to: 1500 };
   // section tops in the design, matched to the live page's sections
   var ANCHORS = [['hero', 0], ['work', 1008], ['experience', 1536], ['contact', 1867], ['footer', 2263], ['end', 2341]];
-  var FLOOR = { day: '#f2f5f8', night: '#0b1628' };   // inside the cloud: clean white by day, clean dark grey at night
+  var FLOOR = { day: '#f3f4f1', night: '#1b2433' };   // inside the cloud: clean white by day, clean dark grey at night
 
   var css = document.createElement('style');
   css.textContent = [
@@ -40,8 +40,8 @@
     '.zbs-c.flip img{transform:scaleX(-1)}',
     'html[data-mode="dark"] .zbs-c img.d{opacity:0}',
     'html[data-mode="dark"] .zbs-c img.n{opacity:1}',
-    '.zbs{--zf:' + FLOOR.day + ';--zf0:rgba(242,245,248,0)}',
-    'html[data-mode="dark"] .zbs{--zf:' + FLOOR.night + ';--zf0:rgba(11,22,40,0)}',
+    '.zbs{--zf:' + FLOOR.day + ';--zf0:rgba(243,244,241,0)}',
+    'html[data-mode="dark"] .zbs{--zf:' + FLOOR.night + ';--zf0:rgba(27,36,51,0)}',
     '.zbs-fade{position:absolute;left:0;right:0;background:linear-gradient(to bottom,var(--zf0),var(--zf))}',
     '.zbs-floor{position:absolute;left:0;right:0;bottom:0;background:var(--zf)}',
     '.zbs-sway{position:absolute;inset:0;animation:zbsSway var(--t,34s) ease-in-out infinite alternate;animation-delay:var(--dl,0s)}',
@@ -105,7 +105,7 @@
   function findDrift() {
     drift = [];
     [].forEach.call(root.querySelectorAll('section'), function (sec) {
-      if (sec.hasAttribute('data-zb-experience') || sec.querySelector('[data-zb-experience]')) return;   // the logo field has its own depth motion
+      if (sec.hasAttribute('data-zb-experience') || sec.querySelector('[data-zb-experience], .work_card, .gold_coin, canvas')) return;   // the logo field has its own depth motion
       [].forEach.call(sec.children, function (ch) { ch.classList.add('zbs-drift'); drift.push({ el: ch, sec: sec }); });
     });
   }
