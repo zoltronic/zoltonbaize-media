@@ -130,7 +130,7 @@
     botLate: 6
   };
   var SEA = {};
-  (function () { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; try { var s = JSON.parse(localStorage.getItem('zbSeaTune') || 'null'); if (s) for (var j in s) if (j in SEA) SEA[j] = s[j]; } catch (e) {} })();
+  (function () { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; })();   // a saved draft (Draft Controls) is applied on top, preview / ?tune only
   window.ZB_BOT_LATE = SEA.botLate * 1000;   // read by Zoltbot (password/zb-password.js, late mode)
   var sea = { canvas: null, ok: false, night: 0, nightTo: 0, t0: performance.now(), raf: 0, scale: 0.6 };
 
@@ -290,7 +290,7 @@
       sea.r = r; sea.cam = cam; sea.scn = scn; sea.U = U; sea.ok = true;
       seaApply(); seaFrame();
     }).catch(function () { sea.fail = true; seaFrame(); });
-    if (/\.webflow\.io$/.test(location.hostname) || /[?&]tune\b/.test(location.search)) seaPanel();   // the panel: preview address, or ?tune on the live site
+    seaDraft();   // Draft Controls (draft/zb-draft.js): preview address, or ?tune on the live site
   }
   function seaState() {
     if (window.__zbSeaForce) return window.__zbSeaForce;                         // test hook: pin camera + horizon
@@ -326,7 +326,7 @@
     if ((visible && !reduce && !still) || sea.night !== sea.nightTo) seaKick();
   }
 
-  // ---- The tuning panel (same as the About page cloud's): only on the preview address, or with ?tune ----
+  // ---- Draft Controls groups (draft/zb-draft.js shows them on the preview address, or with ?tune) ----
   var SEA_GROUPS = [
     ['High clouds', true, [
       ['farBehind', 'Far clouds go behind horizon at (0 top · 1 landed)', 0, 1.5, .01], ['farParallax', 'Far clouds parallax (higher = sinks)', -.3, .9, .01],
@@ -351,71 +351,20 @@
       ['ambient', 'Sky light', 0, 2, .05], ['nightAmbient', 'Night sky light', 0, 3, .05], ['exposure', 'Exposure', .4, 2.4, .05],
       ['haze', 'Haze', 0, .15, .002], ['quality', 'Quality', .5, 2, .05]]]
   ];
-  function seaPanel() {
-    var st = document.createElement('style');
-    st.textContent = [
-      '.zbt{--ink:#0f1a2b;--soft:#4a5b74;--line:rgba(15,26,43,.14);--acc:#2f6fd6;position:fixed;left:16px;bottom:16px;z-index:2147482000;font:12px/1.3 system-ui,-apple-system,sans-serif;color:var(--ink)}',
-      '.zbt-chip,.zbt button{font:600 12px system-ui,-apple-system,sans-serif;color:var(--ink);background:rgba(240,246,252,.85);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}',
-      '.zbt button{border-radius:6px;padding:5px 9px;background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none}',
-      '.zbt button:hover,.zbt-chip:hover{border-color:var(--acc);color:var(--acc)}',
-      '.zbt-card{width:min(300px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow-y:auto;background:rgba(240,246,252,.86);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;box-shadow:0 8px 30px rgba(15,26,43,.18)}',
-      '.zbt-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-bottom:4px}',
-      '.zbt-head b{font-size:14px}.zbt-fps{font:11px ui-monospace,Menlo,monospace;color:var(--soft)}',
-      '.zbt details{border-top:1px solid var(--line)}',
-      '.zbt summary{list-style:none;cursor:pointer;padding:8px 0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;display:flex;justify-content:space-between}',
-      '.zbt summary::-webkit-details-marker{display:none}.zbt summary::after{content:"+";color:var(--soft)}.zbt details[open] summary::after{content:"–"}',
-      '.zbt-body{display:grid;gap:8px;padding-bottom:10px}',
-      '.zbt-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}',
-      '.zbt-row label{color:var(--soft)}.zbt-row output{font:11px ui-monospace,Menlo,monospace}',
-      '.zbt-row input{grid-column:1/-1;width:100%;margin:0;accent-color:var(--acc)}',
-      '.zbt-foot{display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid var(--line);padding-top:10px}',
-      '.zbt textarea{width:100%;box-sizing:border-box;font:11px ui-monospace,Menlo,monospace;min-height:90px;border:1px solid var(--line);border-radius:6px}',
-      '.zbt [hidden]{display:none!important}'
-    ].join('');
-    document.head.appendChild(st);
-    var box = document.createElement('div'); box.className = 'zbt';
-    var open = /[?&]tune\b/.test(location.search);
-    try { open = open || localStorage.getItem('zbSeaPanel') === '1'; } catch (e) {}
-    box.innerHTML = '<button class="zbt-chip" type="button">Cloud controls</button><div class="zbt-card" hidden><div class="zbt-head"><b>Cloud sea</b><span class="zbt-fps">—</span><button type="button" data-a="close" aria-label="Close panel">×</button></div><div class="zbt-groups"></div>' +
-      '<div class="zbt-foot"><button type="button" data-a="mode">Light / dark</button><button type="button" data-a="reset">Reset</button><button type="button" data-a="copy">Copy settings</button><textarea hidden readonly aria-label="Settings as JSON"></textarea></div></div>';
-    var chip = box.querySelector('.zbt-chip'), card = box.querySelector('.zbt-card'), groups = box.querySelector('.zbt-groups'), ta = box.querySelector('textarea'), inputs = {};
-    sea.fpsEl = box.querySelector('.zbt-fps');
-    function show(v) { card.hidden = !v; chip.hidden = v; try { localStorage.setItem('zbSeaPanel', v ? '1' : '0'); } catch (e) {} }
-    function fmt(v, step) { var d = String(step).split('.')[1]; return (+v).toFixed(d ? d.length : 0); }
-    function save() { try { localStorage.setItem('zbSeaTune', JSON.stringify(SEA)); } catch (e) {} }
-    SEA_GROUPS.forEach(function (g) {
-      var d = document.createElement('details'); if (g[1]) d.open = true;
-      d.innerHTML = '<summary>' + g[0] + '</summary><div class="zbt-body"></div>';
-      var body = d.querySelector('.zbt-body');
-      g[2].forEach(function (r) {
-        var key = r[0], row = document.createElement('div'); row.className = 'zbt-row';
-        row.innerHTML = '<label for="zbt-' + key + '">' + r[1] + '</label><output></output><input id="zbt-' + key + '" type="range" min="' + r[2] + '" max="' + r[3] + '" step="' + r[4] + '">';
-        var inp = row.querySelector('input'), out = row.querySelector('output');
-        inputs[key] = function () { inp.value = SEA[key]; out.textContent = fmt(SEA[key], r[4]); };
-        inp.addEventListener('input', function () { SEA[key] = +inp.value; out.textContent = fmt(SEA[key], r[4]); save(); seaApply(); run(); window.ZB_BOT_LATE = SEA.botLate * 1000; });
-        body.appendChild(row);
-      });
-      if (g[3] === 'bot') { var rb = document.createElement('button'); rb.type = 'button'; rb.textContent = 'Replay his entrance'; rb.style.justifySelf = 'start';
-        rb.addEventListener('click', function () { if (window.zbBotReplay) { window.zbBotReplay(); var f = document.querySelector('footer, .page_footer'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'end' }); } else rb.textContent = 'Scroll to the footer first'; });
-        body.appendChild(rb); }
-      groups.appendChild(d);
+  function seaDraft() {
+    var change = function () { window.ZB_BOT_LATE = SEA.botLate * 1000; seaApply(); run(); };
+    SEA_GROUPS.forEach(function (g, n) {
+      var grp = { id: 'work-' + g[0].toLowerCase().replace(/[^a-z]+/g, '-'), title: 'Work · ' + g[0], open: g[1], rows: g[2], order: 20 + n,
+        values: SEA, defaults: SEA_DEFAULTS, store: 'zbSeaTune', onChange: change };
+      if (g[3] === 'bot') grp.buttons = [['Replay his entrance', function (b) {
+        if (window.zbBotReplay) { window.zbBotReplay(); var f = document.querySelector('footer, .page_footer'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'end' }); }
+        else b.textContent = 'Scroll to the footer first'; }]];
+      if (window.zbDraft) window.zbDraft.add(grp); else (window.__zbDraftQ = window.__zbDraftQ || []).push(grp);
     });
-    function sync() { for (var k in inputs) inputs[k](); }
-    sync();
-    chip.addEventListener('click', function () { show(true); });
-    box.addEventListener('click', function (e) {
-      var a = e.target.getAttribute && e.target.getAttribute('data-a'); if (!a) return;
-      if (a === 'close') show(false);
-      if (a === 'reset') { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; save(); window.ZB_BOT_LATE = SEA.botLate * 1000; sync(); seaApply(); run(); ta.hidden = true; }
-      if (a === 'mode') { var t = [].filter.call(document.querySelectorAll('button,a,[role=button]'), function (el) { return !box.contains(el) && /^\s*(light|dark)\s*$/i.test(el.textContent); })[0];
-        if (t) t.click(); else html.setAttribute('data-mode', html.getAttribute('data-mode') === 'dark' ? 'light' : 'dark'); }
-      if (a === 'copy') { var json = JSON.stringify(SEA, null, 2), b = e.target;
-        var fall = function () { ta.value = json; ta.hidden = false; ta.select(); b.textContent = 'Select & copy'; };
-        try { navigator.clipboard.writeText(json).then(function () { b.textContent = 'Copied'; ta.hidden = true; setTimeout(function () { b.textContent = 'Copy settings'; }, 1400); }, fall); } catch (er) { fall(); } }
-    });
-    document.body.appendChild(box);
-    show(open);
+    // frame rate readout in the panel header
+    sea.fpsEl = { set textContent(v) { if (window.zbDraft && window.zbDraft.note) window.zbDraft.note.textContent = 'clouds ' + v; } };
   }
+
 
   var q = false;
   function run() {

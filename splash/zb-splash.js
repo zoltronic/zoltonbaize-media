@@ -8,6 +8,11 @@
   'use strict';
   if (window.__zbSplash) return; window.__zbSplash = true;
   const html = document.documentElement;
+  // Draft Controls (draft/zb-draft.js): tunable on the preview address or with ?tune; a saved draft is read here, before the splash plays
+  const SPL_DEFAULTS = { speed: 1, coverage: 0.6, sunHeight: 22, sunAzimuth: 138, sunIntensity: 1, ambient: 1, deck: 1 };
+  const SPL = Object.assign({}, SPL_DEFAULTS);
+  const DRAFT = /\.webflow\.io$/.test(location.hostname) || /[?&]tune\b/.test(location.search);
+  if (DRAFT) { try { const sv = JSON.parse(localStorage.getItem('zbDraft:splash') || 'null'); if (sv) for (const k in SPL) if (k in sv) SPL[k] = +sv[k]; } catch (e) {} }
   const SEEN_KEY = 'zbSplashSeen';
   const force = /[?&]splash\b/.test(location.search);
   // "Already seen this visit": session storage, plus a session cookie in case storage is blocked (some in-app browsers, strict privacy modes)
@@ -33,6 +38,7 @@
   const clearCover = () => html.classList.remove('zb-splash-pending');
   let hiRes = Math.min(innerWidth, innerHeight) >= 700;
   const isDark = () => {
+    const m = html.getAttribute('data-mode'); if (m) return m === 'dark';   // the site's own light/dark setting (zb-theme.js)
     const sky = document.querySelector('zb-sky');
     if (sky && sky.hasAttribute('night')) { const v = sky.getAttribute('night'); return v !== '0' && v !== 'false'; }
     return matchMedia('(prefers-color-scheme: dark)').matches;
@@ -131,7 +137,7 @@
     uCam: { value: new THREE.Vector3() }, uInvVP: { value: new THREE.Matrix4() }, uZInv: { value: new THREE.Matrix4() },
     uSun: { value: new THREE.Vector3(0.62, 0.38, -0.68).normalize() }, uSunCol: { value: new THREE.Color() },
     uZenith: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uAmb: { value: 1 },
-    uGather: { value: 0 }, uZCloud: { value: 0 }, uCov: { value: 0.6 }, uStep: { value: 0.7 }, uMaxSteps: { value: 160 }
+    uGather: { value: 0 }, uZCloud: { value: 0 }, uCov: { value: SPL.coverage }, uStep: { value: 0.7 }, uMaxSteps: { value: 160 }
   };
   const SKY_FS = /* glsl */`
     precision highp float; precision highp sampler3D;
@@ -434,7 +440,7 @@
     const p = max < 4 ? 1 : Math.max(0, Math.min(1, (scrollY - (max - zone)) / zone));
     const e = 1 - Math.pow(1 - p, 3);
     shown = shown < 0 ? e : shown + (e - shown) * (reduce ? 1 : 0.18);   // smooth out jumpy wheel scrolling
-    deck.style.opacity = shown.toFixed(3);
+    deck.style.opacity = (shown * SPL.deck).toFixed(3);
     deck.style.transform = 'translate3d(0,' + ((1 - shown) * 60).toFixed(1) + '%,0)';
     if (shown < 0.005) return;
     const h = deck.clientHeight;
@@ -447,13 +453,14 @@
 
   // ---------- Theme ----------
   const sunDir = skyU.uSun.value;
+  { const e = SPL.sunHeight * Math.PI / 180, a = SPL.sunAzimuth * Math.PI / 180; sunDir.set(Math.cos(e) * Math.sin(a), Math.sin(e), Math.cos(e) * Math.cos(a)).normalize(); }
   function applyTheme() {
     const night = isDark();
     const L = h => new THREE.Color(h).convertSRGBToLinear();
     skyU.uZenith.value.copy(L(night ? '#030914' : '#0b5cc6'));
     skyU.uHorizon.value.copy(L(night ? '#16294d' : '#6ccaf0'));
-    skyU.uSunCol.value.setRGB(...(night ? [0.24, 0.29, 0.4] : [1.0, 0.96, 0.9]));
-    skyU.uAmb.value = night ? 0.32 : 1;
+    skyU.uSunCol.value.setRGB(...(night ? [0.24, 0.29, 0.4] : [1.0, 0.96, 0.9])).multiplyScalar(SPL.sunIntensity);
+    skyU.uAmb.value = (night ? 0.32 : 1) * SPL.ambient;
     glassU.uNight.value = night ? 1 : 0;
   }
 
@@ -547,13 +554,24 @@
   function tick(now) {
     if (!playing) return;
     const dt = Math.min((now - last) / 1000, 0.05); last = now;
-    if (!skipping) t += dt;
+    if (!skipping) t += dt * SPL.speed;
     draw(Math.min(t, END));
     if (t >= END && !skipping) { finish(); return; }
     // Frame steps are capped, so a phone that can't hold the frame rate would stretch the 2.2 s splash out.
     // Never let it run more than a second past its length in real time: fade out instead.
-    if (!skipping && now - startReal > (END + 1) * 1000) skip();
+    if (!skipping && now - startReal > (END / SPL.speed + 1) * 1000) skip();
     requestAnimationFrame(tick);
+  }
+
+  // ---------- Draft Controls group ----------
+  if (DRAFT) {
+    const grp = { id: 'splash', title: 'Splash', open: true, order: 5, values: SPL, defaults: SPL_DEFAULTS,
+      onChange: () => {},
+      rows: [['speed', 'Speed (1 = 2.2 s)', 0.3, 2, 0.05], ['coverage', 'Cloud coverage', 0.3, 0.9, 0.01], ['sunHeight', 'Sun height', 5, 70, 1],
+        ['sunAzimuth', 'Sun direction', 0, 360, 1], ['sunIntensity', 'Sun brightness', 0.3, 2, 0.05], ['ambient', 'Sky light', 0.3, 2, 0.05],
+        ['deck', 'Cloud strip after the splash (0 hides it)', 0, 1, 0.05]],
+      buttons: [['Replay splash', () => { location.href = location.pathname + '?splash' + (/[?&]tune\b/.test(location.search) ? '&tune' : ''); }]] };
+    if (window.zbDraft) window.zbDraft.add(grp); else (window.__zbDraftQ = window.__zbDraftQ || []).push(grp);
   }
 
   // ---------- Boot ----------
