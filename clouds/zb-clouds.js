@@ -125,10 +125,13 @@
     // high clouds: when each goes behind the cloud horizon (share of the descent: 0 top of page .. 1 landed), and its parallax
     farBehind: 1.37, titleBehind: 0.5, farParallax: 0.30, titleParallax: 0.16,
     // fade to solid: between these points of the descent (0 top .. 1 landed) the clouds blend toward the page colour, up to this much
-    solidFrom: 0.8, solidTo: 1.3, solidAmount: 0.92
+    solidFrom: 0.8, solidTo: 1.3, solidAmount: 0.92,
+    // Zoltbot: seconds at the footer before he flies up out of the clouds
+    botLate: 5
   };
   var SEA = {};
   (function () { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; try { var s = JSON.parse(localStorage.getItem('zbSeaTune') || 'null'); if (s) for (var j in s) if (j in SEA) SEA[j] = s[j]; } catch (e) {} })();
+  window.ZB_BOT_LATE = SEA.botLate * 1000;   // read by Zoltbot (password/zb-password.js, late mode)
   var sea = { canvas: null, ok: false, night: 0, nightTo: 0, t0: performance.now(), raf: 0, scale: 0.6 };
 
   var SEA_FS = [
@@ -328,6 +331,7 @@
     ['High clouds', true, [
       ['farBehind', 'Far clouds go behind horizon at (0 top · 1 landed)', 0, 1.5, .01], ['farParallax', 'Far clouds parallax (higher = sinks)', -.3, .9, .01],
       ['titleBehind', 'Title cloud goes behind horizon at', 0, 1.5, .01], ['titleParallax', 'Title cloud parallax', -.3, .9, .01]]],
+    ['Zoltbot', true, [['botLate', 'Seconds at the footer before he shows up', 0, 20, .5]], 'bot'],
     ['Fade to solid', true, [
       ['solidFrom', 'Fade starts at (0 top · 1 landed)', 0, 2, .01], ['solidTo', 'Fully faded at', 0, 2.5, .01],
       ['solidAmount', 'How solid (1 = one colour)', 0, 1, .01]]],
@@ -388,9 +392,12 @@
         row.innerHTML = '<label for="zbt-' + key + '">' + r[1] + '</label><output></output><input id="zbt-' + key + '" type="range" min="' + r[2] + '" max="' + r[3] + '" step="' + r[4] + '">';
         var inp = row.querySelector('input'), out = row.querySelector('output');
         inputs[key] = function () { inp.value = SEA[key]; out.textContent = fmt(SEA[key], r[4]); };
-        inp.addEventListener('input', function () { SEA[key] = +inp.value; out.textContent = fmt(SEA[key], r[4]); save(); seaApply(); run(); });
+        inp.addEventListener('input', function () { SEA[key] = +inp.value; out.textContent = fmt(SEA[key], r[4]); save(); seaApply(); run(); window.ZB_BOT_LATE = SEA.botLate * 1000; });
         body.appendChild(row);
       });
+      if (g[3] === 'bot') { var rb = document.createElement('button'); rb.type = 'button'; rb.textContent = 'Replay his entrance'; rb.style.justifySelf = 'start';
+        rb.addEventListener('click', function () { if (window.zbBotReplay) { window.zbBotReplay(); var f = document.querySelector('footer'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'end' }); } else rb.textContent = 'Scroll to the footer first'; });
+        body.appendChild(rb); }
       groups.appendChild(d);
     });
     function sync() { for (var k in inputs) inputs[k](); }
@@ -399,7 +406,7 @@
     box.addEventListener('click', function (e) {
       var a = e.target.getAttribute && e.target.getAttribute('data-a'); if (!a) return;
       if (a === 'close') show(false);
-      if (a === 'reset') { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; save(); sync(); seaApply(); run(); ta.hidden = true; }
+      if (a === 'reset') { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; save(); window.ZB_BOT_LATE = SEA.botLate * 1000; sync(); seaApply(); run(); ta.hidden = true; }
       if (a === 'mode') { var t = [].filter.call(document.querySelectorAll('button,a,[role=button]'), function (el) { return !box.contains(el) && /^\s*(light|dark)\s*$/i.test(el.textContent); })[0];
         if (t) t.click(); else html.setAttribute('data-mode', html.getAttribute('data-mode') === 'dark' ? 'light' : 'dark'); }
       if (a === 'copy') { var json = JSON.stringify(SEA, null, 2), b = e.target;
