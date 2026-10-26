@@ -264,7 +264,7 @@
         const room = innerWidth - (mobile ? 8 : 170), hd = textBox(host.querySelector('h1, h2, h3')), pp = textBox(host.querySelector('p'));
         if (mobile || !hd) { const q = (hd || host.getBoundingClientRect()); return [Math.max(8, Math.min(q.left + q.width / 2 - s / 2, innerWidth - s - 8)), q.top - s * 0.78]; }
         if (hd.right + s * 0.75 <= room) return [hd.right - s * 0.12, hd.top + hd.height / 2 - s * 0.5];
-        const q = pp || hd; return [Math.min(q.right - s * 0.05, room - s * 0.8), q.top + q.height / 2 - s * 0.48];
+        const q = pp || hd; return [Math.min(q.right + 24 - s * 0.22, room - s * 0.8), hd.bottom - s * 0.16];   // under the heading, right of the copy
       }
       if (bus.chatOpen && chat && !chat.el.classList.contains('zb-peek')) { const p = chat.el.getBoundingClientRect(); return [p.left + p.width / 2 - s / 2, p.top - s * 0.74]; }
       if (mobile) return [r.left + r.width / 2 - s / 2, r.top - s * (document.documentElement.classList.contains('zb-kb') ? 0.84 : 0.7)];   // keyboard up: hover just above the compact card
