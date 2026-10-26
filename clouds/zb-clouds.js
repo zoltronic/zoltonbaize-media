@@ -123,7 +123,9 @@
     absorption: 2.2, multiScatter: 0.3, silver: 0.65, ambient: 0.55, nightAmbient: 1, exposure: 1.25, haze: 0.025,
     quality: 1,
     // high clouds: when each goes behind the cloud horizon (share of the descent: 0 top of page .. 1 landed), and its parallax
-    farBehind: 1.37, titleBehind: 0.5, farParallax: 0.30, titleParallax: 0.16
+    farBehind: 1.37, titleBehind: 0.5, farParallax: 0.30, titleParallax: 0.16,
+    // fade to solid: between these points of the descent (0 top .. 1 landed) the clouds blend toward the page colour, up to this much
+    solidFrom: 0.8, solidTo: 1.3, solidAmount: 0.92
   };
   var SEA = {};
   (function () { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; try { var s = JSON.parse(localStorage.getItem('zbSeaTune') || 'null'); if (s) for (var j in s) if (j in SEA) SEA[j] = s[j]; } catch (e) {} })();
@@ -200,10 +202,11 @@
     '  if (tHit < 0.) { tHit = 90.; }',
     '  col = mix(col, hazeC, clamp(1.-exp(-tHit*uHaze),0.,1.));',            // aerial haze toward the horizon
     '  col = mix(col, floorC, 1.-smoothstep(.35, 1.3, tHit));',              // the closest cloud melts into the page colour
-    '  if (px.y < uHz) { col = mix(hazeC, col, a); a = 1.; }',              // below eye level, what is left is the far hazy sea
+    '  col = mix(col, floorC, uSolid);',                                   // keyframe: the clouds fade toward one solid colour
+    '  if (px.y < uHz) { col = mix(mix(hazeC, floorC, uSolid), col, a); a = 1.; }',              // below eye level, what is left is the far hazy sea
     '  else { col = mix(hazeC, col, a/max(a + (1.-a)*glow, 1e-3)); a = a + (1.-a)*glow; }',
     '  fc = vec4(col, a);',
-    '}'].join('\n').replace('uniform float uA,', 'uniform float uQ, uA,');
+    '}'].join('\n').replace('uniform float uA,', 'uniform float uSolid, uQ, uA,');
 
   // ---- baked textures: the cloud-head height map (2D, tileable) and the About page's 3D Worley noise ----
   function bakeHeights(N) {
@@ -276,7 +279,7 @@
       wt.wrapS = wt.wrapT = wt.wrapR = THREE.RepeatWrapping; wt.unpackAlignment = 1; wt.needsUpdate = true;
       var fd = hexRGB(FLOOR.day), fn = hexRGB(FLOOR.night), V3 = function (a) { return new THREE.Vector3(a[0], a[1], a[2]); };
       var U = { uH: { value: ht }, uNoise: { value: wt }, uR: { value: new THREE.Vector2(1, 1) }, uPR: { value: 1 }, uHz: { value: -1 }, uCam: { value: 3 },
-        uZ: { value: 0 }, uT: { value: 0 }, uN: { value: sea.night }, uFD: { value: V3(fd) }, uFN: { value: V3(fn) }, uSun: { value: new THREE.Vector3(0, 1, 0) }, uQ: { value: 1 } };
+        uZ: { value: 0 }, uT: { value: 0 }, uN: { value: sea.night }, uFD: { value: V3(fd) }, uFN: { value: V3(fn) }, uSun: { value: new THREE.Vector3(0, 1, 0) }, uQ: { value: 1 }, uSolid: { value: 0 } };
       'uA uTile uSwell uSkin uCov uDens uBill uDet uDetS uSunI uMoon uAbs uMulti uSilver uAmb uNAmb uExp uHaze'.split(' ').forEach(function (k) { U[k] = { value: 0 }; });
       var m = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, uniforms: U, fragmentShader: SEA_FS, vertexShader: 'void main(){ gl_Position = vec4(position.xy,0.,1.); }', blending: THREE.NoBlending, depthTest: false, depthWrite: false });
       var cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), scn = new THREE.Scene();
@@ -306,6 +309,8 @@
     sea.night += (sea.nightTo - sea.night) * 0.12; if (Math.abs(sea.nightTo - sea.night) < 0.01) sea.night = sea.nightTo;
     var U = sea.U;
     U.uR.value.set(w, h); U.uPR.value = pr; U.uHz.value = h - st.hz; U.uCam.value = st.cam; U.uZ.value = st.z;
+    var pr2 = st.L ? scrollY / st.L : 0, sf = SEA.solidTo > SEA.solidFrom ? (pr2 - SEA.solidFrom) / (SEA.solidTo - SEA.solidFrom) : (pr2 >= SEA.solidFrom ? 1 : 0);
+    sf = Math.max(0, Math.min(1, sf)); U.uSolid.value = sf * sf * (3 - 2 * sf) * SEA.solidAmount;
     U.uT.value = (reduce || still) ? 0 : (performance.now() - sea.t0) / 1000 * SEA.drift; U.uN.value = sea.night;
     sea.r.render(sea.scn, sea.cam);
     var visible = st.hz < h + 40 && st.hz > -80;
@@ -323,7 +328,10 @@
     ['High clouds', true, [
       ['farBehind', 'Far clouds go behind horizon at (0 top · 1 landed)', 0, 1.5, .01], ['farParallax', 'Far clouds parallax (higher = sinks)', -.3, .9, .01],
       ['titleBehind', 'Title cloud goes behind horizon at', 0, 1.5, .01], ['titleParallax', 'Title cloud parallax', -.3, .9, .01]]],
-    ['Scroll', true, [
+    ['Fade to solid', true, [
+      ['solidFrom', 'Fade starts at (0 top · 1 landed)', 0, 2, .01], ['solidTo', 'Fully faded at', 0, 2.5, .01],
+      ['solidAmount', 'How solid (1 = one colour)', 0, 1, .01]]],
+    ['Scroll', false, [
       ['camTop', 'Camera height at top', .8, 5, .05], ['camLand', 'Camera height landed', .3, 1.6, .01],
       ['land', 'Land when work is this far down', .1, .8, .01], ['lineGap', 'Horizon above Selected work (px)', -100, 200, 1],
       ['rise', 'Horizon rise speed', 0, .6, .01], ['fly', 'Fly forward', 0, .012, .0005], ['drift', 'Drift speed', 0, 4, .1]]],
