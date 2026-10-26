@@ -259,9 +259,12 @@
       const s = dock.offsetWidth || 320, r = card.getBoundingClientRect(), mobile = innerWidth < 820;
       if (LATE && !bus.arrived) return [innerWidth * 0.62 - s / 2, innerHeight + s * 0.55];   // waiting below the screen, in the clouds
       if (LATE && !(bus.chatOpen && chat && !chat.el.classList.contains('zb-peek'))) {   // landed: just past the end of the Contact heading, kept on screen
-        const hd = host.querySelector('h1, h2, h3') || host, q = hd.getBoundingClientRect();
-        const x = Math.max(8, Math.min(q.right - s * 0.2, innerWidth - s * 0.95 - (mobile ? 0 : 170)));
-        return [x, q.top - s * (mobile ? 0.78 : 0.52)];
+        // where the text really ends (the heading box is full width): beside the heading if there's room, else beside the line under it
+        const textBox = el => { if (!el) return null; const rg = document.createRange(); rg.selectNodeContents(el); const b = rg.getBoundingClientRect(); return b.width ? b : el.getBoundingClientRect(); };
+        const room = innerWidth - (mobile ? 8 : 170), hd = textBox(host.querySelector('h1, h2, h3')), pp = textBox(host.querySelector('p'));
+        if (mobile || !hd) { const q = (hd || host.getBoundingClientRect()); return [Math.max(8, Math.min(q.left + q.width / 2 - s / 2, innerWidth - s - 8)), q.top - s * 0.78]; }
+        if (hd.right + s * 0.75 <= room) return [hd.right - s * 0.12, hd.top + hd.height / 2 - s * 0.5];
+        const q = pp || hd; return [Math.min(q.right - s * 0.05, room - s * 0.8), q.top + q.height / 2 - s * 0.48];
       }
       if (bus.chatOpen && chat && !chat.el.classList.contains('zb-peek')) { const p = chat.el.getBoundingClientRect(); return [p.left + p.width / 2 - s / 2, p.top - s * 0.74]; }
       if (mobile) return [r.left + r.width / 2 - s / 2, r.top - s * (document.documentElement.classList.contains('zb-kb') ? 0.84 : 0.7)];   // keyboard up: hover just above the compact card
