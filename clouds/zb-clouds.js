@@ -21,7 +21,7 @@
     // a few small high clouds in the open sky
     { src: 'lib/12-scatter', nsrc: 'soft/12-scatter', x: -486,  y: 120,  w: 2785, h: 532,  f: 0.30 },
     // the sea of clouds the hero floats above, running to the horizon
-    { src: 'sea-1',          nsrc: 'soft/sea-1',      x: -800,  y: 640,  w: 3040, h: 760,  f: 0.10 },
+    { src: 'undercast',                               x: -80,   y: 673,  w: 1600, h: 544,  f: 0.10 },
     // the H1's own cloud, in front of the sea
     { src: 'lib/03-humilis', nsrc: 'soft/03-humilis', x: -425,  y: 174,  w: 1593, h: 694,  f: 0.16 }
   ];
