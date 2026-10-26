@@ -258,6 +258,11 @@
     function anchor() {
       const s = dock.offsetWidth || 320, r = card.getBoundingClientRect(), mobile = innerWidth < 820;
       if (LATE && !bus.arrived) return [innerWidth * 0.62 - s / 2, innerHeight + s * 0.55];   // waiting below the screen, in the clouds
+      if (LATE && !(bus.chatOpen && chat && !chat.el.classList.contains('zb-peek'))) {   // landed: just past the end of the Contact heading, kept on screen
+        const hd = host.querySelector('h1, h2, h3') || host, q = hd.getBoundingClientRect();
+        const x = Math.max(8, Math.min(q.right - s * 0.2, innerWidth - s * 0.95 - (mobile ? 0 : 170)));
+        return [x, q.top - s * (mobile ? 0.78 : 0.52)];
+      }
       if (bus.chatOpen && chat && !chat.el.classList.contains('zb-peek')) { const p = chat.el.getBoundingClientRect(); return [p.left + p.width / 2 - s / 2, p.top - s * 0.74]; }
       if (mobile) return [r.left + r.width / 2 - s / 2, r.top - s * (document.documentElement.classList.contains('zb-kb') ? 0.84 : 0.7)];   // keyboard up: hover just above the compact card
       return [r.right - s * 0.56, r.top - s * 0.44];   // tucked in over the card's top-right corner, clear of the nav
