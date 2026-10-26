@@ -615,7 +615,11 @@
         step = 0; answers.length = 0; pending = null; if (/password/.test(t) && !/request|access/.test(t)) await wait(700); say('Great, a few quick questions. ' + QS[0], 'bot'); return true;
       }
       if (/^what’s behind the password\?$|\b(behind|case stud|portfolio)\b/.test(t)) { say('Case studies including Premiere Loader, ATM modernization, the icon system (“Drawing One Language Out of Many”) and the Gold piece.', 'bot'); setChips(['Request access', 'Who is Zolton?']); return true; }
-      if (/^who is zolton\?$|^(who are you|who is (he|zolton)|tell me about (him|zolton))/.test(t)) { say('Zolton is a senior product designer who has been doing paid design work since 2004. He specializes in motion design, 3D for the web and design systems, and he prototypes in code with AI in his workflow.', 'bot'); setChips(CONTACT ? [ASK, 'What does he work on?'] : ['Request access', 'What’s behind the password?']); return true; }
+      if (/^what’s he like outside work\?$|\b(hobb\w*|outside (of )?work|fun facts?|free time|for fun|cats?|ziggy|f45|3d print\w*|hoa)\b/.test(t)) {
+        say('Outside work Zolton makes art, 3D prints, tinkers with all kinds of tech and trains at F45. His cat Ziggy supervises. He also runs his HOA’s board, and he got EV chargers set up for 35 units with a grant.', 'bot');
+        setChips(CONTACT ? ['Tell Zolton about the role', 'What does he work on?'] : ['Request access', 'Who is Zolton?']); return true;
+      }
+      if (/^who is zolton\?$|^(who are you|who is (he|zolton)|tell me about (him|zolton))/.test(t)) { say('Zolton is a senior product designer who has been doing paid design work since 2004, with Apple, Google, Wells Fargo, Zelle and Best Buy on his list. He specializes in motion design, 3D for the web and design systems, and he prototypes in code with AI in his workflow.', 'bot'); setChips(CONTACT ? ['What’s he like outside work?', 'What does he work on?', ASK] : ['Request access', 'What’s behind the password?']); return true; }
       if (/^(hi|hello|hey|yo|sup)\b/.test(t)) { say(CONTACT ? 'Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to send Zolton a message, or know more about him?' : 'Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to know about Zolton, or get access?', 'bot'); setChips([ASK, 'Who is Zolton?']); return true; }
       return false;
     }
