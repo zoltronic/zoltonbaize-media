@@ -100,7 +100,10 @@
   /* Night: the site's dark-mode tokens (same values as the Webflow mode variables) */
   :root.zb-night, .zb-night body { --_zb-mode---mode--ink: #EAF6FD; --_zb-mode---mode--muted: #B3D3E5; --_zb-mode---mode--accent: #5FDBFF; --_zb-mode---mode--live: #00E0B8; --_zb-mode---mode--glass-bg: rgba(10,28,48,.58); --_zb-mode---mode--glass-border: rgba(160,220,250,.22); --_zb-mode---mode--hair: rgba(160,220,250,.16); --_zb-mode---mode--btn-primary-bg: #00E0B8; --_zb-mode---mode--btn-primary-ink: #03231D; --_zb-mode---mode--btn-secondary-bg: rgba(160,205,240,.13); --_zb-mode---mode--ghost-wash: rgba(0,224,184,.14); --_zb-mode---mode--danger-bg: #FF8474; --_zb-mode---mode--danger-ink: #2B0904; --_zb-mode---mode--liquid-bg: rgba(10,28,48,.42); --_zb-mode---mode--mark: #EAF6FD; --_zb-mode---mode--field-bg: rgba(3,15,26,.5); --_zb-mode---mode--btn-secondary-border: rgba(180,220,248,.26); }
   .zb-pw-dock.zb-waiting { pointer-events: none; }
-  @media (max-width: 819px) { .zb-pw-dock.zb-late { width: 190px; height: 190px; } .zb-pw-dock.zb-late .zb-pw-bubble { white-space: normal; width: 150px; } }
+  @media (max-width: 819px) { .zb-pw-dock.zb-late { width: 190px; height: 190px; } .zb-pw-dock.zb-late .zb-pw-bubble { left: 50%; top: -6%; margin-left: -88px; width: 176px; white-space: normal; text-align: center; border-radius: 18px; transform-origin: 50% 100%; } }
+  /* light mode: a white robot on the near-white page needs an outline, so a soft navy shadow and a hairline edge */
+  :root:not(.zb-night) .zb-pw-dock.zb-late canvas { filter: drop-shadow(0 0 1px rgba(7,40,61,.55)) drop-shadow(0 12px 18px rgba(7,40,61,.28)); }
+  :root:not(.zb-night) .zb-pw-dock.zb-late .zb-pw-bubble { box-shadow: 0 6px 18px -6px rgba(7,40,61,.35); border-color: rgba(7,40,61,.14); }
   .zb-puff { position: fixed; z-index: 5; width: 260px; height: 160px; margin: -80px 0 0 -130px; border-radius: 50%; pointer-events: none; background: radial-gradient(closest-side, rgba(255,255,255,.95), rgba(255,255,255,.6) 45%, rgba(255,255,255,0)); opacity: 0; transform: scale(.4); }
   .zb-night .zb-puff { background: radial-gradient(closest-side, rgba(150,175,210,.7), rgba(120,145,185,.35) 45%, rgba(120,145,185,0)); }
   .zb-puff.go { animation: zb-puff 1.4s cubic-bezier(.2,.8,.2,1) forwards; }
@@ -268,9 +271,9 @@
         // where the text really ends (the heading box is full width): beside the heading if there's room, else beside the line under it
         const textBox = el => { if (!el) return null; const rg = document.createRange(); rg.selectNodeContents(el); const b = rg.getBoundingClientRect(); return b.width ? b : el.getBoundingClientRect(); };
         const room = innerWidth - (mobile ? 8 : 170), hd = textBox(host.querySelector('h1, h2, h3')), pp = textBox(host.querySelector('p'));
-        if (mobile || !hd) {   // phones: in the gap between the logo strip and the Contact heading, on the left so his bubble fits beside him
+        if (mobile || !hd) {   // phones: centred in the gap between the logo strip and the Contact heading, bubble above his head
           const q = (hd || host.getBoundingClientRect()), sb = document.querySelector('.zbx-strip'), top = sb ? sb.getBoundingClientRect().bottom : q.top - 170;
-          return [Math.max(-s * 0.12, 4 - s * 0.14), (top + q.top) / 2 - s * 0.5];
+          return [innerWidth / 2 - s / 2, (top + q.top) / 2 - s * 0.46];   // centred in the gap
         }
         if (hd.right + s * 0.75 <= room) return [hd.right - s * 0.12, hd.top + hd.height / 2 - s * 0.5];
         const q = pp || hd; return [Math.min(q.right + 24 - s * 0.22, room - s * 0.8), hd.bottom - s * 0.16];   // under the heading, right of the copy
