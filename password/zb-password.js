@@ -101,9 +101,9 @@
   :root.zb-night, .zb-night body { --_zb-mode---mode--ink: #EAF6FD; --_zb-mode---mode--muted: #B3D3E5; --_zb-mode---mode--accent: #5FDBFF; --_zb-mode---mode--live: #00E0B8; --_zb-mode---mode--glass-bg: rgba(10,28,48,.58); --_zb-mode---mode--glass-border: rgba(160,220,250,.22); --_zb-mode---mode--hair: rgba(160,220,250,.16); --_zb-mode---mode--btn-primary-bg: #00E0B8; --_zb-mode---mode--btn-primary-ink: #03231D; --_zb-mode---mode--btn-secondary-bg: rgba(160,205,240,.13); --_zb-mode---mode--ghost-wash: rgba(0,224,184,.14); --_zb-mode---mode--danger-bg: #FF8474; --_zb-mode---mode--danger-ink: #2B0904; --_zb-mode---mode--liquid-bg: rgba(10,28,48,.42); --_zb-mode---mode--mark: #EAF6FD; --_zb-mode---mode--field-bg: rgba(3,15,26,.5); --_zb-mode---mode--btn-secondary-border: rgba(180,220,248,.26); }
   .zb-pw-dock.zb-waiting { pointer-events: none; }
   @media (max-width: 819px) { .zb-pw-dock.zb-late { width: 190px; height: 190px; } .zb-pw-dock.zb-late .zb-pw-bubble { left: 0; right: 0; top: -6%; margin: 0 auto; width: max-content; white-space: nowrap; border-radius: 18px; transform-origin: 50% 100%; } }
-  /* light mode: a white robot on the near-white page needs an outline, so a soft navy shadow and a hairline edge */
-  :root:not(.zb-night) .zb-pw-dock.zb-late canvas { filter: drop-shadow(0 0 1px rgba(7,40,61,.55)) drop-shadow(0 12px 18px rgba(7,40,61,.28)); }
-  :root:not(.zb-night) .zb-pw-dock.zb-late .zb-pw-bubble { box-shadow: 0 6px 18px -6px rgba(7,40,61,.35); border-color: rgba(7,40,61,.14); }
+  /* light mode: a white robot on the near-white page needs an outline, so a sky-blue edge and glow */
+  :root:not(.zb-night) .zb-pw-dock.zb-late canvas { filter: drop-shadow(0 0 1px rgba(40,130,210,.7)) drop-shadow(0 8px 20px rgba(90,170,240,.55)); }
+  :root:not(.zb-night) .zb-pw-dock.zb-late .zb-pw-bubble { box-shadow: 0 6px 18px -6px rgba(60,150,230,.5); border-color: rgba(60,150,230,.3); }
   .zb-puff { position: fixed; z-index: 5; width: 260px; height: 160px; margin: -80px 0 0 -130px; border-radius: 50%; pointer-events: none; background: radial-gradient(closest-side, rgba(255,255,255,.95), rgba(255,255,255,.6) 45%, rgba(255,255,255,0)); opacity: 0; transform: scale(.4); }
   .zb-night .zb-puff { background: radial-gradient(closest-side, rgba(150,175,210,.7), rgba(120,145,185,.35) 45%, rgba(120,145,185,0)); }
   .zb-puff.go { animation: zb-puff 1.4s cubic-bezier(.2,.8,.2,1) forwards; }
