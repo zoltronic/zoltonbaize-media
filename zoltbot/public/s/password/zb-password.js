@@ -108,7 +108,7 @@
   .zb-pw-dock.zb-waiting { pointer-events: none; }
   .zb-pw-dock.zb-hero-wait { opacity: 0; pointer-events: none; }
   .zb-pw-dock.zb-in-hero .zb-pw-bubble { left: auto; right: 84%; top: 16%; width: max-content; white-space: nowrap; border-radius: 18px 18px 6px 18px; transform-origin: 100% 100%; }
-  @media (max-width: 819px) { .zb-pw-dock.zb-in-hero .zb-pw-bubble { left: 0; right: 0; top: auto; bottom: -4%; margin: 0 auto; border-radius: 18px; transform-origin: 50% 0; } }
+  @media (max-width: 819px) { .zb-pw-dock.zb-late.zb-in-hero .zb-pw-bubble { left: 0; right: 0; top: auto; bottom: 4%; height: auto; margin: 0 auto; border-radius: 18px; transform-origin: 50% 0; } }
   @media (max-width: 819px) { .zb-pw-dock.zb-late { width: 190px; height: 190px; } .zb-pw-dock.zb-late .zb-pw-bubble { left: 0; right: 0; top: -6%; margin: 0 auto; width: max-content; white-space: nowrap; border-radius: 18px; transform-origin: 50% 100%; } }
   /* light mode: a white robot on the near-white page needs an outline, so a sky-blue edge and glow */
   :root:not(.zb-night) .zb-pw-dock.zb-late canvas { filter: drop-shadow(0 0 1px rgba(40,130,210,.7)) drop-shadow(0 8px 20px rgba(90,170,240,.55)); }
@@ -300,10 +300,9 @@
     function heroSpot(s, mobile) {
       const h1 = HERO_EL.querySelector('h1'), rg = document.createRange(); if (h1) rg.selectNodeContents(h1);
       const hb = h1 ? rg.getBoundingClientRect() : HERO_EL.getBoundingClientRect(), r = HERO_EL.getBoundingClientRect(), k = heroScale(mobile);
-      if (mobile) {
-        const nav = document.querySelector('.nav, nav, [class*="nav_"]'), navB = nav ? Math.max(0, nav.getBoundingClientRect().bottom) : 70;
+      if (mobile) {   // phones: centred just above the eyebrow, moving with the hero, so he scrolls up and out of view with it
         const first = HERO_EL.querySelector('.label-mono, h1') || h1, top = first ? first.getBoundingClientRect().top : hb.top;
-        return [innerWidth / 2 - s / 2, Math.max(navB + 8, (navB + top) / 2 - s * 0.5) - (top - hb.top) * 0];
+        return [innerWidth / 2 - s / 2, top - s * k * 0.5 - 14 - s / 2];
       }
       // his centre: clear of the headline, in the open sky on the right, leaving room for his speech bubble
       const mid = Math.min(Math.max(hb.right + s * k * 0.78, r.left + r.width * 0.68), innerWidth - s * k * 0.62 - 24);   // bubble sits above him here
