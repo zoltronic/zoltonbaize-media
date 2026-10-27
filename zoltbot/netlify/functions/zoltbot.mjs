@@ -11,7 +11,7 @@ const ORIGINS = env('ZB_ALLOWED_ORIGINS', 'https://www.zoltonbaize.com,https://z
 // or 'openai' (OPENAI_API_KEY). Without ZB_PROVIDER it uses whichever key is set. ZB_MODEL picks the model;
 // on OpenRouter it can be a comma list, tried in order (free models come and go, so list a fallback or two).
 const PROVIDER = env('ZB_PROVIDER', env('OPENROUTER_API_KEY') ? 'openrouter' : env('ANTHROPIC_API_KEY') ? 'anthropic' : (env('OPENAI_API_KEY') ? 'openai' : 'anthropic')).toLowerCase();
-const MODEL = env('ZB_MODEL', { openrouter: 'google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3.5-lightning:free,nvidia/nemotron-3-super-120b-a12b:free,thinkingmachines/inkling-small:free', openai: 'gpt-4o-mini' }[PROVIDER] || 'claude-haiku-5-5');
+const MODEL = env('ZB_MODEL', { openrouter: 'google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3.5-lightning:free,nvidia/nemotron-3-super-120b-a12b:free', openai: 'gpt-4o-mini' }[PROVIDER] || 'claude-haiku-5-5');
 // OpenRouter free-only lock (on unless ZB_FREE_ONLY=false): only models ending in ':free' are ever requested, so the key can't be billed.
 const FREE_ONLY = PROVIDER === 'openrouter' && env('ZB_FREE_ONLY', 'true') !== 'false';
 const AI_KEY = { openrouter: env('OPENROUTER_API_KEY'), openai: env('OPENAI_API_KEY') }[PROVIDER] || env('ANTHROPIC_API_KEY');
