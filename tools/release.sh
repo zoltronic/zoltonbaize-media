@@ -5,7 +5,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT=zoltbot/public/s
-for f in analytics/zb-analytics.js clouds/zb-clouds.js splash/zb-splash.js experience/zb-experience.js password/zb-password.js draft/zb-draft.js; do
+for f in analytics/zb-analytics.js clouds/zb-clouds.js splash/zb-splash.js experience/zb-experience.js password/zb-password.js draft/zb-draft.js gold/3d/gold_coin.js; do
   mkdir -p "$OUT/$(dirname "$f")"; cp "$f" "$OUT/$f"
 done
 # the cloud stills zb-clouds.js loads (day + night of each item in its SCENE)

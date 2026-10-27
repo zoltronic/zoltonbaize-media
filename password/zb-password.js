@@ -269,7 +269,9 @@
   dock.className = 'zb-pw-dock';
   if (CHAT) { dock.setAttribute('role', 'button'); dock.setAttribute('tabindex', '0'); dock.setAttribute('aria-label', 'Chat with Zoltbot, Zolton’s sidekick robot'); }
   else { dock.setAttribute('role', 'img'); dock.setAttribute('aria-label', 'Zoltbot, Zolton’s sidekick robot'); }
-  document.body.appendChild(dock);
+  // He and his chat live in the page's own layer (inside .page_root, under its nav at z-index 20), so the nav always stays on top
+  const LAYER = (CONTACT && document.querySelector('.page_root')) || document.body;
+  LAYER.appendChild(dock);
   // The dock follows its anchor: the card's top-right corner, or the top of the chat panel when it is open.
   (function follow() {
     let cx = null, cy = null, last = performance.now();
@@ -348,6 +350,7 @@
         if (window.__zbBus) { const b = window.__zbBus; b.vx = vx; b.vy = vy; b.ax = ax; b.ay = ay; b.mdx += sx; b.mdy += sy; }
       }
       dock.style.transform = 'translate3d(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px,0)' + (Math.abs(sc - 1) > 0.002 ? ' scale(' + sc.toFixed(3) + ')' : '');
+      { const ss = (dock.offsetWidth || 320) * Math.max(1, sc); bus.onscreen = !dock.classList.contains('zb-hero-wait') && cx > -ss * 1.2 && cy > -ss * 1.2 && cx < innerWidth + ss * 0.2 && cy < innerHeight + ss * 0.2; }
       requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
@@ -518,7 +521,7 @@
       '<div class="zb-chat-log" aria-live="polite"></div><div class="zb-chips"></div>' +
       '<form class="zb-chat-form"><label for="zb-chat-in" style="position:absolute;left:-9999px">Message Zoltbot</label><input id="zb-chat-in" type="text" autocomplete="off" placeholder="Ask Zoltbot…" maxlength="500"><button type="submit">Send</button></form>';
     if (skyGlass) { el.classList.add('zb-on-sky'); el.setAttribute('data-zb-glass', ''); el.setAttribute('data-zb-radius', '28'); }
-    document.body.appendChild(el);
+    LAYER.appendChild(el);
     const log = el.querySelector('.zb-chat-log'), chips = el.querySelector('.zb-chips'), f = el.querySelector('form'), inp = el.querySelector('input');
     const history = [];
     let greeted = false;
@@ -739,7 +742,7 @@
     let renderer;
     try { renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); } catch (e) { return; }
     renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, touch ? 1.5 : 1.75));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     dock.insertBefore(renderer.domElement, dock.firstChild);
     const scene = new THREE.Scene();
@@ -1157,7 +1160,7 @@
       faceLight.color.setRGB(col.r / 255, col.g / 255, col.b / 255); faceLight.intensity = 0.25 + 0.45 * nightF;
       ringMat.emissiveIntensity *= 1 + 0.3 * nightF; tipMat.emissiveIntensity = 1.1 + 0.5 * nightF + 0.3 * Math.sin(t * 2.2);
       physics(dt, t, hop >= 0 && hop < 0.3);
-      renderer.render(scene, camera);
+      if (bus.onscreen !== false && !document.hidden) renderer.render(scene, camera);   // off screen (above the hero, below Contact): skip the draw
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);

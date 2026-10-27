@@ -124,7 +124,7 @@ function setup(el) {
   // fixed layer: the canvas covers the viewport (z-index -1 inside .page_root: above the sky / page background, under the copy)
   // and a camera view offset keeps the coin framed on its tile, so nothing it draws is cut at the tile's edge
   const coarse = matchMedia('(pointer:coarse)').matches;
-  const M = coarse && CFG.mobile ? CFG.mobile : null;            // the phone profile, or null on desktop
+  const M = coarse && CFG.mobile ? CFG.mobile : (CFG.desktop || null);   // the phone profile, or an optional lighter desktop profile (GOLD_COIN_CONFIG.desktop)
   const fixed = M ? !!M.fixedLayer : !!CFG.fixedLayer;
   const over = M && !fixed ? (M.overhang || 0) : 0;            // tile mode on phones: the canvas reaches past the tile by this much
   const canvas = document.createElement('canvas');
@@ -133,7 +133,7 @@ function setup(el) {
     : 'display:block;width:100%;height:100%';
   if (over && getComputedStyle(el).position === 'static') el.style.position = 'relative';
   el.appendChild(canvas);
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !M, alpha: true, powerPreference: M ? 'default' : 'high-performance', preserveDrawingBuffer: !!CFG.capture });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !M || !!M.antialias, alpha: true, powerPreference: M ? 'default' : 'high-performance', preserveDrawingBuffer: !!CFG.capture });
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, M ? (M.pixelRatio || 1.25) : fixed ? 1.5 : 2)); renderer.setClearColor(0, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping; renderer.toneMappingExposure = CFG.exposure;
   const scene = new THREE.Scene();
