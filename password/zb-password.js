@@ -586,6 +586,11 @@
       if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
       return r.json();
     };
+    function aiLeft() {   // AI answers left today in this browser (window.ZB_AI_REPLIES, default 100); the server has its own cap too
+      const max = window.ZB_AI_REPLIES != null && isFinite(window.ZB_AI_REPLIES) ? +window.ZB_AI_REPLIES : 100;
+      let used = 0; try { used = +localStorage.getItem('zbAI:' + new Date().toISOString().slice(0, 10)) || 0; } catch (e) {}
+      return used < max;
+    }
     // Off the tree: ask the model (live), or say what the live version would do (preview).
     async function offTrack() {
       if (!ENDPOINT) {
@@ -621,9 +626,30 @@
       'What’s the timeline for filling it?', 'Got a link to the job posting? (Or say “skip”.)', 'And your name?', 'What’s the best email for Zolton to reply to?'];
     const RL = ['Role', 'Company and team', 'Type and location', 'Team culture', 'Reports to / CEO', 'Pay range', 'Timeline', 'Job link'];
     let rstep = -1; const ra = [];
-    const isSkip = t => /^(skip|pass|no|nope|n\/?a|none|not sure|prefer not( to say)?|rather not( say)?|-)$/i.test(t.trim());
+    const isSkip = t => /^(skip( this( one)?)?|pass|no|nope|n\/?a|none|not sure|prefer not( to say)?|rather not( say)?|-)$/i.test(t.trim());
     async function treeReply(text) {
       const t = text.toLowerCase().trim();
+      // ---- During the question flows (a role, a message, a password request) ----
+      const inFlow = rstep >= 0 || step >= 0;
+      if (inFlow && /^(stop( the questions)?|cancel|never ?mind|quit|exit|forget it|no thanks)\b/.test(t)) {
+        const wasRole = rstep >= 0; rstep = -1; step = -1; pending = null;
+        say('No problem, I’ve dropped that' + (wasRole ? ' and nothing was sent' : '') + '. What else can I do for you?', 'bot');
+        setChips(CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message', 'What does he work on?'] : ['Request access', 'Who is Zolton?']); return true;
+      }
+      // a question or a request mid-flow isn't an answer: answer it (AI or script), then pick the questions back up
+      const offTopic = inFlow && !isSkip(text) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim()) &&
+        (/\?\s*$/.test(text) || /^(who|what|why|how|are you|can you|could you|do you|does he|did he|is he|will you|would you|tell me|show me|sing|rap|bust|write|make|give me|say|joke)\b/.test(t));
+      if (offTopic) {
+        const sr = rstep, ss = step; rstep = -1; step = -1;
+        const handled = await treeReply(text);
+        if (rstep < 0 && step < 0) {   // (unless that started a new flow)
+          if (!handled) await offTrack();
+          rstep = sr; step = ss;
+          await wait(600);
+          say('Back to it: ' + (sr >= 0 ? RQ[sr] : QS[ss]), 'bot'); setChips(['Skip this one', 'Stop the questions']);
+        }
+        return true;
+      }
       if (rstep >= 0) {
         if (rstep === 9 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim())) { say('That email doesn’t look quite right. Mind checking it?', 'bot'); return true; }
         if (rstep === 8 && isSkip(text)) { say('I need a name so Zolton knows who to thank. What should I call you?', 'bot'); return true; }
@@ -671,15 +697,22 @@
         if (!ENDPOINT) say('Preview only: nothing was actually sent.', 'note');
         setChips(CONTACT ? ['What does he work on?'] : ['Who is Zolton?']); return true;
       }
-      if (CONTACT && (/^tell zolton about (the|a) role$|^i have a role/.test(t) || (/^start over$/.test(t) && lastFlow === 'role') || (/\b(role|position|job|opening|opportunit|recruit|hiring|hire)\b/.test(t) && !/^what/.test(t) && step < 0))) {
+      const asks = /\?\s*$/.test(text) || /^(who|what|why|how|is|are|does|do|can|could|would|will|should)\b/.test(t);   // a question, not an intent
+      if (CONTACT && (/^tell zolton about (the|a) role$|^i have a role/.test(t) || (/^start over$/.test(t) && lastFlow === 'role') || (/\b(role|position|job|opening|opportunit|recruit|hiring|hire)\b/.test(t) && !asks && step < 0))) {
         lastFlow = 'role'; rstep = 0; ra.length = 0; pending = null; say(RQ[0], 'bot'); setChips([]); return true;
       }
       if (CONTACT && /^ask zolton for the password$|\bpassword\b/.test(t)) {
         lastFlow = 'message'; pwAsk = true; step = 0; answers.length = 0; pending = null; say('Happy to! I’ll ask Zolton to send you the password. A few quick questions first. ' + QS[0], 'bot'); return true;
       }
-      if (CONTACT && /^(start over|send zolton a message)$|\b(message|contact|reach|hire|hiring|email him|talk to (him|zolton)|get in touch)\b/.test(t) && !/^what/.test(t)) {
+      if (CONTACT && (/^(start over|send zolton a message)$/.test(t) || (/\b(message|contact|reach|email him|talk to (him|zolton)|get in touch)\b/.test(t) && !asks))) {
         lastFlow = 'message'; pwAsk = false; step = 0; answers.length = 0; pending = null; say('Great, a few quick questions so Zolton knows who’s writing. ' + QS[0], 'bot'); return true;
       }
+      // ---- AI first: with the backend on and answers left today, free-form messages go to the model (it knows his facts).
+      // Scripted replies below still answer the chip buttons exactly, and a few things always stay scripted (privacy, pay, resume, goodbyes).
+      const CHIPS = /^(what does he work on\?|what’s behind the password\?|what’s he like outside work\?|who is zolton\?|what software does he use\?|what are his skills\?|how does he use ai\?)$/;
+      const FIXED = /\b(where (is|does) he (live|based)|location|located|address|phone|number|city|rate|rates|salary|pay|compensation|resume|cv|linkedin)\b|^(thanks?|thank you|thx|ty|cheers|bye|goodbye|see ya|later|cya)\b/;
+      const ACCESS = !CONTACT && !/behind/.test(t) && /^(start over|request access)$|\b(request|access|let me in|get in)\b|\bpassword\b/.test(t) && !asks;   // password pages: access requests stay scripted
+      if (ENDPOINT && aiLeft() && !CHIPS.test(t) && !FIXED.test(t) && !ACCESS) return false;
       if (CONTACT && /^what does he work on\?$|\b(work on|case stud|portfolio|projects?|behind)\b/.test(t)) { say('Product design with lots of motion, 3D for the web and design systems. “Bringing Gold to Wells Fargo” makes the case for rendering material in 3D, “Drawing One Cohesive System” is an icon system built on grids and rules, and “A Teaching Machine” guides people through an ATM’s hardest moments. He has a lot more to show. I can have Zolton send you the password.', 'bot'); setChips(['Ask Zolton for the password', 'Tell Zolton about the role', 'Who is Zolton?']); return true; }
       if (!CONTACT && !/behind/.test(t) && /^(start over|request access)$|\b(request|access|let me in|get in)\b|\bpassword\b/.test(t)) {
         if (/password/.test(t) && !/request|access/.test(t)) say('I don’t have the password, and that’s on purpose. But I can send Zolton a request right now.', 'bot');
@@ -694,6 +727,8 @@
       // ---- More scripted answers (no AI used). Facts only from what Zolton approved; never location, contact details or pay. ----
       const more = CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message'] : ['Request access', 'Who is Zolton?'];
       const reply = (msg, chips) => { say(msg, 'bot'); setChips(chips || more); return true; };
+      if (/\b(is|was) (he|zolton) (any )?(good|great|legit|talented|worth it|the real deal)\b|\bshould (i|we) hire\b|\bwhy (should (i|we) )?hire\b/.test(t))
+        return reply('Honestly? He’s the real deal. Designing professionally since 2004, from Google Glass to Wells Fargo, and he makes a huge positive impact everywhere he goes. I’m biased, but I’m also right.', CONTACT ? ['Tell Zolton about the role', 'What does he work on?'] : more);
       if (/\b(who are you|what are you|your name|are you (a |an )?(bot|robot|ai|human|real))\b/.test(t))
         return reply('I’m Zoltbot, Zolton’s sidekick robot and his biggest fan. I answer quick questions about him and pass messages, roles and password requests straight to him.');
       if (/\b(what can you do|help|options|menu|how does this work)\b/.test(t))
