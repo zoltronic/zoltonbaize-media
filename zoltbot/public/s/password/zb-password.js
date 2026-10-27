@@ -107,6 +107,7 @@
   :root.zb-night, .zb-night body { --_zb-mode---mode--ink: #EAF6FD; --_zb-mode---mode--muted: #B3D3E5; --_zb-mode---mode--accent: #5FDBFF; --_zb-mode---mode--live: #00E0B8; --_zb-mode---mode--glass-bg: rgba(10,28,48,.58); --_zb-mode---mode--glass-border: rgba(160,220,250,.22); --_zb-mode---mode--hair: rgba(160,220,250,.16); --_zb-mode---mode--btn-primary-bg: #00E0B8; --_zb-mode---mode--btn-primary-ink: #03231D; --_zb-mode---mode--btn-secondary-bg: rgba(160,205,240,.13); --_zb-mode---mode--ghost-wash: rgba(0,224,184,.14); --_zb-mode---mode--danger-bg: #FF8474; --_zb-mode---mode--danger-ink: #2B0904; --_zb-mode---mode--liquid-bg: rgba(10,28,48,.42); --_zb-mode---mode--mark: #EAF6FD; --_zb-mode---mode--field-bg: rgba(3,15,26,.5); --_zb-mode---mode--btn-secondary-border: rgba(180,220,248,.26); }
   .zb-pw-dock.zb-waiting { pointer-events: none; }
   .zb-pw-dock.zb-hero-wait { opacity: 0; pointer-events: none; }
+  .zb-pw-dock.zb-in-hero .zb-pw-bubble { left: 0; right: 0; top: -9%; margin: 0 auto; width: max-content; white-space: nowrap; border-radius: 18px; transform-origin: 50% 100%; }
   @media (max-width: 819px) { .zb-pw-dock.zb-late { width: 190px; height: 190px; } .zb-pw-dock.zb-late .zb-pw-bubble { left: 0; right: 0; top: -6%; margin: 0 auto; width: max-content; white-space: nowrap; border-radius: 18px; transform-origin: 50% 100%; } }
   /* light mode: a white robot on the near-white page needs an outline, so a sky-blue edge and glow */
   :root:not(.zb-night) .zb-pw-dock.zb-late canvas { filter: drop-shadow(0 0 1px rgba(40,130,210,.7)) drop-shadow(0 8px 20px rgba(90,170,240,.55)); }
@@ -301,7 +302,7 @@
         return [innerWidth / 2 - s / 2, Math.max(navB + 8, (navB + top) / 2 - s * 0.5) - (top - hb.top) * 0];
       }
       // his centre: clear of the headline, in the open sky on the right, leaving room for his speech bubble
-      const mid = Math.min(Math.max(hb.right + s * k * 0.78, r.left + r.width * 0.68), innerWidth - s * k * 0.5 - 210);
+      const mid = Math.min(Math.max(hb.right + s * k * 0.78, r.left + r.width * 0.68), innerWidth - s * k * 0.62 - 24);   // bubble sits above him here
       return [mid - s / 2, hb.top + hb.height / 2 - s / 2 - s * 0.08];
     }
     function heroScale(mobile) { const v = window.ZB_BOT_HERO_SCALE; return v != null && isFinite(v) ? +v : (mobile ? 1.25 : 1.3); }
@@ -315,6 +316,7 @@
       const [tx, ty] = anchor();
       const mobileNow = innerWidth < 820, inHero = HERO && !bus.arrived && !(bus.chatOpen && chat && !chat.el.classList.contains('zb-peek'));
       const tS = inHero ? heroScale(mobileNow) : 1;
+      if (inHero !== bus.inHeroCls) { bus.inHeroCls = inHero; dock.classList.toggle('zb-in-hero', inHero); }
       if (HERO && bus.flyT0 != null) {   // the fly-in from the distance: a scripted arc that ends exactly on his hero spot
         const D = 2600, u = Math.min(1, (now - bus.flyT0) / D), e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
         const sx0 = innerWidth * (mobileNow ? 0.78 : 0.86) - (dock.offsetWidth || 320) / 2, sy0 = innerHeight * 0.16 - (dock.offsetWidth || 320) / 2;
