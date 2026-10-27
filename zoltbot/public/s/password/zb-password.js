@@ -538,7 +538,7 @@
       if (innerWidth < 820) return;
       if (CONTACT) {   // contact: a corner panel, bottom right, whatever the scroll
         // sit above the light/dark button (bottom right) so it stays visible and clickable
-        const tg = document.querySelector('.theme_toggle'), tr = tg && tg.offsetParent !== null ? tg.getBoundingClientRect() : null;
+        const tg = document.querySelector('.theme_toggle'), tr = tg && tg.getClientRects().length ? tg.getBoundingClientRect() : null;   // (fixed elements have no offsetParent)
         const gap = tr && tr.right > innerWidth - 24 - (el.offsetWidth || 340) && tr.top > innerHeight * 0.5 ? innerHeight - tr.top + 14 : 24;
         const W = el.offsetWidth || 340, h = Math.min(480, innerHeight - 216 - gap);
         el.style.left = (innerWidth - 24 - W) + 'px'; el.style.top = (innerHeight - gap - h) + 'px'; el.style.height = h + 'px'; return;
