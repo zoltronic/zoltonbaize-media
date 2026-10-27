@@ -11,7 +11,7 @@ const ORIGINS = env('ZB_ALLOWED_ORIGINS', 'https://www.zoltonbaize.com,https://z
 // or 'openai' (OPENAI_API_KEY). Without ZB_PROVIDER it uses whichever key is set. ZB_MODEL picks the model;
 // on OpenRouter it can be a comma list, tried in order (free models come and go, so list a fallback or two).
 const PROVIDER = env('ZB_PROVIDER', env('OPENROUTER_API_KEY') ? 'openrouter' : env('ANTHROPIC_API_KEY') ? 'anthropic' : (env('OPENAI_API_KEY') ? 'openai' : 'anthropic')).toLowerCase();
-const MODEL = env('ZB_MODEL', { openrouter: 'google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free', openai: 'gpt-4o-mini' }[PROVIDER] || 'claude-haiku-5-5');
+const MODEL = env('ZB_MODEL', { openrouter: 'google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3.5-lightning:free,nvidia/nemotron-3-super-120b-a12b:free,thinkingmachines/inkling-small:free', openai: 'gpt-4o-mini' }[PROVIDER] || 'claude-haiku-5-5');
 // OpenRouter free-only lock (on unless ZB_FREE_ONLY=false): only models ending in ':free' are ever requested, so the key can't be billed.
 const FREE_ONLY = PROVIDER === 'openrouter' && env('ZB_FREE_ONLY', 'true') !== 'false';
 const AI_KEY = { openrouter: env('OPENROUTER_API_KEY'), openai: env('OPENAI_API_KEY') }[PROVIDER] || env('ANTHROPIC_API_KEY');
@@ -166,26 +166,25 @@ async function askAnthropic(system, messages) {
 }
 async function askOpenAI(system, messages) {
   const or = PROVIDER === 'openrouter';
-  // Gemma on Google AI Studio has no system role ("Developer instruction is not enabled"): put the rules in the first user turn
-  const noSys = /gemma/i.test(MODEL);
   let list = MODEL.split(',').map(m => m.trim()).filter(Boolean);
   if (FREE_ONLY) list = list.filter(m => /:free$/.test(m));
   if (!list.length) throw new Error('no free model configured');
   // Free models share capacity with everyone and are sometimes rate-limited upstream: try each one, then once more after a beat
-  const tries = or ? [...list, ...list].slice(0, 4) : [list[0]];
-  let last;
-  for (let i = 0; i < tries.length; i++) {
+  const tries = or ? [...list, list[0]].slice(0, 7) : [list[0]];   // every free model once, then the first again
+  let last; const t0 = Date.now();
+  for (let i = 0; i < tries.length && Date.now() - t0 < 7000; i++) {   // stay well inside the function's time limit
     if (i === list.length) await new Promise(r => setTimeout(r, 1200));
-    try { return await askOnce(or, noSys, tries[i], system, messages); } catch (err) { last = err; if (!/rate|429|temporar|overload|unavailable|503|502/i.test(err.message)) throw err; }
+    try { return await askOnce(or, /gemma/i.test(tries[i]), tries[i], system, messages); } catch (err) { last = err; if (!/rate|429|temporar|overload|unavailable|503|502|abort|timeout|404|no endpoints/i.test(err.message)) throw err; }
   }
   throw last;
 }
 
+// Gemma on Google AI Studio has no system role ("Developer instruction is not enabled"), so its rules go in the first user turn
 async function askOnce(or, noSys, model, system, messages) {
   const r = await fetch(or ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
+    method: 'POST', signal: AbortSignal.timeout(6000),
     headers: { 'content-type': 'application/json', authorization: `Bearer ${AI_KEY}`, ...(or ? { 'HTTP-Referer': 'https://www.zoltonbaize.com', 'X-Title': 'Zoltbot' } : {}) },
-    body: JSON.stringify({ model, max_tokens: 160, temperature: 0.3, messages: noSys ? foldSystem(system, messages) : [{ role: 'system', content: system }, ...messages] })
+    body: JSON.stringify({ model, max_tokens: 220, ...(or ? { reasoning: { effort: 'low', exclude: true } } : {}), temperature: 0.3, messages: noSys ? foldSystem(system, messages) : [{ role: 'system', content: system }, ...messages] })
   });
   const j = await r.json();
   if (!r.ok) throw new Error((j?.error?.message || r.status) + (j?.error?.metadata?.raw ? ' | ' + String(j.error.metadata.raw).slice(0, 300) : '') + (j?.error?.metadata?.provider_name ? ' (' + j.error.metadata.provider_name + ')' : ''));
