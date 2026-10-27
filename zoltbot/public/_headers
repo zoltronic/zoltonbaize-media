@@ -1,0 +1,5 @@
+# Site scripts and cloud stills for zoltonbaize.com: revalidate so a release shows up right away (304s are cheap)
+/s/*
+  Cache-Control: public, max-age=0, must-revalidate
+  Access-Control-Allow-Origin: *
+  X-Content-Type-Options: nosniff

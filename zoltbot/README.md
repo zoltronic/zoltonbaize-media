@@ -41,3 +41,10 @@ Without that line the password page still works (Zoltbot, glass card, unlock fli
 ## Cost
 
 Each off-tree reply is one short model call (about 1–2k tokens with the system prompt). With Haiku and the default caps it stays at pennies per day; set a monthly spend limit in the Anthropic console as a backstop.
+
+## Site scripts (zoltonbaize.com)
+
+The site's own scripts and cloud stills are served from this Netlify site at `https://zoltbot.netlify.app/s/...`
+(clouds, splash, experience strip, Zoltbot chat, analytics, Draft Controls). Only what `tools/release.sh` copies into
+`public/s/` is live, so work in progress elsewhere in the repo never reaches visitors. To release: run
+`tools/release.sh`, commit, push; Netlify redeploys in about 20 seconds.
