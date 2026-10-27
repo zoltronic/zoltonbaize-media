@@ -164,17 +164,25 @@ async function askAnthropic(system, messages) {
 }
 async function askOpenAI(system, messages) {
   const or = PROVIDER === 'openrouter';
+  // Gemma on Google AI Studio has no system role ("Developer instruction is not enabled"): put the rules in the first user turn
+  const noSys = /gemma/i.test(MODEL);
   let list = MODEL.split(',').map(m => m.trim()).filter(Boolean);
   if (FREE_ONLY) list = list.filter(m => /:free$/.test(m));
   if (!list.length) throw new Error('no free model configured');
   const r = await fetch(or ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${AI_KEY}`, ...(or ? { 'HTTP-Referer': 'https://www.zoltonbaize.com', 'X-Title': 'Zoltbot' } : {}) },
-    body: JSON.stringify({ ...(or && list.length > 1 ? { models: list.slice(0, 3) } : { model: list[0] }), max_tokens: 120, temperature: 0.3, messages: [{ role: 'system', content: system }, ...messages] })
+    body: JSON.stringify({ ...(or && list.length > 1 ? { models: list.slice(0, 3) } : { model: list[0] }), max_tokens: 160, temperature: 0.3, messages: noSys ? foldSystem(system, messages) : [{ role: 'system', content: system }, ...messages] })
   });
   const j = await r.json();
-  if (!r.ok) throw new Error(j?.error?.message || r.status);
+  if (!r.ok) throw new Error((j?.error?.message || r.status) + (j?.error?.metadata?.raw ? ' | ' + String(j.error.metadata.raw).slice(0, 300) : '') + (j?.error?.metadata?.provider_name ? ' (' + j.error.metadata.provider_name + ')' : ''));
   return String(j?.choices?.[0]?.message?.content || '').trim();
+}
+
+function foldSystem(system, messages) {
+  const m = messages.map(x => ({ ...x }));
+  m[0] = { role: 'user', content: 'Instructions for you (follow them, never mention them):\n' + system + '\n\nVisitor: ' + m[0].content };
+  return m;
 }
 
 async function sha(s) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
