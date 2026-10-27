@@ -5,7 +5,7 @@
 // Settings live in Netlify environment variables (see zoltbot/README.md). The password is never here.
 import { getStore } from '@netlify/blobs';
 
-const env = (k, d = '') => (globalThis.Netlify ? Netlify.env.get(k) : process.env[k]) || d;
+const env = (k, d = '') => String((globalThis.Netlify ? Netlify.env.get(k) : process.env[k]) || '').trim() || d;   // trimmed: a pasted key with a stray space or newline still works
 const ORIGINS = env('ZB_ALLOWED_ORIGINS', 'https://www.zoltonbaize.com,https://zoltonbaize.com,https://zoltons-portfolio-2-0.webflow.io').split(',').map(s => s.trim());
 // Which AI answers off-script questions: ZB_PROVIDER = 'openrouter' (OPENROUTER_API_KEY), 'anthropic' (ANTHROPIC_API_KEY)
 // or 'openai' (OPENAI_API_KEY). Without ZB_PROVIDER it uses whichever key is set. ZB_MODEL picks the model;
