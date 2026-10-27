@@ -104,7 +104,8 @@ export default async (req, context) => {
     const contact = /contact/i.test(clean(body.page, 60)), ASK = contact ? 'Send Zolton a message' : 'Request access';
     if (!AI_KEY) return json({ reply: "Good question. I don't know that one, but I can pass it to Zolton.", chips: [ASK] }, 200, origin);
     const usedKey = `chat:${today()}:${visitor}`, used = +(await limits.get(usedKey)) || 0;
-    if (!(await bump(limits, usedKey, PER_VISITOR_CHATS)) || !(await bump(limits, `chat:${today()}:all`, DAILY_CHATS)))
+    const allKey = `chat:${today()}:all`, usedAll = +(await limits.get(allKey)) || 0;
+    if (used >= PER_VISITOR_CHATS || usedAll >= DAILY_CHATS)
       return json({ reply: "That's a great one for Zolton himself. Want me to pass it on? I can also tell you about his work.", chips: [ASK, 'What does he work on?'], left: 0 }, 200, origin);
     const left = Math.max(0, PER_VISITOR_CHATS - used - 1);   // AI replies left for this visitor today, after this one
     const steer = left <= 0 ? '\nThis is your last free-form answer today: answer, then warmly offer to pass anything else to Zolton.'
@@ -121,6 +122,7 @@ export default async (req, context) => {
     try {
       const sys = SYSTEM + `\n\nThe visitor is on: ${contact ? 'a contact section (' + clean(body.page, 60) + ')' : 'a password page' + (body.page ? ' (' + clean(body.page, 60) + ')' : '')}.` + steer;
       const reply = PROVIDER === 'anthropic' ? await askAnthropic(sys, messages) : await askOpenAI(sys, messages);   // OpenRouter speaks OpenAI's format
+      await Promise.all([limits.set(usedKey, String(used + 1)), limits.set(allKey, String(usedAll + 1))]);   // only answered questions count
       return json({ reply: reply || "Good question. I don't know that one, but I can pass it to Zolton.", chips: left <= 2 ? [ASK, 'Tell Zolton about the role'] : [ASK, 'Who is Zolton?'], left }, 200, origin);
     } catch (e) {
       console.error('model error', e.message);
@@ -169,10 +171,21 @@ async function askOpenAI(system, messages) {
   let list = MODEL.split(',').map(m => m.trim()).filter(Boolean);
   if (FREE_ONLY) list = list.filter(m => /:free$/.test(m));
   if (!list.length) throw new Error('no free model configured');
+  // Free models share capacity with everyone and are sometimes rate-limited upstream: try each one, then once more after a beat
+  const tries = or ? [...list, ...list].slice(0, 4) : [list[0]];
+  let last;
+  for (let i = 0; i < tries.length; i++) {
+    if (i === list.length) await new Promise(r => setTimeout(r, 1200));
+    try { return await askOnce(or, noSys, tries[i], system, messages); } catch (err) { last = err; if (!/rate|429|temporar|overload|unavailable|503|502/i.test(err.message)) throw err; }
+  }
+  throw last;
+}
+
+async function askOnce(or, noSys, model, system, messages) {
   const r = await fetch(or ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${AI_KEY}`, ...(or ? { 'HTTP-Referer': 'https://www.zoltonbaize.com', 'X-Title': 'Zoltbot' } : {}) },
-    body: JSON.stringify({ ...(or && list.length > 1 ? { models: list.slice(0, 3) } : { model: list[0] }), max_tokens: 160, temperature: 0.3, messages: noSys ? foldSystem(system, messages) : [{ role: 'system', content: system }, ...messages] })
+    body: JSON.stringify({ model, max_tokens: 160, temperature: 0.3, messages: noSys ? foldSystem(system, messages) : [{ role: 'system', content: system }, ...messages] })
   });
   const j = await r.json();
   if (!r.ok) throw new Error((j?.error?.message || r.status) + (j?.error?.metadata?.raw ? ' | ' + String(j.error.metadata.raw).slice(0, 300) : '') + (j?.error?.metadata?.provider_name ? ' (' + j.error.metadata.provider_name + ')' : ''));
