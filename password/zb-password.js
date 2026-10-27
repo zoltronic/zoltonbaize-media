@@ -33,7 +33,9 @@
   // addressed to the email already on the page, so nothing they write is lost and nothing says "preview".
   const PREVIEW_HOST = /\.webflow\.io$/.test(location.hostname);
   const mailEl = document.querySelector('a[href^="mailto:"]');
-  const MAILTO = CONTACT && !PREVIEW_HOST && mailEl ? mailEl.getAttribute('href').replace(/^mailto:/, '').split('?')[0] : '';
+  // Where messages go: window.ZB_MAILTO (set once in the site-wide Zoltbot loader) or the page's own email link.
+  // Every page (Work, About, password pages) hands the finished message to the visitor's email app, so it lands in Zolton's inbox.
+  const MAILTO = PREVIEW_HOST ? '' : (window.ZB_MAILTO || (mailEl ? mailEl.getAttribute('href').replace(/^mailto:/, '').split('?')[0] : ''));
   const hasSky = !CONTACT && !!(window.customElements && customElements.get('zb-sky'));
   // Touch devices: the sky draws its glass in WebGL a beat behind native scrolling, so the card's glass would trail its text.
   // There the card and chat use CSS glass instead, which is part of the element and scrolls with it.
@@ -590,8 +592,10 @@
           }
         }
         if (MAILTO) {
-          const p = pending, body = 'Hi Zolton,\n\n' + p.about + (p.details ? '\n\n' + p.details : '') + (p.wantsToSee ? '\n\n' + p.wantsToSee : '') + '\n\n' + p.name + (p.page === 'Role' ? '' : '\n' + p.role + ', ' + p.company) + '\n' + p.email;
-          location.href = 'mailto:' + MAILTO + '?subject=' + encodeURIComponent('Hello from ' + p.name + (p.company ? ' (' + p.company + ')' : '')) + '&body=' + encodeURIComponent(body);
+          const p = pending, access = !CONTACT;   // password pages: an access request for that case study
+          const body = 'Hi Zolton,\n\n' + (access ? 'I’d like the password for ' + (PAGE || 'your case study') + '.\n\n' : '') + p.about + (p.details ? '\n\n' + p.details : '') + (p.wantsToSee ? '\n\n' + (access ? 'Hoping to see: ' : '') + p.wantsToSee : '') + '\n\n' + p.name + (p.page === 'Role' ? '' : '\n' + p.role + ', ' + p.company) + '\n' + p.email;
+          const subject = access ? 'Password request' + (PAGE ? ' for ' + PAGE : '') + ' from ' + p.name : 'Hello from ' + p.name + (p.company ? ' (' + p.company + ')' : '');
+          location.href = 'mailto:' + MAILTO + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
           pending = null; bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.4;
           say('I’ve opened an email to Zolton with that filled in. Just hit send. If nothing opened, write to ' + MAILTO + '.', 'bot');
           setChips(['What does he work on?']); return true;
