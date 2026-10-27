@@ -301,7 +301,7 @@
         return [innerWidth / 2 - s / 2, Math.max(navB + 8, (navB + top) / 2 - s * 0.5) - (top - hb.top) * 0];
       }
       // his centre: clear of the headline, in the open sky on the right, leaving room for his speech bubble
-      const mid = Math.min(Math.max(hb.right + s * k * 0.6, r.left + r.width * 0.66), innerWidth - s * k * 0.5 - 210);
+      const mid = Math.min(Math.max(hb.right + s * k * 0.78, r.left + r.width * 0.68), innerWidth - s * k * 0.5 - 210);
       return [mid - s / 2, hb.top + hb.height / 2 - s / 2 - s * 0.08];
     }
     function heroScale(mobile) { const v = window.ZB_BOT_HERO_SCALE; return v != null && isFinite(v) ? +v : (mobile ? 1.25 : 1.3); }
