@@ -1,0 +1,33 @@
+# Zolton Baize
+
+> Senior product designer and creative technologist. Product design, motion design, 3D for the web and design systems, working AI-native: prototyping in code and using AI agents in the design process. Designing professionally since 2004.
+
+Zolton Baize designs digital products where product, motion and AI meet. His work spans enterprise and B2B workflows, financial services, developer tools and consumer apps. He is open to senior product design roles.
+
+## Experience
+
+- Wells Fargo: Senior Product Designer on the Premiere design team. On Wire Transfers (Payments and Money Transfer) he helped deliver the move to React-based components and the design system. He built a library of static and animated assets for the wider design organization, shipped motion such as a FICO score gauge and a confirmation animation, and set up a Lottie pipeline that fixed animation export problems before developer handoff.
+- Google: instructional illustration for Google Glass, which led to work with the X team explaining concepts to engineers.
+- Apple Retail: a digital lanyard concept built from a disassembled iPod touch.
+- Best Buy: in-store signage that made deal math simple; his showroom changes were adopted across stores.
+- Also: Zelle, FITLAB. Studied at Academy of Art University and General Assembly.
+
+## Skills and tools
+
+- Product design, UX and UI, motion design and animation, 3D for the web, design systems, visual design and illustration, prototyping in code, AI agent workflows.
+- Figma, Adobe Creative Cloud (After Effects, Illustrator, Photoshop), Lottie, three.js, Spline, Webflow, Claude Code, ComfyUI.
+
+## Selected work (case studies are password protected; ask Zolton for access)
+
+- [Bringing Gold to Wells Fargo](https://www.zoltonbaize.com/gold): motion, material and the case for rendering it in 3D.
+- [A Teaching Machine](https://www.zoltonbaize.com/atm): an ATM experience that guides people through its hardest moments.
+- [Drawing One Cohesive System](https://www.zoltonbaize.com/iconography): an icon system; grids, rules and the icons that fill the gaps.
+
+## Pages
+
+- [Work](https://www.zoltonbaize.com/): selected work, experience and contact.
+- [About](https://www.zoltonbaize.com/about): background, approach and how to get in touch.
+
+## About this site
+
+Built in Webflow with custom real-time 3D (three.js): the sky, the sea of clouds and Zoltbot, a small robot that answers questions and passes messages to Zolton.
