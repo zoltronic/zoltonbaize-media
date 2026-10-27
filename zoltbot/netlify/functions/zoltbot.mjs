@@ -174,7 +174,7 @@ async function askOpenAI(system, messages) {
   let last; const t0 = Date.now();
   for (let i = 0; i < tries.length && Date.now() - t0 < 7000; i++) {   // stay well inside the function's time limit
     if (i === list.length) await new Promise(r => setTimeout(r, 1200));
-    try { return await askOnce(or, /gemma/i.test(tries[i]), tries[i], system, messages); } catch (err) { last = err; console.error('model miss', tries[i], String(err.message).slice(0, 240)); if (!/rate|429|temporar|overload|unavailable|503|502|abort|timeout|404|endpoints|guardrail/i.test(err.message)) throw err; }
+    try { return await askOnce(or, /gemma/i.test(tries[i]), tries[i], system, messages); } catch (err) { last = err; console.error('model miss', tries[i], String(err.message).slice(0, 240)); if (!/rate|429|temporar|overload|unavailable|503|502|abort|timeout|404|endpoints|guardrail|empty reply/i.test(err.message)) throw err; }
   }
   throw last;
 }
@@ -184,11 +184,14 @@ async function askOnce(or, noSys, model, system, messages) {
   const r = await fetch(or ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions', {
     method: 'POST', signal: AbortSignal.timeout(6000),
     headers: { 'content-type': 'application/json', authorization: `Bearer ${AI_KEY}`, ...(or ? { 'HTTP-Referer': 'https://www.zoltonbaize.com', 'X-Title': 'Zoltbot' } : {}) },
-    body: JSON.stringify({ model, max_tokens: 220, ...(or ? { reasoning: { effort: 'low', exclude: true } } : {}), temperature: 0.3, messages: noSys ? foldSystem(system, messages) : [{ role: 'system', content: system }, ...messages] })
+    body: JSON.stringify({ model, max_tokens: 400, ...(or ? { reasoning: { enabled: false } } : {}), temperature: 0.3, messages: noSys ? foldSystem(system, messages) : [{ role: 'system', content: system }, ...messages] })
   });
   const j = await r.json();
   if (!r.ok) throw new Error((j?.error?.message || r.status) + (j?.error?.metadata?.raw ? ' | ' + String(j.error.metadata.raw).slice(0, 300) : '') + (j?.error?.metadata?.provider_name ? ' (' + j.error.metadata.provider_name + ')' : ''));
-  return String(j?.choices?.[0]?.message?.content || '').trim();
+  const out = String(j?.choices?.[0]?.message?.content || '').trim();
+  console.log('model', model, '->', j?.provider || '', j?.choices?.[0]?.finish_reason || '', out.length + ' chars');
+  if (!out) throw new Error('empty reply (' + (j?.choices?.[0]?.finish_reason || '?') + ')');
+  return out;
 }
 
 function foldSystem(system, messages) {
