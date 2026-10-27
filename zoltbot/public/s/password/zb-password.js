@@ -107,7 +107,8 @@
   :root.zb-night, .zb-night body { --_zb-mode---mode--ink: #EAF6FD; --_zb-mode---mode--muted: #B3D3E5; --_zb-mode---mode--accent: #5FDBFF; --_zb-mode---mode--live: #00E0B8; --_zb-mode---mode--glass-bg: rgba(10,28,48,.58); --_zb-mode---mode--glass-border: rgba(160,220,250,.22); --_zb-mode---mode--hair: rgba(160,220,250,.16); --_zb-mode---mode--btn-primary-bg: #00E0B8; --_zb-mode---mode--btn-primary-ink: #03231D; --_zb-mode---mode--btn-secondary-bg: rgba(160,205,240,.13); --_zb-mode---mode--ghost-wash: rgba(0,224,184,.14); --_zb-mode---mode--danger-bg: #FF8474; --_zb-mode---mode--danger-ink: #2B0904; --_zb-mode---mode--liquid-bg: rgba(10,28,48,.42); --_zb-mode---mode--mark: #EAF6FD; --_zb-mode---mode--field-bg: rgba(3,15,26,.5); --_zb-mode---mode--btn-secondary-border: rgba(180,220,248,.26); }
   .zb-pw-dock.zb-waiting { pointer-events: none; }
   .zb-pw-dock.zb-hero-wait { opacity: 0; pointer-events: none; }
-  .zb-pw-dock.zb-in-hero .zb-pw-bubble { left: 0; right: 0; top: -9%; margin: 0 auto; width: max-content; white-space: nowrap; border-radius: 18px; transform-origin: 50% 100%; }
+  .zb-pw-dock.zb-in-hero .zb-pw-bubble { left: auto; right: 84%; top: 16%; width: max-content; white-space: nowrap; border-radius: 18px 18px 6px 18px; transform-origin: 100% 100%; }
+  @media (max-width: 819px) { .zb-pw-dock.zb-in-hero .zb-pw-bubble { left: 0; right: 0; top: auto; bottom: -4%; margin: 0 auto; border-radius: 18px; transform-origin: 50% 0; } }
   @media (max-width: 819px) { .zb-pw-dock.zb-late { width: 190px; height: 190px; } .zb-pw-dock.zb-late .zb-pw-bubble { left: 0; right: 0; top: -6%; margin: 0 auto; width: max-content; white-space: nowrap; border-radius: 18px; transform-origin: 50% 100%; } }
   /* light mode: a white robot on the near-white page needs an outline, so a sky-blue edge and glow */
   :root:not(.zb-night) .zb-pw-dock.zb-late canvas { filter: drop-shadow(0 0 1px rgba(40,130,210,.7)) drop-shadow(0 8px 20px rgba(90,170,240,.55)); }
@@ -276,7 +277,7 @@
       const s = dock.offsetWidth || 320, r = card.getBoundingClientRect(), mobile = innerWidth < 820;
       const chatUp = bus.chatOpen && chat && !chat.el.classList.contains('zb-peek');
       // chat open: he flies to the chat window and perches on its top edge, riding along with it (it's fixed, so it stays put on scroll)
-      if (chatUp) { const p = chat.el.getBoundingClientRect(), k = chatScale(mobile); return [p.left + p.width / 2 - s / 2, p.top - s * k * 0.3 - s / 2]; }
+      if (chatUp) { const p = chat.el.getBoundingClientRect(), k = chatScale(mobile); return [p.left + p.width / 2 - s / 2, p.top - s * k * 0.22 - s / 2]; }
       if (HERO && !bus.arrived) return heroSpot(s, mobile);
       if (LATE && !bus.arrived) return [innerWidth * 0.62 - s / 2, innerHeight + s * 0.55];   // waiting below the screen, in the clouds
       if (LATE && !(bus.chatOpen && chat && !chat.el.classList.contains('zb-peek'))) {   // landed: just past the end of the Contact heading, kept on screen
@@ -308,7 +309,7 @@
     }
     const num = (v, d) => (v != null && isFinite(v) ? +v : d) * (window.ZB_BOT_SIZE != null && isFinite(window.ZB_BOT_SIZE) ? +window.ZB_BOT_SIZE : 1);   // Draft Controls: Work · Zoltbot · His size
     function heroScale(mobile) { return num(window.ZB_BOT_HERO_SCALE, mobile ? 1.45 : 1.65); }
-    function chatScale(mobile) { return num(window.ZB_BOT_CHAT_SCALE, mobile ? 0.95 : 1.15); }
+    function chatScale(mobile) { return num(window.ZB_BOT_CHAT_SCALE, mobile ? 0.9 : 1.02); }
     function baseScale(mobile) { return CONTACT ? num(window.ZB_BOT_SCALE, mobile ? 1.1 : 1.25) : 1; }   // Work Contact panel, About
     let sc = 1;   // his scale: big in the hero, normal elsewhere, a speck at the start of the fly-in
     // Spring-damper flight: he accelerates toward his spot, overshoots a touch and settles.
