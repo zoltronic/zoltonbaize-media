@@ -33,7 +33,7 @@
   // addressed to the email already on the page, so nothing they write is lost and nothing says "preview".
   const PREVIEW_HOST = /\.webflow\.io$/.test(location.hostname);
   const mailEl = document.querySelector('a[href^="mailto:"]');
-  const MAILTO = !ENDPOINT && CONTACT && !PREVIEW_HOST && mailEl ? mailEl.getAttribute('href').replace(/^mailto:/, '').split('?')[0] : '';
+  const MAILTO = CONTACT && !PREVIEW_HOST && mailEl ? mailEl.getAttribute('href').replace(/^mailto:/, '').split('?')[0] : '';
   const hasSky = !CONTACT && !!(window.customElements && customElements.get('zb-sky'));
   // Touch devices: the sky draws its glass in WebGL a beat behind native scrolling, so the card's glass would trail its text.
   // There the card and chat use CSS glass instead, which is part of the element and scrolls with it.
@@ -581,7 +581,8 @@
       if (/^i’ll try again$/.test(t)) { say('Go for it. I’ll be right here if you need me.', 'bot'); setChips(['Request access']); if (input) input.focus(); return true; }
       if (/^i have a question$/.test(t)) { say('Ask away! I can tell you about Zolton, his work, or how to get access.', 'bot'); setChips(['What’s behind the password?', 'Who is Zolton?', 'Request access']); inp.focus(); return true; }
       if (/^yes,? send it$/.test(t) && pending) {
-        if (ENDPOINT) {
+        if (ENDPOINT && MAILTO) post({ type: 'request', request: pending, page: location.pathname }).catch(function () {});   // a copy for the log; the email is what reaches him
+        else if (ENDPOINT) {
           try { await post({ type: 'request', request: pending, page: location.pathname }); }
           catch (err) {
             if (err.status === 429) { pending = null; say('Looks like you already sent Zolton a request today, so he has it. Anything else I can help with?', 'bot'); setChips(['Who is Zolton?']); return true; }
