@@ -1,7 +1,7 @@
 <!-- Zoltbot: one component, every page. This loader (site footer) is the only place he's set up: the one script from
      Netlify (zoltbot.netlify.app/s/password/zb-password.js, released with tools/release.sh), the AI backend and the inbox.
-     Where he appears: any element with data-zb-bot (About's "Get in touch"), the Work page's Contact panel (late entrance,
-     added here), and the password pages. Buttons with data-zb-chat open his chat. -->
+     Where he appears: any element with data-zb-bot (About's "Get in touch"), the Work page (hero: he flies in on load and
+     follows you down to the Contact panel; both marked here), and the password pages. Buttons with data-zb-chat open his chat. -->
 <script>
 window.ZB_CHAT_ENDPOINT='https://zoltbot.netlify.app/api/zoltbot';
 window.ZB_MAILTO='hello@zoltonbaize.com';
@@ -10,10 +10,11 @@ window.ZB_MAILTO='hello@zoltonbaize.com';
   function load(){ if(window.__zbBotLoad)return; window.__zbBotLoad=1; var s=document.createElement('script'); s.src=SRC; s.defer=true; document.body.appendChild(s); }
   function init(){
     var host=document.querySelector('[data-zb-bot]');
-    if(!host&&document.querySelector('.work_card')){ var c=document.querySelector('#contact .cta_band')||document.getElementById('contact'); if(c){ c.setAttribute('data-zb-bot',''); c.setAttribute('data-zb-bot-late',''); host=c; } }
+    if(!host&&document.querySelector('.work_card')){ var c=document.querySelector('#contact .cta_band')||document.getElementById('contact'); if(c){ c.setAttribute('data-zb-bot',''); c.setAttribute('data-zb-bot-late',''); host=c; }
+      var h1=document.querySelector('h1'), hero=h1&&(h1.closest('section')||h1.parentElement); if(hero&&!document.querySelector('[data-zb-bot-hero]')) hero.setAttribute('data-zb-bot-hero',''); }
     var pw=document.querySelector('form[action*="wf_auth"], .utility-page-form');
     if(!host&&!pw)return;
-    if(host&&host.hasAttribute('data-zb-bot-late')&&window.IntersectionObserver){
+    if(host&&host.hasAttribute('data-zb-bot-late')&&!document.querySelector('[data-zb-bot-hero]')&&window.IntersectionObserver){
       var f=document.querySelector('footer, .page_footer')||host;
       new IntersectionObserver(function(e){ if(e[0].isIntersecting)load(); },{rootMargin:'600px'}).observe(f);
     } else load();

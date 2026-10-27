@@ -19,6 +19,10 @@
   // Late mode (Work page): Zoltbot waits below the screen, in the clouds, and only rushes up once someone has stayed at the
   // footer for a while ("sorry I'm late!"). Turn on with data-zb-bot-late on the host; the wait is window.ZB_BOT_LATE ms (default 6000).
   const LATE = CONTACT && host.hasAttribute('data-zb-bot-late');
+  // Hero mode (Work page): he's the star of the landing view first. On load he flies in from far off in the sky, growing as he
+  // comes, and settles beside the headline; at the footer he follows you down to the Contact panel. Mark the hero with data-zb-bot-hero.
+  const HERO_EL = LATE ? document.querySelector('[data-zb-bot-hero]') : null;
+  const HERO = !!HERO_EL;
   const form = CONTACT ? null : (document.querySelector('form[action*="wf_auth"]') || document.querySelector('.utility-page-form'));
   if (!form && !host) return;
   const wrap = CONTACT ? document.body : (form.closest('.utility-page-wrap') || document.body);
@@ -102,6 +106,7 @@
   /* Night: the site's dark-mode tokens (same values as the Webflow mode variables) */
   :root.zb-night, .zb-night body { --_zb-mode---mode--ink: #EAF6FD; --_zb-mode---mode--muted: #B3D3E5; --_zb-mode---mode--accent: #5FDBFF; --_zb-mode---mode--live: #00E0B8; --_zb-mode---mode--glass-bg: rgba(10,28,48,.58); --_zb-mode---mode--glass-border: rgba(160,220,250,.22); --_zb-mode---mode--hair: rgba(160,220,250,.16); --_zb-mode---mode--btn-primary-bg: #00E0B8; --_zb-mode---mode--btn-primary-ink: #03231D; --_zb-mode---mode--btn-secondary-bg: rgba(160,205,240,.13); --_zb-mode---mode--ghost-wash: rgba(0,224,184,.14); --_zb-mode---mode--danger-bg: #FF8474; --_zb-mode---mode--danger-ink: #2B0904; --_zb-mode---mode--liquid-bg: rgba(10,28,48,.42); --_zb-mode---mode--mark: #EAF6FD; --_zb-mode---mode--field-bg: rgba(3,15,26,.5); --_zb-mode---mode--btn-secondary-border: rgba(180,220,248,.26); }
   .zb-pw-dock.zb-waiting { pointer-events: none; }
+  .zb-pw-dock.zb-hero-wait { opacity: 0; pointer-events: none; }
   @media (max-width: 819px) { .zb-pw-dock.zb-late { width: 190px; height: 190px; } .zb-pw-dock.zb-late .zb-pw-bubble { left: 0; right: 0; top: -6%; margin: 0 auto; width: max-content; white-space: nowrap; border-radius: 18px; transform-origin: 50% 100%; } }
   /* light mode: a white robot on the near-white page needs an outline, so a sky-blue edge and glow */
   :root:not(.zb-night) .zb-pw-dock.zb-late canvas { filter: drop-shadow(0 0 1px rgba(40,130,210,.7)) drop-shadow(0 8px 20px rgba(90,170,240,.55)); }
@@ -268,6 +273,8 @@
     let cx = null, cy = null, last = performance.now();
     function anchor() {
       const s = dock.offsetWidth || 320, r = card.getBoundingClientRect(), mobile = innerWidth < 820;
+      const chatUp = bus.chatOpen && chat && !chat.el.classList.contains('zb-peek');
+      if (HERO && !bus.arrived && !chatUp) return heroSpot(s, mobile);
       if (LATE && !bus.arrived) return [innerWidth * 0.62 - s / 2, innerHeight + s * 0.55];   // waiting below the screen, in the clouds
       if (LATE && !(bus.chatOpen && chat && !chat.el.classList.contains('zb-peek'))) {   // landed: just past the end of the Contact heading, kept on screen
         // where the text really ends (the heading box is full width): beside the heading if there's room, else beside the line under it
@@ -284,6 +291,21 @@
       if (mobile) return [r.left + r.width / 2 - s / 2, r.top - s * (document.documentElement.classList.contains('zb-kb') ? 0.84 : 0.7)];   // keyboard up: hover just above the compact card
       return [r.right - s * 0.56, r.top - s * 0.44];   // tucked in over the card's top-right corner, clear of the nav
     }
+    // Hero spot: in the open sky beside the headline (desktop), or centred above it (phones). s is his unscaled size.
+    function heroSpot(s, mobile) {
+      const h1 = HERO_EL.querySelector('h1'), rg = document.createRange(); if (h1) rg.selectNodeContents(h1);
+      const hb = h1 ? rg.getBoundingClientRect() : HERO_EL.getBoundingClientRect(), r = HERO_EL.getBoundingClientRect(), k = heroScale(mobile);
+      if (mobile) {
+        const nav = document.querySelector('.nav, nav, [class*="nav_"]'), navB = nav ? Math.max(0, nav.getBoundingClientRect().bottom) : 70;
+        const first = HERO_EL.querySelector('.label-mono, h1') || h1, top = first ? first.getBoundingClientRect().top : hb.top;
+        return [innerWidth / 2 - s / 2, Math.max(navB + 8, (navB + top) / 2 - s * 0.5) - (top - hb.top) * 0];
+      }
+      // his centre: clear of the headline, in the open sky on the right, leaving room for his speech bubble
+      const mid = Math.min(Math.max(hb.right + s * k * 0.78, r.left + r.width * 0.68), innerWidth - s * k * 0.5 - 210);
+      return [mid - s / 2, hb.top + hb.height / 2 - s / 2 - s * 0.08];
+    }
+    function heroScale(mobile) { const v = window.ZB_BOT_HERO_SCALE; return v != null && isFinite(v) ? +v : (mobile ? 1.25 : 1.3); }
+    let sc = 1;   // his scale: big in the hero, normal elsewhere, a speck at the start of the fly-in
     // Spring-damper flight: he accelerates toward his spot, overshoots a touch and settles.
     // Velocity and acceleration feed the 3D side (banking, thruster flame, exhaust that stays behind).
     let vx = 0, vy = 0;
@@ -291,6 +313,19 @@
     function step(now) {
       const total = Math.min(0.25, (now - last) / 1000); last = now;
       const [tx, ty] = anchor();
+      const mobileNow = innerWidth < 820, inHero = HERO && !bus.arrived && !(bus.chatOpen && chat && !chat.el.classList.contains('zb-peek'));
+      const tS = inHero ? heroScale(mobileNow) : 1;
+      if (HERO && bus.flyT0 != null) {   // the fly-in from the distance: a scripted arc that ends exactly on his hero spot
+        const D = 2600, u = Math.min(1, (now - bus.flyT0) / D), e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+        const sx0 = innerWidth * (mobileNow ? 0.78 : 0.86) - (dock.offsetWidth || 320) / 2, sy0 = innerHeight * 0.16 - (dock.offsetWidth || 320) / 2;
+        const nx = sx0 + (tx - sx0) * e, ny = sy0 + (ty - sy0) * e - Math.sin(Math.PI * e) * innerHeight * 0.08;
+        if (cx !== null && total > 0) { vx = (nx - cx) / total; vy = (ny - cy) / total; if (window.__zbBus) { const b = window.__zbBus; b.vx = vx * 0.6; b.vy = vy * 0.6; b.ax = 0; b.ay = 0; b.mdx += nx - cx; b.mdy += ny - cy; } }
+        cx = nx; cy = ny; sc = 0.035 + (tS - 0.035) * Math.pow(e, 1.5);
+        if (u >= 1) { bus.flyT0 = null; vx = vy = 0; bus.flyDone = true; if (bus.onFlyDone) bus.onFlyDone(); }
+        dock.style.transform = 'translate3d(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px,0) scale(' + sc.toFixed(3) + ')';
+        requestAnimationFrame(step); return;
+      }
+      sc += (tS - sc) * Math.min(1, total * 5);
       if (bus.teleport) { cx = tx; cy = ty; vx = vy = 0; bus.teleport = false; }
       if (cx === null || reduce) { cx = tx; cy = ty; vx = vy = 0; }
       else {
@@ -304,7 +339,7 @@
         }
         if (window.__zbBus) { const b = window.__zbBus; b.vx = vx; b.vy = vy; b.ax = ax; b.ay = ay; b.mdx += sx; b.mdy += sy; }
       }
-      dock.style.transform = 'translate3d(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px,0)';
+      dock.style.transform = 'translate3d(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px,0)' + (Math.abs(sc - 1) > 0.002 ? ' scale(' + sc.toFixed(3) + ')' : '');
       requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
@@ -312,7 +347,7 @@
   let bubble = null;
   if (CHAT) {
     bubble = document.createElement('div'); bubble.className = 'zb-pw-bubble zb-glass';
-    bubble.textContent = LATE ? 'Sorry I’m late! Want to chat?' : CONTACT ? 'Say hi? Have a question?' : 'Need access? Have a question?';
+    bubble.textContent = HERO ? 'Hi, I’m Zoltbot! Want to chat?' : LATE ? 'Sorry I’m late! Want to chat?' : CONTACT ? 'Say hi? Have a question?' : 'Need access? Have a question?';
     dock.appendChild(bubble);
     if (!LATE) setTimeout(() => bubble.classList.add('on'), 1400);
   }
@@ -322,15 +357,32 @@
   // ---------- Late arrival: stay at the footer ZB_BOT_LATE ms and he flies up out of the clouds ----------
   if (LATE) {
     dock.classList.add('zb-late');
-    bus.arrived = false; dock.classList.add('zb-waiting'); dock.setAttribute('aria-hidden', 'true'); dock.tabIndex = -1;
+    bus.arrived = false;
+    // Hero fly-in: hidden until the splash is gone, then he comes in from far off in the sky
+    function startFly() {
+      dock.classList.remove('zb-hero-wait');
+      if (reduce) { bus.flyDone = true; if (bus.onFlyDone) bus.onFlyDone(); return; }
+      bus.flyDone = false; bus.flyT0 = performance.now();
+    }
+    if (HERO) {
+      bus.onFlyDone = () => { bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 2; bus.hopReq = true; if (bubble) setTimeout(() => { if (!bus.chatOpen && !bus.arrived) bubble.classList.add('on'); }, 500); };
+      dock.classList.add('zb-hero-wait');
+      const splashGone = () => !document.getElementById('zb-splash') && !document.documentElement.classList.contains('zb-splash-pending');
+      const t0 = performance.now(), poll = () => { if (splashGone() || performance.now() - t0 > 9000) setTimeout(startFly, 250); else setTimeout(poll, 120); };
+      poll();
+    }
+    if (!HERO) { dock.classList.add('zb-waiting'); dock.setAttribute('aria-hidden', 'true'); dock.tabIndex = -1; }
     const foot = document.querySelector('footer, .page_footer') || host;
     let timer = 0;
     const arrive = () => {
       if (bus.arrived) return;
       bus.arrived = true; dock.classList.remove('zb-waiting'); dock.removeAttribute('aria-hidden'); if (CHAT) dock.tabIndex = 0;
-      const s = dock.offsetWidth || 320, puff = document.createElement('div'); puff.className = 'zb-puff';
-      puff.style.left = (innerWidth * 0.62) + 'px'; puff.style.top = (innerHeight - 30) + 'px';
-      document.body.appendChild(puff); requestAnimationFrame(() => puff.classList.add('go')); setTimeout(() => puff.remove(), 1600);
+      if (HERO) { if (bubble) bubble.textContent = 'Caught up with you! Want to chat?'; }   // he follows you down from the hero
+      else {
+        const puff = document.createElement('div'); puff.className = 'zb-puff';
+        puff.style.left = (innerWidth * 0.62) + 'px'; puff.style.top = (innerHeight - 30) + 'px';
+        document.body.appendChild(puff); requestAnimationFrame(() => puff.classList.add('go')); setTimeout(() => puff.remove(), 1600);
+      }
       bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 2; bus.hopReq = true;
       if (bubble) setTimeout(() => { if (!bus.chatOpen) bubble.classList.add('on'); }, 900);
     };
@@ -343,6 +395,7 @@
     io.observe(foot);
     // replay (tuning panel): back into the clouds, and the wait starts again if the footer is on screen
     window.zbBotReplay = () => {
+      if (HERO) { bus.arrived = false; if (bubble) { bubble.classList.remove('on'); bubble.textContent = 'Hi, I’m Zoltbot! Want to chat?'; } if (chat && bus.chatOpen && chat.close) chat.close(); startFly(); clearTimeout(timer); io.unobserve(foot); io.observe(foot); return; }
       bus.arrived = false; bus.teleport = true; dock.classList.add('zb-waiting'); dock.tabIndex = -1; if (bubble) bubble.classList.remove('on');
       if (chat && bus.chatOpen && chat.close) chat.close();
       clearTimeout(timer); io.unobserve(foot); io.observe(foot);
