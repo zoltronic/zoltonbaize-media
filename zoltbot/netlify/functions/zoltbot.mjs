@@ -174,7 +174,7 @@ async function askOpenAI(system, messages) {
   let last; const t0 = Date.now();
   for (let i = 0; i < tries.length && Date.now() - t0 < 7000; i++) {   // stay well inside the function's time limit
     if (i === list.length) await new Promise(r => setTimeout(r, 1200));
-    try { return await askOnce(or, /gemma/i.test(tries[i]), tries[i], system, messages); } catch (err) { last = err; if (!/rate|429|temporar|overload|unavailable|503|502|abort|timeout|404|no endpoints/i.test(err.message)) throw err; }
+    try { return await askOnce(or, /gemma/i.test(tries[i]), tries[i], system, messages); } catch (err) { last = err; console.error('model miss', tries[i], String(err.message).slice(0, 240)); if (!/rate|429|temporar|overload|unavailable|503|502|abort|timeout|404|endpoints|guardrail/i.test(err.message)) throw err; }
   }
   throw last;
 }
