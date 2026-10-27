@@ -300,8 +300,9 @@
         const first = HERO_EL.querySelector('.label-mono, h1') || h1, top = first ? first.getBoundingClientRect().top : hb.top;
         return [innerWidth / 2 - s / 2, Math.max(navB + 8, (navB + top) / 2 - s * 0.5) - (top - hb.top) * 0];
       }
-      const x = Math.min(Math.max(hb.right + s * k * 0.15, r.left + r.width * 0.6), innerWidth - s * (0.5 + k * 0.55)) - s * (1 - k) * 0;
-      return [x, hb.top + hb.height / 2 - s / 2 - s * 0.08];
+      // his centre: clear of the headline, in the open sky on the right, leaving room for his speech bubble
+      const mid = Math.min(Math.max(hb.right + s * k * 0.6, r.left + r.width * 0.66), innerWidth - s * k * 0.5 - 210);
+      return [mid - s / 2, hb.top + hb.height / 2 - s / 2 - s * 0.08];
     }
     function heroScale(mobile) { const v = window.ZB_BOT_HERO_SCALE; return v != null && isFinite(v) ? +v : (mobile ? 1.25 : 1.3); }
     let sc = 1;   // his scale: big in the hero, normal elsewhere, a speck at the start of the fly-in
@@ -316,7 +317,7 @@
       const tS = inHero ? heroScale(mobileNow) : 1;
       if (HERO && bus.flyT0 != null) {   // the fly-in from the distance: a scripted arc that ends exactly on his hero spot
         const D = 2600, u = Math.min(1, (now - bus.flyT0) / D), e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
-        const sx0 = innerWidth * (mobileNow ? 0.78 : 0.86) - (dock.offsetWidth || 320) / 2, sy0 = innerHeight * 0.06 - (dock.offsetWidth || 320) / 2;
+        const sx0 = innerWidth * (mobileNow ? 0.78 : 0.86) - (dock.offsetWidth || 320) / 2, sy0 = innerHeight * 0.16 - (dock.offsetWidth || 320) / 2;
         const nx = sx0 + (tx - sx0) * e, ny = sy0 + (ty - sy0) * e - Math.sin(Math.PI * e) * innerHeight * 0.08;
         if (cx !== null && total > 0) { vx = (nx - cx) / total; vy = (ny - cy) / total; if (window.__zbBus) { const b = window.__zbBus; b.vx = vx * 0.6; b.vy = vy * 0.6; b.ax = 0; b.ay = 0; b.mdx += nx - cx; b.mdy += ny - cy; } }
         cx = nx; cy = ny; sc = 0.035 + (tS - 0.035) * Math.pow(e, 1.5);
