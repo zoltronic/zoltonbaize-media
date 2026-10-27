@@ -129,11 +129,14 @@
     // Zoltbot: seconds at the footer before he flies up out of the clouds
     botLate: 6,
     // Zoltbot: free-form AI answers per visitor per day before he loops back to the scripted questions (the server caps it too)
-    aiReplies: 5
+    aiReplies: 5,
+    // Zoltbot: overall size (1 = his default sizes in the hero, at Contact and on the chat)
+    botSize: 1
   };
   var SEA = {};
   (function () { for (var k in SEA_DEFAULTS) SEA[k] = SEA_DEFAULTS[k]; })();   // a saved draft (Draft Controls) is applied on top, preview / ?tune only
   window.ZB_AI_REPLIES = SEA.aiReplies;
+  window.ZB_BOT_SIZE = SEA.botSize;
   window.ZB_BOT_LATE = SEA.botLate * 1000;   // read by Zoltbot (password/zb-password.js, late mode)
   var sea = { canvas: null, ok: false, night: 0, nightTo: 0, t0: performance.now(), raf: 0, scale: 0.6 };
 
@@ -334,7 +337,7 @@
     ['High clouds', true, [
       ['farBehind', 'Far clouds go behind horizon at (0 top · 1 landed)', 0, 1.5, .01], ['farParallax', 'Far clouds parallax (higher = sinks)', -.3, .9, .01],
       ['titleBehind', 'Title cloud goes behind horizon at', 0, 1.5, .01], ['titleParallax', 'Title cloud parallax', -.3, .9, .01]]],
-    ['Zoltbot', true, [['botLate', 'Seconds at the footer before he shows up', 0, 20, .5], ['aiReplies', 'AI answers per visitor per day, then back to the script', 0, 20, 1]], 'bot'],
+    ['Zoltbot', true, [['botLate', 'Seconds at the footer before he shows up', 0, 20, .5], ['aiReplies', 'AI answers per visitor per day, then back to the script', 0, 20, 1], ['botSize', 'His size (1 = default)', .5, 2, .05]], 'bot'],
     ['Fade to solid', true, [
       ['solidFrom', 'Fade starts at (0 top · 1 landed)', 0, 2, .01], ['solidTo', 'Fully faded at', 0, 2.5, .01],
       ['solidAmount', 'How solid (1 = one colour)', 0, 1, .01]]],
@@ -355,7 +358,7 @@
       ['haze', 'Haze', 0, .15, .002], ['quality', 'Quality', .5, 2, .05]]]
   ];
   function seaDraft() {
-    var change = function () { window.ZB_BOT_LATE = SEA.botLate * 1000; window.ZB_AI_REPLIES = SEA.aiReplies; seaApply(); run(); };
+    var change = function () { window.ZB_BOT_SIZE = SEA.botSize; window.ZB_BOT_LATE = SEA.botLate * 1000; window.ZB_AI_REPLIES = SEA.aiReplies; seaApply(); run(); };
     SEA_GROUPS.forEach(function (g, n) {
       var grp = { id: 'work-' + g[0].toLowerCase().replace(/[^a-z]+/g, '-'), title: 'Work · ' + g[0], open: g[1], rows: g[2], order: 20 + n,
         values: SEA, defaults: SEA_DEFAULTS, store: 'zbSeaTune', onChange: change };

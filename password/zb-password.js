@@ -275,7 +275,9 @@
     function anchor() {
       const s = dock.offsetWidth || 320, r = card.getBoundingClientRect(), mobile = innerWidth < 820;
       const chatUp = bus.chatOpen && chat && !chat.el.classList.contains('zb-peek');
-      if (HERO && !bus.arrived && !chatUp) return heroSpot(s, mobile);
+      // chat open: he flies to the chat window and perches on its top edge, riding along with it (it's fixed, so it stays put on scroll)
+      if (chatUp) { const p = chat.el.getBoundingClientRect(), k = chatScale(mobile); return [p.left + p.width / 2 - s / 2, p.top - s * k * 0.3 - s / 2]; }
+      if (HERO && !bus.arrived) return heroSpot(s, mobile);
       if (LATE && !bus.arrived) return [innerWidth * 0.62 - s / 2, innerHeight + s * 0.55];   // waiting below the screen, in the clouds
       if (LATE && !(bus.chatOpen && chat && !chat.el.classList.contains('zb-peek'))) {   // landed: just past the end of the Contact heading, kept on screen
         // where the text really ends (the heading box is full width): beside the heading if there's room, else beside the line under it
@@ -288,7 +290,6 @@
         if (hd.right + s * 0.75 <= room) return [hd.right - s * 0.12, hd.top + hd.height / 2 - s * 0.5];
         const q = pp || hd; return [Math.min(q.right + 24 - s * 0.22, room - s * 0.8), hd.bottom - s * 0.16];   // under the heading, right of the copy
       }
-      if (bus.chatOpen && chat && !chat.el.classList.contains('zb-peek')) { const p = chat.el.getBoundingClientRect(); return [p.left + p.width / 2 - s / 2, p.top - s * 0.74]; }
       if (mobile) return [r.left + r.width / 2 - s / 2, r.top - s * (document.documentElement.classList.contains('zb-kb') ? 0.84 : 0.7)];   // keyboard up: hover just above the compact card
       return [r.right - s * 0.56, r.top - s * 0.44];   // tucked in over the card's top-right corner, clear of the nav
     }
@@ -305,7 +306,10 @@
       const mid = Math.min(Math.max(hb.right + s * k * 0.78, r.left + r.width * 0.68), innerWidth - s * k * 0.62 - 24);   // bubble sits above him here
       return [mid - s / 2, hb.top + hb.height / 2 - s / 2 - s * 0.08];
     }
-    function heroScale(mobile) { const v = window.ZB_BOT_HERO_SCALE; return v != null && isFinite(v) ? +v : (mobile ? 1.25 : 1.3); }
+    const num = (v, d) => (v != null && isFinite(v) ? +v : d) * (window.ZB_BOT_SIZE != null && isFinite(window.ZB_BOT_SIZE) ? +window.ZB_BOT_SIZE : 1);   // Draft Controls: Work · Zoltbot · His size
+    function heroScale(mobile) { return num(window.ZB_BOT_HERO_SCALE, mobile ? 1.45 : 1.65); }
+    function chatScale(mobile) { return num(window.ZB_BOT_CHAT_SCALE, mobile ? 0.95 : 1.15); }
+    function baseScale(mobile) { return CONTACT ? num(window.ZB_BOT_SCALE, mobile ? 1.1 : 1.25) : 1; }   // Work Contact panel, About
     let sc = 1;   // his scale: big in the hero, normal elsewhere, a speck at the start of the fly-in
     // Spring-damper flight: he accelerates toward his spot, overshoots a touch and settles.
     // Velocity and acceleration feed the 3D side (banking, thruster flame, exhaust that stays behind).
@@ -315,7 +319,8 @@
       const total = Math.min(0.25, (now - last) / 1000); last = now;
       const [tx, ty] = anchor();
       const mobileNow = innerWidth < 820, inHero = HERO && !bus.arrived && !(bus.chatOpen && chat && !chat.el.classList.contains('zb-peek'));
-      const tS = inHero ? heroScale(mobileNow) : 1;
+      const chatNow = bus.chatOpen && chat && !chat.el.classList.contains('zb-peek');
+      const tS = chatNow ? chatScale(mobileNow) : inHero ? heroScale(mobileNow) : baseScale(mobileNow);
       if (inHero !== bus.inHeroCls) { bus.inHeroCls = inHero; dock.classList.toggle('zb-in-hero', inHero); }
       if (HERO && bus.flyT0 != null) {   // the fly-in from the distance: a scripted arc that ends exactly on his hero spot
         const D = 2600, u = Math.min(1, (now - bus.flyT0) / D), e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
