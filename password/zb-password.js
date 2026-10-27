@@ -108,7 +108,7 @@
   .zb-pw-dock.zb-waiting { pointer-events: none; }
   .zb-pw-dock.zb-hero-wait { opacity: 0; pointer-events: none; }
   .zb-pw-dock.zb-in-hero .zb-pw-bubble { left: auto; right: 84%; top: 16%; width: max-content; white-space: nowrap; border-radius: 18px 18px 6px 18px; transform-origin: 100% 100%; }
-  @media (max-width: 819px) { .zb-pw-dock.zb-late.zb-in-hero .zb-pw-bubble { left: 0; right: 0; top: auto; bottom: 4%; height: auto; margin: 0 auto; border-radius: 18px; transform-origin: 50% 0; } }
+  @media (max-width: 819px) { .zb-pw-dock.zb-late.zb-in-hero .zb-pw-bubble { left: 0; right: 0; top: -2%; bottom: auto; height: auto; margin: 0 auto; border-radius: 18px; transform-origin: 50% 100%; } }
   @media (max-width: 819px) { .zb-pw-dock.zb-late { width: 190px; height: 190px; } .zb-pw-dock.zb-late .zb-pw-bubble { left: 0; right: 0; top: -6%; margin: 0 auto; width: max-content; white-space: nowrap; border-radius: 18px; transform-origin: 50% 100%; } }
   /* light mode: a white robot on the near-white page needs an outline, so a sky-blue edge and glow */
   :root:not(.zb-night) .zb-pw-dock.zb-late canvas { filter: drop-shadow(0 0 1px rgba(40,130,210,.7)) drop-shadow(0 8px 20px rgba(90,170,240,.55)); }
@@ -309,7 +309,7 @@
       return [mid - s / 2, hb.top + hb.height / 2 - s / 2 - s * 0.08];
     }
     const num = (v, d) => (v != null && isFinite(v) ? +v : d) * (window.ZB_BOT_SIZE != null && isFinite(window.ZB_BOT_SIZE) ? +window.ZB_BOT_SIZE : 1);   // Draft Controls: Work · Zoltbot · His size
-    function heroScale(mobile) { return num(window.ZB_BOT_HERO_SCALE, mobile ? 1.45 : 1.65); }
+    function heroScale(mobile) { return num(window.ZB_BOT_HERO_SCALE, mobile ? 1.3 : 1.65); }
     function chatScale(mobile) { return num(window.ZB_BOT_CHAT_SCALE, mobile ? 0.9 : 1.02); }
     function baseScale(mobile) { return CONTACT ? num(window.ZB_BOT_SCALE, mobile ? 1.1 : 1.25) : 1; }   // Work Contact panel, About
     let sc = 1;   // his scale: big in the hero, normal elsewhere, a speck at the start of the fly-in
