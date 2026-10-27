@@ -15,8 +15,8 @@ const MODEL = env('ZB_MODEL', { openrouter: 'google/gemma-4-31b-it:free,google/g
 // OpenRouter free-only lock (on unless ZB_FREE_ONLY=false): only models ending in ':free' are ever requested, so the key can't be billed.
 const FREE_ONLY = PROVIDER === 'openrouter' && env('ZB_FREE_ONLY', 'true') !== 'false';
 const AI_KEY = { openrouter: env('OPENROUTER_API_KEY'), openai: env('OPENAI_API_KEY') }[PROVIDER] || env('ANTHROPIC_API_KEY');
-const PER_VISITOR_CHATS = +env('ZB_CHATS_PER_VISITOR_PER_DAY', '5');    // AI replies per visitor per day; after that he loops back to the script
-const DAILY_CHATS = +env('ZB_CHATS_PER_DAY', '300');            // whole-site cap, keeps the bill small
+const PER_VISITOR_CHATS = +env('ZB_CHATS_PER_VISITOR_PER_DAY', '100');    // AI replies per visitor per day; after that he loops back to the script
+const DAILY_CHATS = +env('ZB_CHATS_PER_DAY', '3000');            // whole-site cap, keeps the bill small
 const REQUESTS_PER_VISITOR = +env('ZB_REQUESTS_PER_VISITOR_PER_DAY', '1');
 
 // What Zoltbot may say. Edit these lines to change his facts; anything not here he can't claim.

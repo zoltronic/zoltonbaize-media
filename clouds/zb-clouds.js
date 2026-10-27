@@ -129,7 +129,7 @@
     // Zoltbot: seconds at the footer before he flies up out of the clouds
     botLate: 6,
     // Zoltbot: free-form AI answers per visitor per day before he loops back to the scripted questions (the server caps it too)
-    aiReplies: 5,
+    aiReplies: 100,
     // Zoltbot: overall size (1 = his default sizes in the hero, at Contact and on the chat)
     botSize: 1
   };
@@ -337,7 +337,7 @@
     ['High clouds', true, [
       ['farBehind', 'Far clouds go behind horizon at (0 top · 1 landed)', 0, 1.5, .01], ['farParallax', 'Far clouds parallax (higher = sinks)', -.3, .9, .01],
       ['titleBehind', 'Title cloud goes behind horizon at', 0, 1.5, .01], ['titleParallax', 'Title cloud parallax', -.3, .9, .01]]],
-    ['Zoltbot', true, [['botLate', 'Seconds at the footer before he shows up', 0, 20, .5], ['aiReplies', 'AI answers per visitor per day, then back to the script', 0, 20, 1], ['botSize', 'His size (1 = default)', .5, 2, .05]], 'bot'],
+    ['Zoltbot', true, [['botLate', 'Seconds at the footer before he shows up', 0, 20, .5], ['aiReplies', 'AI answers per visitor per day, then back to the script', 0, 200, 1], ['botSize', 'His size (1 = default)', .5, 2, .05]], 'bot'],
     ['Fade to solid', true, [
       ['solidFrom', 'Fade starts at (0 top · 1 landed)', 0, 2, .01], ['solidTo', 'Fully faded at', 0, 2.5, .01],
       ['solidAmount', 'How solid (1 = one colour)', 0, 1, .01]]],

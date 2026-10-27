@@ -537,8 +537,11 @@
     function place() {
       if (innerWidth < 820) return;
       if (CONTACT) {   // contact: a corner panel, bottom right, whatever the scroll
-        const W = el.offsetWidth || 340, h = Math.min(480, innerHeight - 240);
-        el.style.left = (innerWidth - 24 - W) + 'px'; el.style.top = (innerHeight - 24 - h) + 'px'; el.style.height = h + 'px'; return;
+        // sit above the light/dark button (bottom right) so it stays visible and clickable
+        const tg = document.querySelector('.theme_toggle'), tr = tg && tg.offsetParent !== null ? tg.getBoundingClientRect() : null;
+        const gap = tr && tr.right > innerWidth - 24 - (el.offsetWidth || 340) && tr.top > innerHeight * 0.5 ? innerHeight - tr.top + 14 : 24;
+        const W = el.offsetWidth || 340, h = Math.min(480, innerHeight - 216 - gap);
+        el.style.left = (innerWidth - 24 - W) + 'px'; el.style.top = (innerHeight - gap - h) + 'px'; el.style.height = h + 'px'; return;
       }
       const r = card.getBoundingClientRect(), W = el.offsetWidth || 340, M = 16, FOOT = 56;
       let left = r.right + 40;
@@ -591,9 +594,9 @@
         if (!MAILTO) say('In the live version I’ll answer this with AI. For this preview, try the buttons.', 'note');
         setChips(CONTACT ? [ASK, 'Who is Zolton?'] : ['Request access', 'What’s behind the password?']); return;
       }
-      // A few AI answers a day (window.ZB_AI_REPLIES, default 5, set in Draft Controls); the server has its own cap too.
+      // AI answers a day (window.ZB_AI_REPLIES, default 100, set in Draft Controls); the server has its own cap too.
       // As they run out he steers back to the script, and after the last one he only offers the scripted paths.
-      const max = window.ZB_AI_REPLIES != null && isFinite(window.ZB_AI_REPLIES) ? +window.ZB_AI_REPLIES : 5;
+      const max = window.ZB_AI_REPLIES != null && isFinite(window.ZB_AI_REPLIES) ? +window.ZB_AI_REPLIES : 100;
       const dayKey = 'zbAI:' + new Date().toISOString().slice(0, 10); let used = 0; try { used = +localStorage.getItem(dayKey) || 0; } catch (e) {}
       if (used >= max) {
         say('That’s a great one for Zolton himself. Want me to pass it on? I can also tell you about his work.', 'bot');
