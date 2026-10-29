@@ -102,7 +102,7 @@ export default async (req, context) => {
       ? `Access request for ${request.page || 'a protected page'}${request.pagePath ? ' (zoltonbaize.com' + request.pagePath + ')' : ''}\n` +
         `• Name: ${request.name}\n• Email: ${request.email}\n• Company: ${request.company || '—'}\n• Role: ${request.role || '—'}\n` +
         `• Found the site via: ${request.found || '—'}\n• Interested in: ${request.interest || '—'}\n• Requested: ${when}\n\nZoltbot did not share the password. Reply to send it if you'd like.`
-      : (request.kind === 'contact' ? 'Message' : `Access request${request.page ? ' for ' + request.page : ''}`) + `: ${request.name}, ${request.role} at ${request.company}, about ${request.about}. Email: ${request.email}.` + (request.wantsToSee ? (request.kind === 'contact' ? ` Also: ${request.wantsToSee}.` : ` Wants to see: ${request.wantsToSee}.`) : '') + (request.details ? `\nRole details:\n${request.details}` : '') + `\nSent ${when}.`;
+      : (request.kind === 'contact' ? 'Message' : `Access request${request.page ? ' for ' + request.page : ''}`) + `: ${request.name}, ${request.role} at ${request.company}, about ${request.about}. Email: ${request.email}.` + (request.wantsToSee ? (request.kind === 'contact' ? ` Also: ${request.wantsToSee}.` : ` Wants to see: ${request.wantsToSee}.`) : '') + (request.details ? `\nRole details:\n${request.details}` : '');
     const sent = await Promise.allSettled([sendEmail(request, line), sendPush(request, line)]);
     const delivered = sent.filter(s => s.status === 'fulfilled' && s.value === true).length;
     if (!delivered) console.warn('request saved but no alert went out (set RESEND_API_KEY + ZB_ALERT_EMAIL or ZB_NTFY_TOPIC)');
