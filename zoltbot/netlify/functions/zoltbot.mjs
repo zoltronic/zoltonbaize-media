@@ -1,5 +1,6 @@
 // Zoltbot backend. One endpoint, three jobs:
-//   POST {type:'request', request:{kind:'access'|'contact', name, company, role, about, email, wantsToSee}} -> alerts Zolton (email + phone push) and saves it
+//   POST {type:'request', request:{kind:'access'|'contact', name, company, role, about, email, wantsToSee, found, interest, pagePath}} -> alerts Zolton (email + phone push) and saves it
+//        -> {ok, delivered}: how many alerts actually went out (0 = no email/push set up, so the browser falls back to the visitor's email app)
 //   POST {type:'chat', messages:[{role, content}]}                                   -> a model reply, only for questions off the scripted tree
 //   POST {type:'backup', key, backup:{date, site, data}}  (Draft Controls)            -> saves a dated settings backup to the Webflow asset library
 // Settings live in Netlify environment variables (see zoltbot/README.md). The password is never here.
@@ -91,13 +92,21 @@ export default async (req, context) => {
 
   if (body.type === 'request') {
     const r = body.request || {};
-    const request = { name: clean(r.name, 120), company: clean(r.company, 120), role: clean(r.role, 120), about: clean(r.about, 500), email: clean(r.email, 200), wantsToSee: clean(r.wantsToSee, 300), details: clean(r.details, 1500), page: clean(r.page || body.page, 120), kind: r.kind === 'contact' ? 'contact' : 'access', at: new Date().toISOString() };
+    const request = { name: clean(r.name, 120), company: clean(r.company, 120), role: clean(r.role, 120), about: clean(r.about, 500), email: clean(r.email, 200), wantsToSee: clean(r.wantsToSee, 300), details: clean(r.details, 1500), page: clean(r.page || body.page, 120), kind: r.kind === 'contact' ? 'contact' : 'access', at: new Date().toISOString(),
+      found: clean(r.found, 200), interest: clean(r.interest, 300), pagePath: clean(r.pagePath || body.page, 120) };
+    const when = new Date(request.at).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' }) + ' PT';
     if (!request.name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(request.email)) return json({ error: 'name and a valid email are required' }, 400, origin);
     if (!(await bump(limits, `req:${today()}:${visitor}`, REQUESTS_PER_VISITOR))) return json({ ok: false, error: 'already sent today' }, 429, origin);
     await getStore('zoltbot-requests').setJSON(`${request.at}-${visitor}`, request);       // the request list
-    const line = (request.kind === 'contact' ? 'Message' : `Access request${request.page ? ' for ' + request.page : ''}`) + `: ${request.name}, ${request.role} at ${request.company}, about ${request.about}. Email: ${request.email}.` + (request.wantsToSee ? (request.kind === 'contact' ? ` Also: ${request.wantsToSee}.` : ` Wants to see: ${request.wantsToSee}.`) : '') + (request.details ? `\nRole details:\n${request.details}` : '');
-    await Promise.allSettled([sendEmail(request, line), sendPush(request, line)]);
-    return json({ ok: true }, 200, origin);
+    const line = request.kind === 'access' && (request.found || request.interest || request.pagePath)
+      ? `Access request for ${request.page || 'a protected page'}${request.pagePath ? ' (zoltonbaize.com' + request.pagePath + ')' : ''}\n` +
+        `• Name: ${request.name}\n• Email: ${request.email}\n• Company: ${request.company || '—'}\n• Role: ${request.role || '—'}\n` +
+        `• Found the site via: ${request.found || '—'}\n• Interested in: ${request.interest || '—'}\n• Requested: ${when}\n\nZoltbot did not share the password. Reply to send it if you'd like.`
+      : (request.kind === 'contact' ? 'Message' : `Access request${request.page ? ' for ' + request.page : ''}`) + `: ${request.name}, ${request.role} at ${request.company}, about ${request.about}. Email: ${request.email}.` + (request.wantsToSee ? (request.kind === 'contact' ? ` Also: ${request.wantsToSee}.` : ` Wants to see: ${request.wantsToSee}.`) : '') + (request.details ? `\nRole details:\n${request.details}` : '') + `\nSent ${when}.`;
+    const sent = await Promise.allSettled([sendEmail(request, line), sendPush(request, line)]);
+    const delivered = sent.filter(s => s.status === 'fulfilled' && s.value === true).length;
+    if (!delivered) console.warn('request saved but no alert went out (set RESEND_API_KEY + ZB_ALERT_EMAIL or ZB_NTFY_TOPIC)');
+    return json({ ok: true, delivered }, 200, origin);
   }
 
   if (body.type === 'chat') {
@@ -204,26 +213,28 @@ async function sha(s) { const d = await crypto.subtle.digest('SHA-256', new Text
 
 async function sendEmail(r, line) {               // Resend: https://resend.com
   const key = env('RESEND_API_KEY'), to = env('ZB_ALERT_EMAIL');
-  if (!key || !to) return;
+  if (!key || !to) return false;
   const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  await fetch('https://api.resend.com/emails', {
+  const res = await fetch('https://api.resend.com/emails', {
     method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
     body: JSON.stringify({
       from: env('ZB_ALERT_FROM', 'Zoltbot <onboarding@resend.dev>'), to: [to], reply_to: r.email,
       subject: r.kind === 'contact' ? `Zoltbot: message from ${r.name}${r.company ? ' (' + r.company + ')' : ''}` : `Zoltbot: ${r.page ? r.page + ' ' : ''}access request from ${r.name}${r.company ? ' (' + r.company + ')' : ''}`,
       text: line + '\n\nReply to this email to answer them directly.',
-      html: `<p>${esc(line)}</p><p><a href="mailto:${encodeURIComponent(r.email)}">Reply to ${esc(r.name)}</a></p>`
+      html: `<p>${esc(line).replace(/\n/g, '<br>')}</p><p><a href="mailto:${encodeURIComponent(r.email)}">Reply to ${esc(r.name)}</a></p>`
     })
   });
+  return res.ok;
 }
 
 async function sendPush(r, line) {                // ntfy: https://ntfy.sh (pick a long, unguessable topic name)
   const topic = env('ZB_NTFY_TOPIC');
-  if (!topic) return;
-  await fetch(`${env('ZB_NTFY_SERVER', 'https://ntfy.sh')}/${encodeURIComponent(topic)}`, {
+  if (!topic) return false;
+  const res = await fetch(`${env('ZB_NTFY_SERVER', 'https://ntfy.sh')}/${encodeURIComponent(topic)}`, {
     method: 'POST', body: line,
-    headers: { Title: r.kind === 'contact' ? 'Zoltbot: new message' : 'Zoltbot: access request', Tags: 'robot', Click: encodeURI(`mailto:${r.email}`) }
+    headers: { Title: r.kind === 'contact' ? 'Zoltbot: new message' : `Zoltbot: access request${r.page ? ' (' + r.page + ')' : ''}`.replace(/[^\x20-\x7e]/g, ''), Tags: 'robot', Click: encodeURI(`mailto:${r.email}`) }
   });
+  return res.ok;
 }
 
 export const config = { path: '/api/zoltbot' };
