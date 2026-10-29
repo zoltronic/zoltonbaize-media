@@ -739,7 +739,7 @@
         track('request_access_submitted', { method: 'notify' });
         bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.6; bus.hopReq = true;
         say('Done! Your request for “' + CASE + '” is on its way to Zolton. He’ll follow up at ' + r.email + '.', 'bot', true);
-        setChips(['What’s behind the password?', 'Who is Zolton?']); return;
+        setChips(['What’s behind the password?', 'Who is Zolton?']); log.scrollTop = log.scrollHeight; return;
       }
       if (dup) { say('Looks like you already sent Zolton a request today, so he has it and will follow up.', 'bot'); setChips(['Who is Zolton?']); return; }
       if (!MAILTO) { say('Thanks! That’s everything Zolton needs.', 'bot'); say('Preview only: nothing was sent.', 'note'); setChips(['Who is Zolton?']); return; }
@@ -749,7 +749,7 @@
         track('request_access_submitted', { method: 'email' });
         setTimeout(() => { say('Thanks! Once that email’s sent, Zolton will follow up with you.', 'bot'); setChips(['Who is Zolton?']); }, 600);
       });
-      setChips([]);
+      setChips([]); log.scrollTop = log.scrollHeight;
     }
     const isSkip = t => /^(skip( this( one)?)?|pass|no|nope|n\/?a|none|not sure|prefer not( to say)?|rather not( say)?|-)$/i.test(t.trim());
     async function treeReply(text) {
