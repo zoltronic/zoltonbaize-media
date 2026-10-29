@@ -411,7 +411,11 @@
         const b = (bubble || dock).getBoundingClientRect(), d = dock.getBoundingClientRect(), w = req.offsetWidth || 170;
         const narrow = innerWidth < 820;   // phones: right-aligned under the bubble, clear of his face
         let x = bubble ? (narrow ? b.right - w : b.left) : d.left + d.width * 0.6, y = bubble ? b.bottom + 8 : d.top + d.height * 0.3;
-        if (narrow !== req.classList.contains('zb-req-r')) req.classList.toggle('zb-req-r', narrow);
+        if (narrow !== req.classList.contains('zb-req-r')) {
+          req.classList.toggle('zb-req-r', narrow);
+          // phones: the chip already says "Request access", so the bubble above it is one short line and the chip sits clear of his face
+          if (bubble) bubble.textContent = narrow ? 'Have a question?' : 'Need access? Have a question?';
+        }
         x = Math.max(12, Math.min(x, innerWidth - w - 12));
         y = Math.max(12, y);
         req.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0)';
