@@ -183,23 +183,22 @@
   .zb-night .zb-msg.bot, .zb-night .zb-chip, .zb-night .zb-chat-x, .zb-night .zb-chat-form input { background: rgba(255,255,255,.1); border-color: rgba(180,220,248,.22); color: var(--zb-ink); }
   .zb-night .zb-chat-head, .zb-night .zb-chat-form { border-color: rgba(180,220,248,.16); }
   .zb-night .zb-msg.me, .zb-night .zb-chat-form button { background: #EAF6FD; color: #07283D; }
-  /* Password pages: "Request access" chip beside Zoltbot, under his speech bubble, with a plain email link under it */
-  .zb-req { position: fixed; left: 0; top: 0; z-index: 7; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  /* Password pages: Zoltbot's speech bubble becomes a small card, "Need access? Have a question?" with a Request access button */
+  .zb-pw-bubble.zb-bubble-swap { visibility: hidden; }   /* the plain bubble stays in place (it's what the card lines up with) */
+  .zb-req { position: fixed; left: 0; top: 0; z-index: 7; display: flex; flex-direction: column; align-items: flex-start; gap: 9px; max-width: 236px;
+    padding: 11px 12px 12px 14px; border-radius: 18px 18px 18px 6px; color: var(--zb-ink);
     opacity: 0; pointer-events: none; transition: opacity 300ms var(--zb-ease); will-change: transform; }
   .zb-req.on { opacity: 1; pointer-events: auto; }
-  .zb-req.zb-req-r { align-items: flex-end; }
-  .zb-req.zb-req-r .zb-req-mail { margin: 0 6px 0 0; }
-  .zb-req-btn { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: #06222F; color: #EAFBF6;
-    font: 700 14px 'Schibsted Grotesk', system-ui, sans-serif; cursor: pointer; box-shadow: 0 10px 24px -12px rgba(4,34,58,.6); -webkit-tap-highlight-color: transparent; }
-  .zb-req-btn i { font-size: 16px; }
-  .zb-req-btn:hover { background: #0A3446; }
+  .zb-req-q { border: 0; background: none; padding: 0; margin: 0; color: inherit; font: 600 13px/1.3 system-ui, -apple-system, sans-serif; text-align: left; cursor: pointer; }
+  .zb-req-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 1.5px solid #06222F; border-radius: 999px; background: rgba(255,255,255,.55); color: #06222F;
+    font: 700 13px 'Schibsted Grotesk', system-ui, sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 160ms, color 160ms; }
+  .zb-req-btn i { font-size: 15px; }
+  .zb-req-btn:hover { background: #06222F; color: #EAFBF6; }
   .zb-req-btn:active { transform: scale(.97); }
-  .zb-req-mail { padding: 2px 6px; margin-left: 6px; border-radius: 6px; font: 600 12px system-ui, -apple-system, sans-serif; color: var(--zb-ink); text-decoration: underline; text-underline-offset: 2px; text-shadow: 0 1px 8px rgba(255,255,255,.8); }
-  .zb-req-btn:focus-visible, .zb-req-mail:focus-visible, .zb-msg-link:focus-visible { outline: 2px solid #0A5C86; outline-offset: 3px; }
-  .zb-night .zb-req-btn { background: #EAF6FD; color: #07283D; }
-  .zb-night .zb-req-btn:hover { background: #FFFFFF; }
-  .zb-night .zb-req-mail { text-shadow: 0 1px 8px rgba(0,0,0,.6); }
-  .zb-night .zb-req-btn:focus-visible, .zb-night .zb-req-mail:focus-visible, .zb-night .zb-msg-link:focus-visible { outline-color: #5FDBFF; }
+  .zb-req-btn:focus-visible, .zb-req-q:focus-visible, .zb-msg-link:focus-visible { outline: 2px solid #0A5C86; outline-offset: 3px; }
+  .zb-night .zb-req-btn { border-color: #EAF6FD; background: rgba(255,255,255,.08); color: #EAF6FD; }
+  .zb-night .zb-req-btn:hover { background: #EAF6FD; color: #07283D; }
+  .zb-night .zb-req-btn:focus-visible, .zb-night .zb-req-q:focus-visible, .zb-night .zb-msg-link:focus-visible { outline-color: #5FDBFF; }
   .zb-kb .zb-req { opacity: 0 !important; pointer-events: none !important; }   /* phone keyboard up: step aside like the bubble */
   .zb-msg-link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 999px; background: #06222F; color: #EAFBF6; font: 700 13px system-ui, sans-serif; text-decoration: none; }
   .zb-night .zb-msg-link { background: #EAF6FD; color: #07283D; }
@@ -386,48 +385,43 @@
     dock.appendChild(bubble);
     if (!LATE) setTimeout(() => bubble.classList.add('on'), 1400);
   }
-  // ---------- Password pages: a "Request access" chip under his speech bubble ----------
-  // Opens the chat straight into the access-request questions for this case study. A plain email link sits under it.
+  // ---------- Password pages: his speech bubble with a Request access button in it ----------
+  // The question opens the chat as usual; the button opens it straight into the access-request questions for this case study.
   let req = null;
   if (CHAT && !CONTACT) {
-    req = document.createElement('div'); req.className = 'zb-req';
+    req = document.createElement('div'); req.className = 'zb-req zb-glass';
+    req.setAttribute('role', 'group'); req.setAttribute('aria-label', 'Zoltbot');
+    const rq = document.createElement('button'); rq.type = 'button'; rq.className = 'zb-req-q'; rq.textContent = 'Need access? Have a question?';
+    rq.setAttribute('aria-label', 'Chat with Zoltbot');
     const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'zb-req-btn';
     rb.innerHTML = '<i class="ph ph-key" aria-hidden="true"></i><span>Request access</span>';
     rb.setAttribute('aria-label', 'Request access to ' + CASE + ' (opens a chat with Zoltbot)');
-    req.appendChild(rb);
-    if (MAILTO) {
-      const ml = document.createElement('a'); ml.className = 'zb-req-mail';
-      ml.href = 'mailto:' + MAILTO + '?subject=' + encodeURIComponent('Access request: ' + CASE);
-      ml.textContent = 'or email Zolton';
-      req.appendChild(ml);
-    }
+    req.append(rq, rb);
+    rq.addEventListener('click', () => { if (chat) chat.open(); });
     rb.addEventListener('click', () => { track('request_access_click'); if (chat) chat.request(); });
+    if (bubble) bubble.classList.add('zb-bubble-swap');
     LAYER.appendChild(req);
-    // Sits under his speech bubble and rides along with him; hidden while the chat is open or once the page unlocks.
+    // Takes the bubble's place beside him (bottom edges lined up, so it grows up and away from his face) and rides along
+    // with him; hidden while the chat is open, while a phone keyboard is up, or once the page unlocks.
     (function placeReq() {
       let shown = false;
       function frame() {
         const hide = bus.chatOpen || bus.unlocked || dock.classList.contains('zb-waiting');
-        const b = (bubble || dock).getBoundingClientRect(), d = dock.getBoundingClientRect(), w = req.offsetWidth || 170;
-        const narrow = innerWidth < 820;   // phones: right-aligned under the bubble, clear of his face
-        let x = bubble ? (narrow ? b.right - w : b.left) : d.left + d.width * 0.6, y = bubble ? b.bottom + 8 : d.top + d.height * 0.3;
-        if (narrow !== req.classList.contains('zb-req-r')) {
-          req.classList.toggle('zb-req-r', narrow);
-          // phones: the chip already says "Request access", so the bubble above it is one short line and the chip sits clear of his face
-          if (bubble) bubble.textContent = narrow ? 'Have a question?' : 'Need access? Have a question?';
-        }
+        const b = (bubble || dock).getBoundingClientRect(), d = dock.getBoundingClientRect(), w = req.offsetWidth || 200, h = req.offsetHeight || 90;
+        const narrow = innerWidth < 820;   // phones: lined up with the bubble's right edge, clear of his face
+        let x = bubble ? (narrow ? b.right - w : b.left) : d.left + d.width * 0.6, y = bubble ? b.bottom - h : d.top + d.height * 0.3 - h;
         x = Math.max(12, Math.min(x, innerWidth - w - 12));
         y = Math.max(12, y);
         req.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0)';
         if (shown === hide) {
           shown = !hide; req.classList.toggle('on', shown);
           req.setAttribute('aria-hidden', shown ? 'false' : 'true');
-          req.querySelectorAll('button, a').forEach(n => { n.tabIndex = shown ? 0 : -1; });
+          req.querySelectorAll('button').forEach(n => { n.tabIndex = shown ? 0 : -1; });
         }
         requestAnimationFrame(frame);
       }
-      req.querySelectorAll('button, a').forEach(n => { n.tabIndex = -1; });
-      setTimeout(() => requestAnimationFrame(frame), 1500);   // a beat after his bubble appears
+      req.querySelectorAll('button').forEach(n => { n.tabIndex = -1; });
+      setTimeout(() => requestAnimationFrame(frame), 1400);   // when his bubble would have appeared
     })();
   }
 
