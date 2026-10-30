@@ -959,6 +959,7 @@
     }
     const hands = [];
     bodyMats = [shellMat, plainMat, bezelMat, capMat].map(mt => [mt, mt.color.clone()]);
+    const COMIC_NIGHT = { value: 0 };   // 0 day .. 1 night, for the comic shading
     if (COMIC) comicify();
     // ---------- Comic style (only with COMIC on) ----------
     // Same model and animation; only how it's drawn changes. The LED face is left as is (it's already a dot matrix).
@@ -970,20 +971,21 @@
       const DOT = (6 * Math.min(devicePixelRatio || 1, touch ? 1.5 : 1.75)).toFixed(1);
       const toon = mt => {
         mt.onBeforeCompile = sh => {
-          sh.uniforms.uB = BANDS;
-          sh.fragmentShader = 'uniform vec3 uB;\n' + sh.fragmentShader;
+          sh.uniforms.uB = BANDS; sh.uniforms.uN = COMIC_NIGHT;
+          sh.fragmentShader = 'uniform vec3 uB; uniform float uN;\n' + sh.fragmentShader;
           const tag = sh.fragmentShader.includes('#include <opaque_fragment>') ? '#include <opaque_fragment>' : '#include <output_fragment>';
           sh.fragmentShader = sh.fragmentShader.replace(tag,
             `{ const vec3 W = vec3(0.299, 0.587, 0.114);
                // how lit this spot is (diffuse light only, so reflections and clearcoat shine don't wash out the colour)
                float f = dot(totalDiffuse, W) / max(dot(diffuseColor.rgb, W), 1e-3), sp = dot(totalSpecular, W), l;
-               float band = f < uB.x ? 0.55 : f < uB.y ? 0.8 : 1.0;
+               vec2 br = uB.xy * mix(1.0, 0.4, uN);   // night: weaker moonlight, so the breaks move down with it
+               float band = f < br.x ? 0.55 : f < br.y ? 0.8 : 1.0;
                vec3 cel = diffuseColor.rgb * band;
                if (sp > uB.z) cel = mix(cel, vec3(1.0), 0.7);   // a strong shine becomes a small flat white shape
                outgoingLight = cel; l = f * 0.62;
                vec2 g = gl_FragCoord.xy / ${DOT}; g = mat2(0.707, -0.707, 0.707, 0.707) * g;
                float d = length(fract(g) - 0.5), r = clamp((0.78 - l) * 0.75, 0.0, 0.48);
-               outgoingLight *= 1.0 - 0.26 * (1.0 - smoothstep(r - 0.06, r, d)); }
+               outgoingLight *= 1.0 - 0.26 * (1.0 - uN) * (1.0 - smoothstep(r - 0.06, r, d)); }   // no printed dots on his body at night
              ` + tag);
         };
         mt.needsUpdate = true;
@@ -1278,6 +1280,7 @@
         bodyMats.forEach(([mt, base]) => { mt.color.copy(base).multiply(MOON.clone().lerp(new THREE.Color(1, 1, 1), 1 - nightF)); });
         scene.traverse(o => { if (o.material && o.material.envMapIntensity !== undefined && o.material !== glowMat) o.material.envMapIntensity = 1 - 0.92 * nightF; });
       }
+      COMIC_NIGHT.value = nightF;
       if (faceMat) faceMat.emissiveIntensity = 1.7 + 0.3 * nightF;
       glowMat.opacity = 0.2 + 0.08 * nightF;
       faceLight.color.setRGB(col.r / 255, col.g / 255, col.b / 255); faceLight.intensity = 0.25 + 0.45 * nightF;
