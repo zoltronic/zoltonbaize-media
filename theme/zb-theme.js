@@ -5,11 +5,20 @@
    - Works alongside the Work page's own toggle embed: if that embed already flipped the mode on a click, this only syncs;
      on pages without it (About, password pages) this does the toggling.
    - Fires a 'zb-theme' event on window after every change so the About sky and Zoltbot switch at once.
-   - Gold keeps its own mode and is left alone. */
+   - The Gold case study keeps its own mode and is left alone; Gold's password screen (same address, before it unlocks)
+     uses this one like every other password page. */
 (function () {
   'use strict';
   if (window.__zbTheme) return; window.__zbTheme = true;
-  if (/^\/gold\b/.test(location.pathname)) return;
+  // /gold: the unlocked case study has its own light/dark, but its password screen is a normal site page.
+  // The page isn't parsed yet, so decide once it is: password form there -> run as usual; otherwise stay out of it.
+  if (/^\/gold\b/.test(location.pathname)) {
+    var later = function () { if (document.querySelector('form[action*="wf_auth"], .utility-page-form')) start(); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', later); else later();
+    return;
+  }
+  start();
+  function start() {
   var KEY = 'zb-home-mode', de = document.documentElement;
   function saved() {
     try {
@@ -65,4 +74,5 @@
   });
   // Another tab changed it
   addEventListener('storage', function (e) { if (e.key === KEY) { dark = e.newValue === 'dark'; paint(); } });
+  }
 })();
