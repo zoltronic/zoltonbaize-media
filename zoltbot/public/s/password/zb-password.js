@@ -44,6 +44,16 @@
   // Touch devices: the sky draws its glass in WebGL a beat behind native scrolling, so the card's glass would trail its text.
   // There the card and chat use CSS glass instead, which is part of the element and scrolls with it.
   const touch = matchMedia('(pointer: coarse)').matches;
+  // Comic Zoltbot (Spider-Verse look): ink outlines, flat cel bands, halftone shadows and flame, off-register colour.
+  // Off by default. Turn on with window.ZB_BOT_STYLE = 'comic' (set before this script), or ?comic in the address to preview
+  // (?comic=0 clears it). The preview choice is remembered in this browser only.
+  const COMIC = (() => {
+    try {
+      const q = location.search.match(/[?&]comic(=([01]))?\b/);
+      if (q) { if (q[2] === '0') localStorage.removeItem('zbBotStyle'); else localStorage.setItem('zbBotStyle', 'comic'); }
+      return window.ZB_BOT_STYLE === 'comic' || localStorage.getItem('zbBotStyle') === 'comic';
+    } catch (e) { return window.ZB_BOT_STYLE === 'comic'; }
+  })();
   const skyGlass = hasSky && !touch;
   // Nav icons: the password page doesn't load the icon font the other pages use; load it if it's missing.
   if (!document.querySelector('link[href*="phosphor"], script[src*="phosphor"]')) {
@@ -57,6 +67,11 @@
   const protPath = ((window.ZB_PROTECTED_PATH || (pathEl && pathEl.value) || location.pathname) + '').replace(/\/+$/, '') || '/';
   const PAGE = CONTACT ? '' : window.ZB_PROTECTED_NAME || NAMES[protPath.toLowerCase()] ||
     (protPath === '/' || protPath === '/401' ? '' : protPath.split('/').pop().replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+  // The case study's full name, for the access request (Zolton sees exactly which page someone asked for)
+  const CASES = { '/gold': 'Bringing Gold to Wells Fargo', '/iconography': 'Drawing One Cohesive System', '/icons': 'Drawing One Cohesive System', '/atm': 'A Teaching Machine' };
+  const CASE = CONTACT ? '' : (CASES[protPath.toLowerCase()] || PAGE || 'a protected page');
+  // GA4 events for the access-request funnel: the page path only, never anything a visitor typed.
+  const track = (name, extra) => { try { if (typeof window.gtag === 'function') window.gtag('event', name, Object.assign({ page_path: protPath }, extra || {})); } catch (e) {} };
   if (!CONTACT) {
     const h = card.querySelector('h1, h2, h3');
     // Site type: mono eyebrow + display title (Schibsted Grotesk 900), per the Portfolio 2.0 guidelines
@@ -108,7 +123,7 @@
   .zb-pw-dock.zb-waiting { pointer-events: none; }
   .zb-pw-dock.zb-hero-wait { opacity: 0; pointer-events: none; }
   .zb-pw-dock.zb-in-hero .zb-pw-bubble { left: auto; right: 84%; top: 16%; width: max-content; white-space: nowrap; border-radius: 18px 18px 6px 18px; transform-origin: 100% 100%; }
-  @media (max-width: 819px) { .zb-pw-dock.zb-late.zb-in-hero .zb-pw-bubble { left: 0; right: 0; top: auto; bottom: 4%; height: auto; margin: 0 auto; border-radius: 18px; transform-origin: 50% 0; } }
+  @media (max-width: 819px) { .zb-pw-dock.zb-late.zb-in-hero .zb-pw-bubble { left: 0; right: 0; top: -2%; bottom: auto; height: auto; margin: 0 auto; border-radius: 18px; transform-origin: 50% 100%; } }
   @media (max-width: 819px) { .zb-pw-dock.zb-late { width: 190px; height: 190px; } .zb-pw-dock.zb-late .zb-pw-bubble { left: 0; right: 0; top: -6%; margin: 0 auto; width: max-content; white-space: nowrap; border-radius: 18px; transform-origin: 50% 100%; } }
   /* light mode: a white robot on the near-white page needs an outline, so a sky-blue edge and glow */
   :root:not(.zb-night) .zb-pw-dock.zb-late canvas { filter: drop-shadow(0 0 1px rgba(40,130,210,.7)) drop-shadow(0 8px 20px rgba(90,170,240,.55)); }
@@ -121,6 +136,7 @@
   .zb-pw-dock:focus-visible { outline: 2px solid #0A5C86; outline-offset: -20px; }
   /* The 3D canvas overhangs the dock on every side so banking rotors, the flame and the exhaust are never cropped */
   .zb-pw-dock canvas { position: absolute; left: -35%; top: -30%; width: 170%; height: 170%; display: block; pointer-events: none; }
+  .zb-pw-dock.zb-comic canvas, :root:not(.zb-night) .zb-pw-dock.zb-late.zb-comic canvas { filter: drop-shadow(2.5px 1px 0 rgba(255,64,110,.5)) drop-shadow(-2px -1px 0 rgba(0,180,255,.45)); }
   .zb-pw-bubble { position: absolute; left: 76%; top: 26%; white-space: nowrap; padding: 9px 14px; border-radius: 18px 18px 18px 6px; font: 600 13px system-ui, -apple-system, sans-serif; color: var(--zb-ink);
     opacity: 0; transform: translateY(6px) scale(.96); transform-origin: 0 100%; transition: opacity 300ms var(--zb-ease), transform 300ms var(--zb-ease); pointer-events: none; }
   .zb-pw-bubble.on { opacity: 1; transform: none; }
@@ -178,6 +194,25 @@
   .zb-night .zb-msg.bot, .zb-night .zb-chip, .zb-night .zb-chat-x, .zb-night .zb-chat-form input { background: rgba(255,255,255,.1); border-color: rgba(180,220,248,.22); color: var(--zb-ink); }
   .zb-night .zb-chat-head, .zb-night .zb-chat-form { border-color: rgba(180,220,248,.16); }
   .zb-night .zb-msg.me, .zb-night .zb-chat-form button { background: #EAF6FD; color: #07283D; }
+  /* Password pages: Zoltbot's speech bubble becomes a small card, "Need access? Have a question?" with a Request access button */
+  .zb-pw-bubble.zb-bubble-swap { visibility: hidden; }   /* the plain bubble stays in place (it's what the card lines up with) */
+  .zb-req { position: fixed; left: 0; top: 0; z-index: 7; display: flex; flex-direction: column; align-items: flex-start; gap: 9px; max-width: 236px;
+    padding: 11px 12px 12px 14px; border-radius: 18px 18px 18px 6px; color: var(--zb-ink);
+    opacity: 0; pointer-events: none; transition: opacity 300ms var(--zb-ease); will-change: transform; }
+  .zb-req.on { opacity: 1; pointer-events: auto; }
+  .zb-req-q { border: 0; background: none; padding: 0; margin: 0; color: inherit; font: 600 13px/1.3 system-ui, -apple-system, sans-serif; text-align: left; cursor: pointer; }
+  .zb-req-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 1.5px solid #06222F; border-radius: 999px; background: rgba(255,255,255,.55); color: #06222F;
+    font: 700 13px 'Schibsted Grotesk', system-ui, sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 160ms, color 160ms; }
+  .zb-req-btn i { font-size: 15px; }
+  .zb-req-btn:hover { background: #06222F; color: #EAFBF6; }
+  .zb-req-btn:active { transform: scale(.97); }
+  .zb-req-btn:focus-visible, .zb-req-q:focus-visible, .zb-msg-link:focus-visible { outline: 2px solid #0A5C86; outline-offset: 3px; }
+  .zb-night .zb-req-btn { border-color: #EAF6FD; background: rgba(255,255,255,.08); color: #EAF6FD; }
+  .zb-night .zb-req-btn:hover { background: #EAF6FD; color: #07283D; }
+  .zb-night .zb-req-btn:focus-visible, .zb-night .zb-req-q:focus-visible, .zb-night .zb-msg-link:focus-visible { outline-color: #5FDBFF; }
+  .zb-kb .zb-req { opacity: 0 !important; pointer-events: none !important; }   /* phone keyboard up: step aside like the bubble */
+  .zb-msg-link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 999px; background: #06222F; color: #EAFBF6; font: 700 13px system-ui, sans-serif; text-decoration: none; }
+  .zb-night .zb-msg-link { background: #EAF6FD; color: #07283D; }
   @media (max-width: 819px) {
     .zb-pw-card { margin-top: 176px; }
     .zb-pw-page .utility-page-wrap { box-sizing: border-box; height: auto; min-height: 100vh; min-height: 100svh; max-height: none; padding-bottom: 104px; }   /* keep the card clear of the bottom thumb nav */
@@ -309,7 +344,7 @@
       return [mid - s / 2, hb.top + hb.height / 2 - s / 2 - s * 0.08];
     }
     const num = (v, d) => (v != null && isFinite(v) ? +v : d) * (window.ZB_BOT_SIZE != null && isFinite(window.ZB_BOT_SIZE) ? +window.ZB_BOT_SIZE : 1);   // Draft Controls: Work · Zoltbot · His size
-    function heroScale(mobile) { return num(window.ZB_BOT_HERO_SCALE, mobile ? 1.45 : 1.65); }
+    function heroScale(mobile) { return num(window.ZB_BOT_HERO_SCALE, mobile ? 1.3 : 1.65); }
     function chatScale(mobile) { return num(window.ZB_BOT_CHAT_SCALE, mobile ? 0.9 : 1.02); }
     function baseScale(mobile) { return CONTACT ? num(window.ZB_BOT_SCALE, mobile ? 1.1 : 1.25) : 1; }   // Work Contact panel, About
     let sc = 1;   // his scale: big in the hero, normal elsewhere, a speck at the start of the fly-in
@@ -360,6 +395,45 @@
     bubble.textContent = HERO ? 'Hi, I’m Zoltbot! Want to chat?' : LATE ? 'Sorry I’m late! Want to chat?' : CONTACT ? 'Say hi? Have a question?' : 'Need access? Have a question?';
     dock.appendChild(bubble);
     if (!LATE) setTimeout(() => bubble.classList.add('on'), 1400);
+  }
+  // ---------- Password pages: his speech bubble with a Request access button in it ----------
+  // The question opens the chat as usual; the button opens it straight into the access-request questions for this case study.
+  let req = null;
+  if (CHAT && !CONTACT) {
+    req = document.createElement('div'); req.className = 'zb-req zb-glass';
+    req.setAttribute('role', 'group'); req.setAttribute('aria-label', 'Zoltbot');
+    const rq = document.createElement('button'); rq.type = 'button'; rq.className = 'zb-req-q'; rq.textContent = 'Need access? Have a question?';
+    rq.setAttribute('aria-label', 'Chat with Zoltbot');
+    const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'zb-req-btn';
+    rb.innerHTML = '<i class="ph ph-key" aria-hidden="true"></i><span>Request access</span>';
+    rb.setAttribute('aria-label', 'Request access to ' + CASE + ' (opens a chat with Zoltbot)');
+    req.append(rq, rb);
+    rq.addEventListener('click', () => { if (chat) chat.open(); });
+    rb.addEventListener('click', () => { track('request_access_click'); if (chat) chat.request(); });
+    if (bubble) bubble.classList.add('zb-bubble-swap');
+    LAYER.appendChild(req);
+    // Takes the bubble's place beside him (bottom edges lined up, so it grows up and away from his face) and rides along
+    // with him; hidden while the chat is open, while a phone keyboard is up, or once the page unlocks.
+    (function placeReq() {
+      let shown = false;
+      function frame() {
+        const hide = bus.chatOpen || bus.unlocked || dock.classList.contains('zb-waiting');
+        const b = (bubble || dock).getBoundingClientRect(), d = dock.getBoundingClientRect(), w = req.offsetWidth || 200, h = req.offsetHeight || 90;
+        const narrow = innerWidth < 820;   // phones: lined up with the bubble's right edge, clear of his face
+        let x = bubble ? (narrow ? b.right - w : b.left) : d.left + d.width * 0.6, y = bubble ? b.bottom - h : d.top + d.height * 0.3 - h;
+        x = Math.max(12, Math.min(x, innerWidth - w - 12));
+        y = Math.max(12, y);
+        req.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0)';
+        if (shown === hide) {
+          shown = !hide; req.classList.toggle('on', shown);
+          req.setAttribute('aria-hidden', shown ? 'false' : 'true');
+          req.querySelectorAll('button').forEach(n => { n.tabIndex = shown ? 0 : -1; });
+        }
+        requestAnimationFrame(frame);
+      }
+      req.querySelectorAll('button').forEach(n => { n.tabIndex = -1; });
+      setTimeout(() => requestAnimationFrame(frame), 1400);   // when his bubble would have appeared
+    })();
   }
 
   // ---------- Shared state between the bot and the chat ----------
@@ -529,7 +603,7 @@
     let typingEl = null;
     const showTyping = () => { if (typingEl) return; typingEl = document.createElement('div'); typingEl.className = 'zb-msg bot typing'; typingEl.setAttribute('aria-label', 'Zoltbot is typing'); typingEl.innerHTML = '<i></i><i></i><i></i>'; log.appendChild(typingEl); log.scrollTop = log.scrollHeight; bus.thinking = true; };
     const hideTyping = () => { if (typingEl) { typingEl.remove(); typingEl = null; } bus.thinking = false; };
-    const say = (text, who) => { if (who === 'bot') hideTyping(); const m = document.createElement('div'); m.className = 'zb-msg ' + who; m.textContent = text; log.appendChild(m); log.scrollTop = log.scrollHeight; if (who === 'bot') { history.push({ role: 'assistant', content: text }); bus.talkUntil = performance.now() / 1000 + Math.min(2.4, 0.4 + text.length * 0.03); } };
+    const say = (text, who, priv) => { if (who === 'bot') hideTyping(); const m = document.createElement('div'); m.className = 'zb-msg ' + who; m.textContent = text; log.appendChild(m); log.scrollTop = log.scrollHeight; if (who === 'bot') { if (!priv) history.push({ role: 'assistant', content: text }); bus.talkUntil = performance.now() / 1000 + Math.min(2.4, 0.4 + text.length * 0.03); } };
     const setChips = (list) => { chips.innerHTML = ''; list.forEach(t => { const b = document.createElement('button'); b.type = 'button'; b.className = 'zb-chip'; b.textContent = t; b.onclick = () => send(t); chips.appendChild(b); }); };
     // Keep the whole panel (and its Send button) inside the viewport: right of the card if it fits, else left of it,
     // else pinned to the right edge; shrink before it ever runs off the bottom, leaving room for the footer.
@@ -561,6 +635,12 @@
         setTimeout(() => { say(history.length ? 'Still no luck with the password? I can help.' : 'Hmm, that password didn’t work' + (PAGE ? ' for ' + PAGE : '') + '. Need access? Have a question? I’m Zoltbot, Zolton’s sidekick robot, and I can help.', 'bot'); setChips(['Request access', 'I have a question', 'I’ll try again']); }, 250);
         return;   // leave focus on the password field so they can retry
       }
+      if (reason === 'request' && !CONTACT) {   // the "Request access" chip: straight into the questions for this case study
+        greeted = true;
+        if (astep < 0) setTimeout(startAccess, 250);
+        setTimeout(() => inp.focus(), 320);
+        return;
+      }
       if (!greeted && CONTACT) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. Got a role for Zolton, a question, or a message? I can pass it on, or tell you about him and his work.', 'bot'); setChips(['Tell Zolton about the role', 'Send Zolton a message', 'What does he work on?']); }, 250); }
       if (!greeted) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. ' + (PAGE ? PAGE + ' is a password-protected page.' : 'This part of the site is password-protected.') + ' Need access? Have a question? I can tell you about Zolton’s work, or help you ask him for access.', 'bot'); setChips(['Request access', 'What’s behind the password?', 'Who is Zolton?']); }, 250); }
       setTimeout(() => inp.focus(), 320);
@@ -575,7 +655,7 @@
     async function send(text) {
       if (/^I’ll try again$/.test(text) && el.classList.contains('zb-peek')) { close(); if (input) input.focus(); return; }
       el.classList.remove('zb-peek');
-      say(text, 'me'); history.push({ role: 'user', content: text }); setChips([]);
+      say(text, 'me'); if (astep < 0) history.push({ role: 'user', content: text }); setChips([]);
       setTimeout(showTyping, 200);
       await wait(900 + Math.min(900, text.length * 12));
       if (!(await treeReply(text))) await offTrack();
@@ -586,6 +666,11 @@
       if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
       return r.json();
     };
+    function aiLeft() {   // AI answers left today in this browser (window.ZB_AI_REPLIES, default 100); the server has its own cap too
+      const max = window.ZB_AI_REPLIES != null && isFinite(window.ZB_AI_REPLIES) ? +window.ZB_AI_REPLIES : 100;
+      let used = 0; try { used = +localStorage.getItem('zbAI:' + new Date().toISOString().slice(0, 10)) || 0; } catch (e) {}
+      return used < max;
+    }
     // Off the tree: ask the model (live), or say what the live version would do (preview).
     async function offTrack() {
       if (!ENDPOINT) {
@@ -621,9 +706,96 @@
       'What’s the timeline for filling it?', 'Got a link to the job posting? (Or say “skip”.)', 'And your name?', 'What’s the best email for Zolton to reply to?'];
     const RL = ['Role', 'Company and team', 'Type and location', 'Team culture', 'Reports to / CEO', 'Pay range', 'Timeline', 'Job link'];
     let rstep = -1; const ra = [];
-    const isSkip = t => /^(skip|pass|no|nope|n\/?a|none|not sure|prefer not( to say)?|rather not( say)?|-)$/i.test(t.trim());
+    // Access request (password pages): one short question at a time, tied to this case study; sent to Zolton when done.
+    // Zolton decides whether to share the password; Zoltbot never has it.
+    const EMAIL = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+    const AQ = ['First, what’s your name?', 'What’s the best email to reach you?', 'What company or team are you with?',
+      'And your role there?', 'How did you find Zolton’s site?', 'Last one: what are you most interested in seeing? (Optional, or say “skip”.)'];
+    const AQ_CHIPS = [[], [], ['Skip'], ['Recruiter', 'Hiring manager', 'Designer', 'Skip'], ['LinkedIn', 'Google', 'A referral', 'A job application', 'Skip'], ['Skip']];
+    const AL = ['Name', 'Email', 'Company', 'Role', 'Found the site via', 'Interested in'];
+    let astep = -1; const aa = [];
+    const firstName = n => (n || '').trim().split(/\s+/)[0];
+    function startAccess() {
+      astep = 0; aa.length = 0; pending = null; rstep = -1; step = -1;
+      track('request_access_started');
+      say('Happy to help you get into “' + CASE + '”. I’ll ask a few quick questions, one at a time, and send them to Zolton.', 'bot');
+      say('Your info is only used so Zolton can reply to you.', 'note');
+      say(AQ[0], 'bot'); setChips(AQ_CHIPS[0]);
+    }
+    const sayLink = (text, href, onClick) => {
+      const a = document.createElement('a'); a.className = 'zb-msg-link'; a.href = href; a.textContent = text;
+      if (onClick) a.addEventListener('click', onClick);
+      log.appendChild(a); log.scrollTop = log.scrollHeight; return a;
+    };
+    function accessEmail(r) {
+      const lines = AL.map((l, i) => '• ' + l + ': ' + (aa[i] || '—'));
+      const body = 'Hi Zolton,\n\nI’d like the password for “' + CASE + '” (' + r.url + ').\n\n' + lines.join('\n') + '\n\nRequested ' + r.when + '\n';
+      return 'mailto:' + MAILTO + '?subject=' + encodeURIComponent('Access request: ' + CASE + ' — ' + r.name + (r.company ? ' (' + r.company + ')' : '')) + '&body=' + encodeURIComponent(body);
+    }
+    async function submitAccess() {
+      const now = new Date();
+      const r = { kind: 'access', page: CASE, pagePath: protPath, url: location.origin + protPath, name: aa[0], email: aa[1], company: aa[2] || '', role: aa[3] || '',
+        found: aa[4] || '', interest: aa[5] || '', about: 'Access to ' + CASE, wantsToSee: aa[5] || '', at: now.toISOString(),
+        when: now.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) };
+      showTyping();
+      let delivered = false, dup = false;
+      if (ENDPOINT) {
+        try { const j = await post({ type: 'request', request: r, page: protPath }); delivered = !!(j && j.ok && j.delivered > 0); }
+        catch (err) { dup = err.status === 429; }
+      }
+      hideTyping();
+      if (delivered) {
+        track('request_access_submitted', { method: 'notify' });
+        bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.6; bus.hopReq = true;
+        say('Done! Your request for “' + CASE + '” is on its way to Zolton. He’ll follow up at ' + r.email + '.', 'bot', true);
+        setChips(['What’s behind the password?', 'Who is Zolton?']); log.scrollTop = log.scrollHeight; return;
+      }
+      if (dup) { say('Looks like you already sent Zolton a request today, so he has it and will follow up.', 'bot'); setChips(['Who is Zolton?']); return; }
+      if (!MAILTO) { say('Thanks! That’s everything Zolton needs.', 'bot'); say('Preview only: nothing was sent.', 'note'); setChips(['Who is Zolton?']); return; }
+      // No send backend (or it couldn't deliver): hand the request to their email app, all filled in.
+      say('Last step: send it from your email app. Everything’s filled in, including which case study you’d like.', 'bot', true);
+      sayLink('Email my request to Zolton', accessEmail(r), () => {
+        track('request_access_submitted', { method: 'email' });
+        setTimeout(() => { say('Thanks! Once that email’s sent, Zolton will follow up with you.', 'bot'); setChips(['Who is Zolton?']); }, 600);
+      });
+      setChips([]); log.scrollTop = log.scrollHeight;
+    }
+    const isSkip = t => /^(skip( this( one)?)?|pass|no|nope|n\/?a|none|not sure|prefer not( to say)?|rather not( say)?|-)$/i.test(t.trim());
     async function treeReply(text) {
       const t = text.toLowerCase().trim();
+      // ---- During the question flows (a role, a message, a password request) ----
+      const inFlow = rstep >= 0 || step >= 0 || astep >= 0;
+      if (inFlow && /^(stop( the questions)?|cancel|never ?mind|quit|exit|forget it|no thanks)\b/.test(t)) {
+        const wasRole = rstep >= 0 || astep >= 0; rstep = -1; step = -1; astep = -1; pending = null;
+        say('No problem, I’ve dropped that' + (wasRole ? ' and nothing was sent' : '') + '. What else can I do for you?', 'bot');
+        setChips(CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message', 'What does he work on?'] : ['Request access', 'Who is Zolton?']); return true;
+      }
+      // a question or a request mid-flow isn't an answer: answer it (AI or script), then pick the questions back up
+      const offTopic = inFlow && !isSkip(text) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim()) &&
+        (/\?\s*$/.test(text) || /^(who|what|why|how|are you|can you|could you|do you|does he|did he|is he|will you|would you|tell me|show me|sing|rap|bust|write|make|give me|say|joke)\b/.test(t));
+      if (offTopic) {
+        const sr = rstep, ss = step, sa = astep; rstep = -1; step = -1; astep = -1;
+        if (sa >= 0) history.push({ role: 'user', content: text });   // a question, not an answer: fine for the AI to see
+        const handled = await treeReply(text);
+        if (rstep < 0 && step < 0 && astep < 0) {   // (unless that started a new flow)
+          if (!handled) await offTrack();
+          rstep = sr; step = ss; astep = sa;
+          await wait(600);
+          say('Back to it: ' + (sa >= 0 ? AQ[sa] : sr >= 0 ? RQ[sr] : QS[ss]), 'bot'); setChips(sa >= 0 ? AQ_CHIPS[sa].concat(['Stop the questions']) : ['Skip this one', 'Stop the questions']);
+        }
+        return true;
+      }
+      if (astep >= 0) {
+        const v = text.trim(), skipped = isSkip(v);
+        if (astep === 0 && (skipped || !v)) { say('I need a name so Zolton knows who’s asking. What should I call you?', 'bot'); return true; }
+        if (astep === 1 && !EMAIL.test(v)) { say('That email doesn’t look quite right. Mind checking it? Something like name@company.com.', 'bot'); return true; }
+        aa[astep] = skipped ? '' : v.slice(0, 300); astep++;
+        if (astep < AQ.length) {
+          say(astep === 1 ? 'Thanks, ' + firstName(aa[0]) + '! ' + AQ[1] : (skipped ? 'No worries. ' : '') + AQ[astep], 'bot', astep === 1);
+          setChips(AQ_CHIPS[astep]); return true;
+        }
+        astep = -1; await submitAccess(); return true;
+      }
       if (rstep >= 0) {
         if (rstep === 9 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim())) { say('That email doesn’t look quite right. Mind checking it?', 'bot'); return true; }
         if (rstep === 8 && isSkip(text)) { say('I need a name so Zolton knows who to thank. What should I call you?', 'bot'); return true; }
@@ -671,19 +843,26 @@
         if (!ENDPOINT) say('Preview only: nothing was actually sent.', 'note');
         setChips(CONTACT ? ['What does he work on?'] : ['Who is Zolton?']); return true;
       }
-      if (CONTACT && (/^tell zolton about (the|a) role$|^i have a role/.test(t) || (/^start over$/.test(t) && lastFlow === 'role') || (/\b(role|position|job|opening|opportunit|recruit|hiring|hire)\b/.test(t) && !/^what/.test(t) && step < 0))) {
+      const asks = /\?\s*$/.test(text) || /^(who|what|why|how|is|are|does|do|can|could|would|will|should)\b/.test(t);   // a question, not an intent
+      if (CONTACT && (/^tell zolton about (the|a) role$|^i have a role/.test(t) || (/^start over$/.test(t) && lastFlow === 'role') || (/\b(role|position|job|opening|opportunit|recruit|hiring|hire)\b/.test(t) && !asks && step < 0))) {
         lastFlow = 'role'; rstep = 0; ra.length = 0; pending = null; say(RQ[0], 'bot'); setChips([]); return true;
       }
       if (CONTACT && /^ask zolton for the password$|\bpassword\b/.test(t)) {
         lastFlow = 'message'; pwAsk = true; step = 0; answers.length = 0; pending = null; say('Happy to! I’ll ask Zolton to send you the password. A few quick questions first. ' + QS[0], 'bot'); return true;
       }
-      if (CONTACT && /^(start over|send zolton a message)$|\b(message|contact|reach|hire|hiring|email him|talk to (him|zolton)|get in touch)\b/.test(t) && !/^what/.test(t)) {
+      if (CONTACT && (/^(start over|send zolton a message)$/.test(t) || (/\b(message|contact|reach|email him|talk to (him|zolton)|get in touch)\b/.test(t) && !asks))) {
         lastFlow = 'message'; pwAsk = false; step = 0; answers.length = 0; pending = null; say('Great, a few quick questions so Zolton knows who’s writing. ' + QS[0], 'bot'); return true;
       }
+      // ---- AI first: with the backend on and answers left today, free-form messages go to the model (it knows his facts).
+      // Scripted replies below still answer the chip buttons exactly, and a few things always stay scripted (privacy, pay, resume, goodbyes).
+      const CHIPS = /^(what does he work on\?|what’s behind the password\?|what’s he like outside work\?|who is zolton\?|what software does he use\?|what are his skills\?|how does he use ai\?)$/;
+      const FIXED = /\b(where (is|does) he (live|based)|location|located|address|phone|number|city|rate|rates|salary|pay|compensation|resume|cv|linkedin)\b|^(thanks?|thank you|thx|ty|cheers|bye|goodbye|see ya|later|cya)\b/;
+      const ACCESS = !CONTACT && !/behind/.test(t) && /^(start over|request access)$|\b(request|access|let me in|get in)\b|\bpassword\b/.test(t) && !asks;   // password pages: access requests stay scripted
+      if (ENDPOINT && aiLeft() && !CHIPS.test(t) && !FIXED.test(t) && !ACCESS) return false;
       if (CONTACT && /^what does he work on\?$|\b(work on|case stud|portfolio|projects?|behind)\b/.test(t)) { say('Product design with lots of motion, 3D for the web and design systems. “Bringing Gold to Wells Fargo” makes the case for rendering material in 3D, “Drawing One Cohesive System” is an icon system built on grids and rules, and “A Teaching Machine” guides people through an ATM’s hardest moments. He has a lot more to show. I can have Zolton send you the password.', 'bot'); setChips(['Ask Zolton for the password', 'Tell Zolton about the role', 'Who is Zolton?']); return true; }
       if (!CONTACT && !/behind/.test(t) && /^(start over|request access)$|\b(request|access|let me in|get in)\b|\bpassword\b/.test(t)) {
-        if (/password/.test(t) && !/request|access/.test(t)) say('I don’t have the password, and that’s on purpose. But I can send Zolton a request right now.', 'bot');
-        step = 0; answers.length = 0; pending = null; if (/password/.test(t) && !/request|access/.test(t)) await wait(700); say('Great, a few quick questions. ' + QS[0], 'bot'); return true;
+        if (/password/.test(t) && !/request|access/.test(t)) { say('I don’t have the password, and that’s on purpose. But I can send Zolton a request right now.', 'bot'); await wait(700); }
+        startAccess(); return true;
       }
       if (/^what’s behind the password\?$|\b(behind|case stud|portfolio)\b/.test(t)) { say('Three case studies: “Bringing Gold to Wells Fargo” (motion, material and rendering it in 3D), “Drawing One Cohesive System” (an icon system built on grids and rules) and “A Teaching Machine” (an ATM that guides people through its hardest moments). He has a lot more to show, too.', 'bot'); setChips(['Request access', 'Who is Zolton?']); return true; }
       if (/^what’s he like outside work\?$|\b(hobb\w*|outside (of )?work|fun facts?|free time|for fun|cats?|ziggy|f45|3d print\w*|hoa)\b/.test(t)) {
@@ -694,6 +873,8 @@
       // ---- More scripted answers (no AI used). Facts only from what Zolton approved; never location, contact details or pay. ----
       const more = CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message'] : ['Request access', 'Who is Zolton?'];
       const reply = (msg, chips) => { say(msg, 'bot'); setChips(chips || more); return true; };
+      if (/\b(is|was) (he|zolton) (any )?(good|great|legit|talented|worth it|the real deal)\b|\bshould (i|we) hire\b|\bwhy (should (i|we) )?hire\b/.test(t))
+        return reply('Honestly? He’s the real deal. Designing professionally since 2004, from Google Glass to Wells Fargo, and he makes a huge positive impact everywhere he goes. I’m biased, but I’m also right.', CONTACT ? ['Tell Zolton about the role', 'What does he work on?'] : more);
       if (/\b(who are you|what are you|your name|are you (a |an )?(bot|robot|ai|human|real))\b/.test(t))
         return reply('I’m Zoltbot, Zolton’s sidekick robot and his biggest fan. I answer quick questions about him and pass messages, roles and password requests straight to him.');
       if (/\b(what can you do|help|options|menu|how does this work)\b/.test(t))
@@ -731,7 +912,7 @@
       if (/^(hi|hello|hey|yo|sup)\b/.test(t)) { say(CONTACT ? 'Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to send Zolton a message, or know more about him?' : 'Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to know about Zolton, or get access?', 'bot'); setChips([ASK, 'Who is Zolton?']); return true; }
       return false;
     }
-    return { open, close, el };
+    return { open, close, el, request: () => open('request') };
   }
   window.zbChat = { open: () => chat && chat.open(), close: () => chat && chat.close() };   // e.g. a "Chat with Zoltbot" button
   const toggleChat = () => { if (!chat) { bus.poke = 0; return; } bus.chatOpen ? chat.close() : chat.open(); };
@@ -913,6 +1094,83 @@
     }
     const hands = [];
     bodyMats = [shellMat, plainMat, bezelMat, capMat].map(mt => [mt, mt.color.clone()]);
+    const COMIC_NIGHT = { value: 0 };   // 0 day .. 1 night, for the comic shading
+    if (COMIC) comicify();
+    // ---------- Comic style (only with COMIC on) ----------
+    // Same model and animation; only how it's drawn changes. The LED face is left as is (it's already a dot matrix).
+    function comicify() {
+      dock.classList.add('zb-comic');
+      // 1. Cel shading + halftone: the lit colour snaps to three flat bands, and the darker bands get printed dots.
+      // where the bands break (shadow / mid / highlight), in "how lit" units; window.ZB_COMIC_BANDS = [x, y, z] to tune
+      const BANDS = { value: new THREE.Vector3().fromArray(Array.isArray(window.ZB_COMIC_BANDS) ? window.ZB_COMIC_BANDS : [0.75, 1.2, 0.55]) };
+      const DOT = (6 * Math.min(devicePixelRatio || 1, touch ? 1.5 : 1.75)).toFixed(1);
+      const toon = mt => {
+        mt.onBeforeCompile = sh => {
+          sh.uniforms.uB = BANDS; sh.uniforms.uN = COMIC_NIGHT;
+          sh.fragmentShader = 'uniform vec3 uB; uniform float uN;\n' + sh.fragmentShader;
+          const tag = sh.fragmentShader.includes('#include <opaque_fragment>') ? '#include <opaque_fragment>' : '#include <output_fragment>';
+          sh.fragmentShader = sh.fragmentShader.replace(tag,
+            `{ const vec3 W = vec3(0.299, 0.587, 0.114);
+               // how lit this spot is (diffuse light only, so reflections and clearcoat shine don't wash out the colour)
+               float f = dot(totalDiffuse, W) / max(dot(diffuseColor.rgb, W), 1e-3), sp = dot(totalSpecular, W), l;
+               vec2 br = uB.xy * mix(1.0, 0.4, uN);   // night: weaker moonlight, so the breaks move down with it
+               float band = f < br.x ? 0.55 : f < br.y ? 0.8 : 1.0;
+               vec3 cel = diffuseColor.rgb * band;
+               if (sp > uB.z) cel = mix(cel, vec3(1.0), 0.7);   // a strong shine becomes a small flat white shape
+               outgoingLight = cel; l = f * 0.62;
+               vec2 g = gl_FragCoord.xy / ${DOT}; g = mat2(0.707, -0.707, 0.707, 0.707) * g;
+               float d = length(fract(g) - 0.5), r = clamp((0.78 - l) * 0.75, 0.0, 0.48);
+               outgoingLight *= 1.0 - 0.26 * (1.0 - uN) * (1.0 - smoothstep(r - 0.06, r, d)); }   // no printed dots on his body at night
+             ` + tag);
+        };
+        mt.needsUpdate = true;
+      };
+      const BODY = new Set([shellMat, plainMat, capMat, seamMat, bezelMat, metalDark]);
+      BODY.forEach(toon);
+      [shellMat, plainMat, capMat, bezelMat].forEach(mt => { mt.clearcoat = 0.25; mt.roughness = 0.5; });   // fewer glossy hot spots
+      // 2. Ink outlines: a slightly fattened, back-facing copy of each solid part, drawn in ink (the classic inverted hull)
+      // (fattened along its normals and nudged back from the camera, so the ink only shows past the part's edge)
+      const ink = new THREE.Color('#1B3044');   // a deep navy rather than pure black, so the lines sit back a little
+      // (inside-out lathes have their winding reversed too, so their hull keeps its front faces instead of its back faces)
+      const inkMat = (w, flip) => new THREE.ShaderMaterial({ side: flip ? THREE.FrontSide : THREE.BackSide, uniforms: { uInk: { value: ink } },
+        vertexShader: 'void main(){ vec3 p = position + normal * ' + w.toFixed(4) + '; vec4 mv = modelViewMatrix * vec4(p, 1.0); mv.z -= 0.01; gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'uniform vec3 uInk; void main(){ gl_FragColor = vec4(uInk, 1.0); }' });
+      const inks = {};
+      const inkFor = (w, flip) => inks[w + ':' + flip] || (inks[w + ':' + flip] = inkMat(w, flip));
+      const facesIn = g => {   // most normals pointing toward the part's centre = an inside-out lathe profile
+        g.computeBoundingBox(); const c = g.boundingBox.getCenter(V(0, 0, 0)), P = g.attributes.position, N = g.attributes.normal; let s = 0;
+        for (let i = 0; i < P.count; i += 7) s += Math.sign((P.getX(i) - c.x) * N.getX(i) + (P.getY(i) - c.y) * N.getY(i) + (P.getZ(i) - c.z) * N.getZ(i));
+        return s < 0;
+      };
+      const solids = [];
+      head.traverse(o => { if (o.isMesh && BODY.has(o.material) && !o.userData.ink) solids.push(o); });
+      solids.forEach(o => {
+        const g = o.geometry;
+        if (!g.attributes.normal || g.type === 'CircleGeometry') return;
+        g.computeBoundingSphere();
+        // lathed parts can come out inside-out (their normals face in): flip them, so cel bands light them the right way round
+        const inv = g.type === 'LatheGeometry' && facesIn(g);
+        if (inv) { const N = g.attributes.normal; for (let i = 0; i < N.array.length; i++) N.array[i] = -N.array[i]; N.needsUpdate = true; }
+        const m = new THREE.Mesh(g, inkFor(g.boundingSphere.radius > 0.12 ? 0.0075 : 0.004, inv));
+        m.userData.ink = true; o.add(m);
+      });
+      // 3. Halftone flame: the real flame stays exactly as it was, and a slightly bigger, see-through plume of printed dots
+      //    sits around it (dots shrink toward the tip). It shares the flame's uniforms, so it flickers and stretches with it.
+      if (flameParts) {
+        const dotsFrag = flameParts.mats[0].fragmentShader.replace('gl_FragColor = vec4(c * a, a * 0.95); }',
+          `vec2 g = gl_FragCoord.xy / ${(DOT * 0.75).toFixed(1)}; float d = length(fract(g) - 0.5);
+           float on = 1.0 - smoothstep(0.44 * sqrt(a) - 0.05, 0.44 * sqrt(a), d);
+           a = on * min(1.0, a * 1.6) * 0.55;
+           gl_FragColor = vec4(c * a, a * 0.95); }`);
+        const outer = flameParts.flame.children[0], om = outer.material;
+        const dm = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+          blending: om.blending, blendSrc: om.blendSrc, blendDst: om.blendDst, blendSrcAlpha: om.blendSrcAlpha, blendDstAlpha: om.blendDstAlpha,
+          uniforms: om.uniforms, vertexShader: om.vertexShader, fragmentShader: dotsFrag });
+        const dotPlume = new THREE.Mesh(outer.geometry, dm);
+        dotPlume.scale.set(1.45, 1.18, 1.45); dotPlume.renderOrder = 3;
+        flameParts.flame.add(dotPlume);
+      }
+    }
     // face light: the LEDs light up the bezel and anything right in front of them
     const faceLight = new THREE.PointLight(0x5ff4ff, 0.25, 0.9); faceLight.position.set(0, 0.02, 0.5); head.add(faceLight);
     // ---------- Expressions ----------
@@ -1157,6 +1415,7 @@
         bodyMats.forEach(([mt, base]) => { mt.color.copy(base).multiply(MOON.clone().lerp(new THREE.Color(1, 1, 1), 1 - nightF)); });
         scene.traverse(o => { if (o.material && o.material.envMapIntensity !== undefined && o.material !== glowMat) o.material.envMapIntensity = 1 - 0.92 * nightF; });
       }
+      COMIC_NIGHT.value = nightF;
       if (faceMat) faceMat.emissiveIntensity = 1.7 + 0.3 * nightF;
       glowMat.opacity = 0.2 + 0.08 * nightF;
       faceLight.color.setRGB(col.r / 255, col.g / 255, col.b / 255); faceLight.intensity = 0.25 + 0.45 * nightF;

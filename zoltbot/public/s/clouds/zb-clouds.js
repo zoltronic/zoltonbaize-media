@@ -28,7 +28,7 @@
   var FADE = { from: 1040, to: 1500 };
   // section tops in the design, matched to the live page's sections
   var ANCHORS = [['hero', 0], ['work', 1008], ['experience', 1536], ['contact', 1867], ['footer', 2263], ['end', 2341]];
-  var FLOOR = { day: '#f3f4f1', night: '#1b2433' };   // inside the cloud: clean white by day, clean dark grey at night
+  var FLOOR = { day: '#fbfcfd', night: '#1b2433' };   // inside the cloud: clean white by day, clean dark grey at night
 
   var css = document.createElement('style');
   css.textContent = [
@@ -39,7 +39,7 @@
     '.zbs-c.flip img{transform:scaleX(-1)}',
     'html[data-mode="dark"] .zbs-c img.d{opacity:0}',
     'html[data-mode="dark"] .zbs-c img.n{opacity:1}',
-    '.zbs{--zf:' + FLOOR.day + ';--zf0:rgba(243,244,241,0)}',
+    '.zbs{--zf:' + FLOOR.day + ';--zf0:rgba(251,252,253,0)}',
     'html[data-mode="dark"] .zbs{--zf:' + FLOOR.night + ';--zf0:rgba(27,36,51,0)}',
     '.zbs-fade{position:absolute;left:0;right:0;background:linear-gradient(to bottom,var(--zf0),var(--zf))}',
     '.zbs-floor{position:absolute;left:0;right:0;bottom:0;background:var(--zf)}',
@@ -120,7 +120,7 @@
     // cloud
     relief: 0.5, puff: 1, swell: 0.35, fluff: 0.22, coverage: 0.6, density: 6, billowScale: 0.55, detail: 0.35, detailScale: 1.6,
     // lighting
-    absorption: 2.2, multiScatter: 0.3, silver: 0.65, ambient: 0.55, nightAmbient: 1, exposure: 1.25, haze: 0.025,
+    absorption: 2.2, multiScatter: 0.3, silver: 0.65, ambient: 0.55, nightAmbient: 1, exposure: 1.25, haze: 0.025, white: 0.35,
     quality: 1,
     // high clouds: when each goes behind the cloud horizon (share of the descent: 0 top of page .. 1 landed), and its parallax
     farBehind: 1.37, titleBehind: 0.5, farParallax: 0.30, titleParallax: 0.16,
@@ -146,7 +146,7 @@
     'uniform sampler2D uH; uniform sampler3D uNoise;',
     'uniform vec2 uR; uniform float uPR, uHz, uCam, uZ, uT, uN;',
     'uniform vec3 uFD, uFN, uSun;',
-    'uniform float uA, uTile, uSwell, uSkin, uCov, uDens, uBill, uDet, uDetS, uSunI, uMoon, uAbs, uMulti, uSilver, uAmb, uNAmb, uExp, uHaze;',
+    'uniform float uA, uTile, uSwell, uSkin, uCov, uDens, uBill, uDet, uDetS, uSunI, uMoon, uAbs, uMulti, uSilver, uAmb, uNAmb, uExp, uHaze, uWhite;',
     // the cloud-top height under a point: packed rounded heads (baked, tileable, mipmapped) plus long swells
     'float hgt(vec2 xz){ float h = texture(uH, xz/uTile).r; vec2 s2 = mat2(.8,.6,-.6,.8)*xz/(uTile*4.7); float s = texture(uH, s2).r;',
     '  return uA*(h*1.6 + (s-.45)*uSwell*2.); }',
@@ -164,7 +164,7 @@
     'void main(){',
     '  vec2 px = gl_FragCoord.xy/uPR;',
     '  vec3 floorC = mix(uFD, uFN, uN);',
-    '  vec3 hazeC = mix(vec3(.88,.92,.97), vec3(.18,.23,.34), uN);',
+    '  vec3 hazeC = mix(vec3(.95,.97,.99), vec3(.18,.23,.34), uN);',
     '  float glow = exp(min(0.,(uHz-px.y))/26.)*.55;',
     '  if (uHz > uR.y + 220.) { fc = vec4(floorC, 1.); return; }',   // deep in the cloud: one solid colour
     '  float F = uR.y*1.05;',
@@ -209,6 +209,7 @@
     '  col = pow(col, vec3(1./2.2));',
     '  float a = 1.-T;',
     '  if (tHit < 0.) { tHit = 90.; }',
+    '  col = mix(col, vec3(1.), uWhite*(1.-uN));',                          // light mode: lift the cloud toward white (Lighting > Light mode whiteness)
     '  col = mix(col, hazeC, clamp(1.-exp(-tHit*uHaze),0.,1.));',            // aerial haze toward the horizon
     '  col = mix(col, floorC, 1.-smoothstep(.35, 1.3, tHit));',              // the closest cloud melts into the page colour
     '  col = mix(col, floorC, uSolid);',                                   // keyframe: the clouds fade toward one solid colour
@@ -269,7 +270,7 @@
     U.uA.value = S.relief; U.uTile.value = 14 * S.puff; U.uSwell.value = S.swell; U.uSkin.value = S.fluff;
     U.uCov.value = S.coverage; U.uDens.value = S.density; U.uBill.value = S.billowScale / S.puff; U.uDet.value = S.detail; U.uDetS.value = S.detailScale / S.puff;
     U.uSunI.value = S.sunIntensity; U.uMoon.value = S.moon; U.uAbs.value = S.absorption; U.uMulti.value = S.multiScatter; U.uSilver.value = S.silver;
-    U.uAmb.value = S.ambient; U.uNAmb.value = S.nightAmbient; U.uExp.value = S.exposure; U.uHaze.value = S.haze; U.uQ.value = S.quality;
+    U.uAmb.value = S.ambient; U.uNAmb.value = S.nightAmbient; U.uExp.value = S.exposure; U.uHaze.value = S.haze; U.uQ.value = S.quality; U.uWhite.value = S.white;
     seaKick();
   }
   function seaInit() {
@@ -289,7 +290,7 @@
       var fd = hexRGB(FLOOR.day), fn = hexRGB(FLOOR.night), V3 = function (a) { return new THREE.Vector3(a[0], a[1], a[2]); };
       var U = { uH: { value: ht }, uNoise: { value: wt }, uR: { value: new THREE.Vector2(1, 1) }, uPR: { value: 1 }, uHz: { value: -1 }, uCam: { value: 3 },
         uZ: { value: 0 }, uT: { value: 0 }, uN: { value: sea.night }, uFD: { value: V3(fd) }, uFN: { value: V3(fn) }, uSun: { value: new THREE.Vector3(0, 1, 0) }, uQ: { value: 1 }, uSolid: { value: 0 } };
-      'uA uTile uSwell uSkin uCov uDens uBill uDet uDetS uSunI uMoon uAbs uMulti uSilver uAmb uNAmb uExp uHaze'.split(' ').forEach(function (k) { U[k] = { value: 0 }; });
+      'uA uTile uSwell uSkin uCov uDens uBill uDet uDetS uSunI uMoon uAbs uMulti uSilver uAmb uNAmb uExp uHaze uWhite'.split(' ').forEach(function (k) { U[k] = { value: 0 }; });
       var m = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, uniforms: U, fragmentShader: SEA_FS, vertexShader: 'void main(){ gl_Position = vec4(position.xy,0.,1.); }', blending: THREE.NoBlending, depthTest: false, depthWrite: false });
       var cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), scn = new THREE.Scene();
       scn.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), m));
@@ -354,7 +355,7 @@
       ['billowScale', 'Billow scale', .1, 2, .01], ['detail', 'Edge detail', 0, .8, .01], ['detailScale', 'Detail scale', .4, 5, .05]]],
     ['Lighting', false, [
       ['absorption', 'Absorption', .3, 4, .05], ['multiScatter', 'Multi-scatter', 0, .8, .01], ['silver', 'Silver lining', 0, .9, .01],
-      ['ambient', 'Sky light', 0, 2, .05], ['nightAmbient', 'Night sky light', 0, 3, .05], ['exposure', 'Exposure', .4, 2.4, .05],
+      ['ambient', 'Sky light', 0, 2, .05], ['nightAmbient', 'Night sky light', 0, 3, .05], ['exposure', 'Exposure', .4, 2.4, .05], ['white', 'Light mode whiteness', 0, 1, .01],
       ['haze', 'Haze', 0, .15, .002], ['quality', 'Quality', .5, 2, .05]]]
   ];
   function seaDraft() {
