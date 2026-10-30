@@ -44,6 +44,16 @@
   // Touch devices: the sky draws its glass in WebGL a beat behind native scrolling, so the card's glass would trail its text.
   // There the card and chat use CSS glass instead, which is part of the element and scrolls with it.
   const touch = matchMedia('(pointer: coarse)').matches;
+  // Comic Zoltbot (Spider-Verse look): ink outlines, flat cel bands, halftone shadows and flame, off-register colour.
+  // Off by default. Turn on with window.ZB_BOT_STYLE = 'comic' (set before this script), or ?comic in the address to preview
+  // (?comic=0 clears it). The preview choice is remembered in this browser only.
+  const COMIC = (() => {
+    try {
+      const q = location.search.match(/[?&]comic(=([01]))?\b/);
+      if (q) { if (q[2] === '0') localStorage.removeItem('zbBotStyle'); else localStorage.setItem('zbBotStyle', 'comic'); }
+      return window.ZB_BOT_STYLE === 'comic' || localStorage.getItem('zbBotStyle') === 'comic';
+    } catch (e) { return window.ZB_BOT_STYLE === 'comic'; }
+  })();
   const skyGlass = hasSky && !touch;
   // Nav icons: the password page doesn't load the icon font the other pages use; load it if it's missing.
   if (!document.querySelector('link[href*="phosphor"], script[src*="phosphor"]')) {
@@ -121,6 +131,7 @@
   .zb-pw-dock:focus-visible { outline: 2px solid #0A5C86; outline-offset: -20px; }
   /* The 3D canvas overhangs the dock on every side so banking rotors, the flame and the exhaust are never cropped */
   .zb-pw-dock canvas { position: absolute; left: -35%; top: -30%; width: 170%; height: 170%; display: block; pointer-events: none; }
+  .zb-pw-dock.zb-comic canvas, :root:not(.zb-night) .zb-pw-dock.zb-late.zb-comic canvas { filter: drop-shadow(2.5px 1px 0 rgba(255,64,110,.5)) drop-shadow(-2px -1px 0 rgba(0,180,255,.45)); }
   .zb-pw-bubble { position: absolute; left: 76%; top: 26%; white-space: nowrap; padding: 9px 14px; border-radius: 18px 18px 18px 6px; font: 600 13px system-ui, -apple-system, sans-serif; color: var(--zb-ink);
     opacity: 0; transform: translateY(6px) scale(.96); transform-origin: 0 100%; transition: opacity 300ms var(--zb-ease), transform 300ms var(--zb-ease); pointer-events: none; }
   .zb-pw-bubble.on { opacity: 1; transform: none; }
@@ -948,6 +959,74 @@
     }
     const hands = [];
     bodyMats = [shellMat, plainMat, bezelMat, capMat].map(mt => [mt, mt.color.clone()]);
+    if (COMIC) comicify();
+    // ---------- Comic style (only with COMIC on) ----------
+    // Same model and animation; only how it's drawn changes. The LED face is left as is (it's already a dot matrix).
+    function comicify() {
+      dock.classList.add('zb-comic');
+      // 1. Cel shading + halftone: the lit colour snaps to three flat bands, and the darker bands get printed dots.
+      // where the bands break (shadow / mid / highlight), in "how lit" units; window.ZB_COMIC_BANDS = [x, y, z] to tune
+      const BANDS = { value: new THREE.Vector3().fromArray(Array.isArray(window.ZB_COMIC_BANDS) ? window.ZB_COMIC_BANDS : [0.75, 1.2, 0.55]) };
+      const DOT = (6 * Math.min(devicePixelRatio || 1, touch ? 1.5 : 1.75)).toFixed(1);
+      const toon = mt => {
+        mt.onBeforeCompile = sh => {
+          sh.uniforms.uB = BANDS;
+          sh.fragmentShader = 'uniform vec3 uB;\n' + sh.fragmentShader;
+          const tag = sh.fragmentShader.includes('#include <opaque_fragment>') ? '#include <opaque_fragment>' : '#include <output_fragment>';
+          sh.fragmentShader = sh.fragmentShader.replace(tag,
+            `{ const vec3 W = vec3(0.299, 0.587, 0.114);
+               // how lit this spot is (diffuse light only, so reflections and clearcoat shine don't wash out the colour)
+               float f = dot(totalDiffuse, W) / max(dot(diffuseColor.rgb, W), 1e-3), sp = dot(totalSpecular, W), l;
+               float band = f < uB.x ? 0.55 : f < uB.y ? 0.8 : 1.0;
+               vec3 cel = diffuseColor.rgb * band;
+               if (sp > uB.z) cel = mix(cel, vec3(1.0), 0.7);   // a strong shine becomes a small flat white shape
+               outgoingLight = cel; l = f * 0.62;
+               vec2 g = gl_FragCoord.xy / ${DOT}; g = mat2(0.707, -0.707, 0.707, 0.707) * g;
+               float d = length(fract(g) - 0.5), r = clamp((0.78 - l) * 0.75, 0.0, 0.48);
+               outgoingLight *= 1.0 - 0.26 * (1.0 - smoothstep(r - 0.06, r, d)); }
+             ` + tag);
+        };
+        mt.needsUpdate = true;
+      };
+      const BODY = new Set([shellMat, plainMat, capMat, seamMat, bezelMat, metalDark]);
+      BODY.forEach(toon);
+      [shellMat, plainMat, capMat, bezelMat].forEach(mt => { mt.clearcoat = 0.25; mt.roughness = 0.5; });   // fewer glossy hot spots
+      // 2. Ink outlines: a slightly fattened, back-facing copy of each solid part, drawn in ink (the classic inverted hull)
+      // (fattened along its normals and nudged back from the camera, so the ink only shows past the part's edge)
+      const ink = new THREE.Color('#081521');
+      // (inside-out lathes have their winding reversed too, so their hull keeps its front faces instead of its back faces)
+      const inkMat = (w, flip) => new THREE.ShaderMaterial({ side: flip ? THREE.FrontSide : THREE.BackSide, uniforms: { uInk: { value: ink } },
+        vertexShader: 'void main(){ vec3 p = position + normal * ' + w.toFixed(4) + '; vec4 mv = modelViewMatrix * vec4(p, 1.0); mv.z -= 0.01; gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'uniform vec3 uInk; void main(){ gl_FragColor = vec4(uInk, 1.0); }' });
+      const inks = {};
+      const inkFor = (w, flip) => inks[w + ':' + flip] || (inks[w + ':' + flip] = inkMat(w, flip));
+      const facesIn = g => {   // most normals pointing toward the part's centre = an inside-out lathe profile
+        g.computeBoundingBox(); const c = g.boundingBox.getCenter(V(0, 0, 0)), P = g.attributes.position, N = g.attributes.normal; let s = 0;
+        for (let i = 0; i < P.count; i += 7) s += Math.sign((P.getX(i) - c.x) * N.getX(i) + (P.getY(i) - c.y) * N.getY(i) + (P.getZ(i) - c.z) * N.getZ(i));
+        return s < 0;
+      };
+      const solids = [];
+      head.traverse(o => { if (o.isMesh && BODY.has(o.material) && !o.userData.ink) solids.push(o); });
+      solids.forEach(o => {
+        const g = o.geometry;
+        if (!g.attributes.normal || g.type === 'CircleGeometry') return;
+        g.computeBoundingSphere();
+        // lathed parts can come out inside-out (their normals face in): flip them, so cel bands light them the right way round
+        const inv = g.type === 'LatheGeometry' && facesIn(g);
+        if (inv) { const N = g.attributes.normal; for (let i = 0; i < N.array.length; i++) N.array[i] = -N.array[i]; N.needsUpdate = true; }
+        const m = new THREE.Mesh(g, inkFor(g.boundingSphere.radius > 0.12 ? 0.013 : 0.0065, inv));
+        m.userData.ink = true; o.add(m);
+      });
+      // 3. Halftone flame: the plume prints as dots that get smaller toward the tip, like the comic
+      if (flameParts) flameParts.mats.forEach(m => {
+        m.fragmentShader = m.fragmentShader.replace('gl_FragColor = vec4(c * a, a * 0.95); }',
+          `vec2 g = gl_FragCoord.xy / ${(DOT * 0.75).toFixed(1)}; float d = length(fract(g) - 0.5);
+           float on = 1.0 - smoothstep(0.42 * sqrt(a) - 0.05, 0.42 * sqrt(a), d);
+           a = max(a * 0.12, on * min(1.0, a * 1.8));
+           gl_FragColor = vec4(c * a, a * 0.95); }`);
+        m.needsUpdate = true;
+      });
+    }
     // face light: the LEDs light up the bezel and anything right in front of them
     const faceLight = new THREE.PointLight(0x5ff4ff, 0.25, 0.9); faceLight.position.set(0, 0.02, 0.5); head.add(faceLight);
     // ---------- Expressions ----------
