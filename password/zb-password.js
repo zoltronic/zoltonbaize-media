@@ -993,7 +993,7 @@
       [shellMat, plainMat, capMat, bezelMat].forEach(mt => { mt.clearcoat = 0.25; mt.roughness = 0.5; });   // fewer glossy hot spots
       // 2. Ink outlines: a slightly fattened, back-facing copy of each solid part, drawn in ink (the classic inverted hull)
       // (fattened along its normals and nudged back from the camera, so the ink only shows past the part's edge)
-      const ink = new THREE.Color('#081521');
+      const ink = new THREE.Color('#1B3044');   // a deep navy rather than pure black, so the lines sit back a little
       // (inside-out lathes have their winding reversed too, so their hull keeps its front faces instead of its back faces)
       const inkMat = (w, flip) => new THREE.ShaderMaterial({ side: flip ? THREE.FrontSide : THREE.BackSide, uniforms: { uInk: { value: ink } },
         vertexShader: 'void main(){ vec3 p = position + normal * ' + w.toFixed(4) + '; vec4 mv = modelViewMatrix * vec4(p, 1.0); mv.z -= 0.01; gl_Position = projectionMatrix * mv; }',
@@ -1014,18 +1014,25 @@
         // lathed parts can come out inside-out (their normals face in): flip them, so cel bands light them the right way round
         const inv = g.type === 'LatheGeometry' && facesIn(g);
         if (inv) { const N = g.attributes.normal; for (let i = 0; i < N.array.length; i++) N.array[i] = -N.array[i]; N.needsUpdate = true; }
-        const m = new THREE.Mesh(g, inkFor(g.boundingSphere.radius > 0.12 ? 0.013 : 0.0065, inv));
+        const m = new THREE.Mesh(g, inkFor(g.boundingSphere.radius > 0.12 ? 0.0075 : 0.004, inv));
         m.userData.ink = true; o.add(m);
       });
-      // 3. Halftone flame: the plume prints as dots that get smaller toward the tip, like the comic
-      if (flameParts) flameParts.mats.forEach(m => {
-        m.fragmentShader = m.fragmentShader.replace('gl_FragColor = vec4(c * a, a * 0.95); }',
+      // 3. Halftone flame: the real flame stays exactly as it was, and a slightly bigger, see-through plume of printed dots
+      //    sits around it (dots shrink toward the tip). It shares the flame's uniforms, so it flickers and stretches with it.
+      if (flameParts) {
+        const dotsFrag = flameParts.mats[0].fragmentShader.replace('gl_FragColor = vec4(c * a, a * 0.95); }',
           `vec2 g = gl_FragCoord.xy / ${(DOT * 0.75).toFixed(1)}; float d = length(fract(g) - 0.5);
-           float on = 1.0 - smoothstep(0.42 * sqrt(a) - 0.05, 0.42 * sqrt(a), d);
-           a = max(a * 0.12, on * min(1.0, a * 1.8));
+           float on = 1.0 - smoothstep(0.44 * sqrt(a) - 0.05, 0.44 * sqrt(a), d);
+           a = on * min(1.0, a * 1.6) * 0.55;
            gl_FragColor = vec4(c * a, a * 0.95); }`);
-        m.needsUpdate = true;
-      });
+        const outer = flameParts.flame.children[0], om = outer.material;
+        const dm = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+          blending: om.blending, blendSrc: om.blendSrc, blendDst: om.blendDst, blendSrcAlpha: om.blendSrcAlpha, blendDstAlpha: om.blendDstAlpha,
+          uniforms: om.uniforms, vertexShader: om.vertexShader, fragmentShader: dotsFrag });
+        const dotPlume = new THREE.Mesh(outer.geometry, dm);
+        dotPlume.scale.set(1.45, 1.18, 1.45); dotPlume.renderOrder = 3;
+        flameParts.flame.add(dotPlume);
+      }
     }
     // face light: the LEDs light up the bezel and anything right in front of them
     const faceLight = new THREE.PointLight(0x5ff4ff, 0.25, 0.9); faceLight.position.set(0, 0.02, 0.5); head.add(faceLight);
