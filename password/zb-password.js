@@ -57,6 +57,11 @@
   const protPath = ((window.ZB_PROTECTED_PATH || (pathEl && pathEl.value) || location.pathname) + '').replace(/\/+$/, '') || '/';
   const PAGE = CONTACT ? '' : window.ZB_PROTECTED_NAME || NAMES[protPath.toLowerCase()] ||
     (protPath === '/' || protPath === '/401' ? '' : protPath.split('/').pop().replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+  // The case study's full name, for the access request (Zolton sees exactly which page someone asked for)
+  const CASES = { '/gold': 'Bringing Gold to Wells Fargo', '/iconography': 'Drawing One Cohesive System', '/icons': 'Drawing One Cohesive System', '/atm': 'A Teaching Machine' };
+  const CASE = CONTACT ? '' : (CASES[protPath.toLowerCase()] || PAGE || 'a protected page');
+  // GA4 events for the access-request funnel: the page path only, never anything a visitor typed.
+  const track = (name, extra) => { try { if (typeof window.gtag === 'function') window.gtag('event', name, Object.assign({ page_path: protPath }, extra || {})); } catch (e) {} };
   if (!CONTACT) {
     const h = card.querySelector('h1, h2, h3');
     // Site type: mono eyebrow + display title (Schibsted Grotesk 900), per the Portfolio 2.0 guidelines
@@ -178,6 +183,25 @@
   .zb-night .zb-msg.bot, .zb-night .zb-chip, .zb-night .zb-chat-x, .zb-night .zb-chat-form input { background: rgba(255,255,255,.1); border-color: rgba(180,220,248,.22); color: var(--zb-ink); }
   .zb-night .zb-chat-head, .zb-night .zb-chat-form { border-color: rgba(180,220,248,.16); }
   .zb-night .zb-msg.me, .zb-night .zb-chat-form button { background: #EAF6FD; color: #07283D; }
+  /* Password pages: Zoltbot's speech bubble becomes a small card, "Need access? Have a question?" with a Request access button */
+  .zb-pw-bubble.zb-bubble-swap { visibility: hidden; }   /* the plain bubble stays in place (it's what the card lines up with) */
+  .zb-req { position: fixed; left: 0; top: 0; z-index: 7; display: flex; flex-direction: column; align-items: flex-start; gap: 9px; max-width: 236px;
+    padding: 11px 12px 12px 14px; border-radius: 18px 18px 18px 6px; color: var(--zb-ink);
+    opacity: 0; pointer-events: none; transition: opacity 300ms var(--zb-ease); will-change: transform; }
+  .zb-req.on { opacity: 1; pointer-events: auto; }
+  .zb-req-q { border: 0; background: none; padding: 0; margin: 0; color: inherit; font: 600 13px/1.3 system-ui, -apple-system, sans-serif; text-align: left; cursor: pointer; }
+  .zb-req-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 1.5px solid #06222F; border-radius: 999px; background: rgba(255,255,255,.55); color: #06222F;
+    font: 700 13px 'Schibsted Grotesk', system-ui, sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 160ms, color 160ms; }
+  .zb-req-btn i { font-size: 15px; }
+  .zb-req-btn:hover { background: #06222F; color: #EAFBF6; }
+  .zb-req-btn:active { transform: scale(.97); }
+  .zb-req-btn:focus-visible, .zb-req-q:focus-visible, .zb-msg-link:focus-visible { outline: 2px solid #0A5C86; outline-offset: 3px; }
+  .zb-night .zb-req-btn { border-color: #EAF6FD; background: rgba(255,255,255,.08); color: #EAF6FD; }
+  .zb-night .zb-req-btn:hover { background: #EAF6FD; color: #07283D; }
+  .zb-night .zb-req-btn:focus-visible, .zb-night .zb-req-q:focus-visible, .zb-night .zb-msg-link:focus-visible { outline-color: #5FDBFF; }
+  .zb-kb .zb-req { opacity: 0 !important; pointer-events: none !important; }   /* phone keyboard up: step aside like the bubble */
+  .zb-msg-link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 999px; background: #06222F; color: #EAFBF6; font: 700 13px system-ui, sans-serif; text-decoration: none; }
+  .zb-night .zb-msg-link { background: #EAF6FD; color: #07283D; }
   @media (max-width: 819px) {
     .zb-pw-card { margin-top: 176px; }
     .zb-pw-page .utility-page-wrap { box-sizing: border-box; height: auto; min-height: 100vh; min-height: 100svh; max-height: none; padding-bottom: 104px; }   /* keep the card clear of the bottom thumb nav */
@@ -361,6 +385,45 @@
     dock.appendChild(bubble);
     if (!LATE) setTimeout(() => bubble.classList.add('on'), 1400);
   }
+  // ---------- Password pages: his speech bubble with a Request access button in it ----------
+  // The question opens the chat as usual; the button opens it straight into the access-request questions for this case study.
+  let req = null;
+  if (CHAT && !CONTACT) {
+    req = document.createElement('div'); req.className = 'zb-req zb-glass';
+    req.setAttribute('role', 'group'); req.setAttribute('aria-label', 'Zoltbot');
+    const rq = document.createElement('button'); rq.type = 'button'; rq.className = 'zb-req-q'; rq.textContent = 'Need access? Have a question?';
+    rq.setAttribute('aria-label', 'Chat with Zoltbot');
+    const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'zb-req-btn';
+    rb.innerHTML = '<i class="ph ph-key" aria-hidden="true"></i><span>Request access</span>';
+    rb.setAttribute('aria-label', 'Request access to ' + CASE + ' (opens a chat with Zoltbot)');
+    req.append(rq, rb);
+    rq.addEventListener('click', () => { if (chat) chat.open(); });
+    rb.addEventListener('click', () => { track('request_access_click'); if (chat) chat.request(); });
+    if (bubble) bubble.classList.add('zb-bubble-swap');
+    LAYER.appendChild(req);
+    // Takes the bubble's place beside him (bottom edges lined up, so it grows up and away from his face) and rides along
+    // with him; hidden while the chat is open, while a phone keyboard is up, or once the page unlocks.
+    (function placeReq() {
+      let shown = false;
+      function frame() {
+        const hide = bus.chatOpen || bus.unlocked || dock.classList.contains('zb-waiting');
+        const b = (bubble || dock).getBoundingClientRect(), d = dock.getBoundingClientRect(), w = req.offsetWidth || 200, h = req.offsetHeight || 90;
+        const narrow = innerWidth < 820;   // phones: lined up with the bubble's right edge, clear of his face
+        let x = bubble ? (narrow ? b.right - w : b.left) : d.left + d.width * 0.6, y = bubble ? b.bottom - h : d.top + d.height * 0.3 - h;
+        x = Math.max(12, Math.min(x, innerWidth - w - 12));
+        y = Math.max(12, y);
+        req.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0)';
+        if (shown === hide) {
+          shown = !hide; req.classList.toggle('on', shown);
+          req.setAttribute('aria-hidden', shown ? 'false' : 'true');
+          req.querySelectorAll('button').forEach(n => { n.tabIndex = shown ? 0 : -1; });
+        }
+        requestAnimationFrame(frame);
+      }
+      req.querySelectorAll('button').forEach(n => { n.tabIndex = -1; });
+      setTimeout(() => requestAnimationFrame(frame), 1400);   // when his bubble would have appeared
+    })();
+  }
 
   // ---------- Shared state between the bot and the chat ----------
   const bus = window.__zbBus = { vx: 0, vy: 0, ax: 0, ay: 0, mdx: 0, mdy: 0, busy: false, scanning: false, unlocked: false, checkUntil: 0, hopReq: false, mood: 'idle', moodUntil: 0, talkUntil: 0, chatOpen: false, poke: -1, shakeReq: false, thinking: false, chatKey: -9, chatInput: null, chatLog: null };
@@ -529,7 +592,7 @@
     let typingEl = null;
     const showTyping = () => { if (typingEl) return; typingEl = document.createElement('div'); typingEl.className = 'zb-msg bot typing'; typingEl.setAttribute('aria-label', 'Zoltbot is typing'); typingEl.innerHTML = '<i></i><i></i><i></i>'; log.appendChild(typingEl); log.scrollTop = log.scrollHeight; bus.thinking = true; };
     const hideTyping = () => { if (typingEl) { typingEl.remove(); typingEl = null; } bus.thinking = false; };
-    const say = (text, who) => { if (who === 'bot') hideTyping(); const m = document.createElement('div'); m.className = 'zb-msg ' + who; m.textContent = text; log.appendChild(m); log.scrollTop = log.scrollHeight; if (who === 'bot') { history.push({ role: 'assistant', content: text }); bus.talkUntil = performance.now() / 1000 + Math.min(2.4, 0.4 + text.length * 0.03); } };
+    const say = (text, who, priv) => { if (who === 'bot') hideTyping(); const m = document.createElement('div'); m.className = 'zb-msg ' + who; m.textContent = text; log.appendChild(m); log.scrollTop = log.scrollHeight; if (who === 'bot') { if (!priv) history.push({ role: 'assistant', content: text }); bus.talkUntil = performance.now() / 1000 + Math.min(2.4, 0.4 + text.length * 0.03); } };
     const setChips = (list) => { chips.innerHTML = ''; list.forEach(t => { const b = document.createElement('button'); b.type = 'button'; b.className = 'zb-chip'; b.textContent = t; b.onclick = () => send(t); chips.appendChild(b); }); };
     // Keep the whole panel (and its Send button) inside the viewport: right of the card if it fits, else left of it,
     // else pinned to the right edge; shrink before it ever runs off the bottom, leaving room for the footer.
@@ -561,6 +624,12 @@
         setTimeout(() => { say(history.length ? 'Still no luck with the password? I can help.' : 'Hmm, that password didn’t work' + (PAGE ? ' for ' + PAGE : '') + '. Need access? Have a question? I’m Zoltbot, Zolton’s sidekick robot, and I can help.', 'bot'); setChips(['Request access', 'I have a question', 'I’ll try again']); }, 250);
         return;   // leave focus on the password field so they can retry
       }
+      if (reason === 'request' && !CONTACT) {   // the "Request access" chip: straight into the questions for this case study
+        greeted = true;
+        if (astep < 0) setTimeout(startAccess, 250);
+        setTimeout(() => inp.focus(), 320);
+        return;
+      }
       if (!greeted && CONTACT) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. Got a role for Zolton, a question, or a message? I can pass it on, or tell you about him and his work.', 'bot'); setChips(['Tell Zolton about the role', 'Send Zolton a message', 'What does he work on?']); }, 250); }
       if (!greeted) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. ' + (PAGE ? PAGE + ' is a password-protected page.' : 'This part of the site is password-protected.') + ' Need access? Have a question? I can tell you about Zolton’s work, or help you ask him for access.', 'bot'); setChips(['Request access', 'What’s behind the password?', 'Who is Zolton?']); }, 250); }
       setTimeout(() => inp.focus(), 320);
@@ -575,7 +644,7 @@
     async function send(text) {
       if (/^I’ll try again$/.test(text) && el.classList.contains('zb-peek')) { close(); if (input) input.focus(); return; }
       el.classList.remove('zb-peek');
-      say(text, 'me'); history.push({ role: 'user', content: text }); setChips([]);
+      say(text, 'me'); if (astep < 0) history.push({ role: 'user', content: text }); setChips([]);
       setTimeout(showTyping, 200);
       await wait(900 + Math.min(900, text.length * 12));
       if (!(await treeReply(text))) await offTrack();
@@ -626,13 +695,67 @@
       'What’s the timeline for filling it?', 'Got a link to the job posting? (Or say “skip”.)', 'And your name?', 'What’s the best email for Zolton to reply to?'];
     const RL = ['Role', 'Company and team', 'Type and location', 'Team culture', 'Reports to / CEO', 'Pay range', 'Timeline', 'Job link'];
     let rstep = -1; const ra = [];
+    // Access request (password pages): one short question at a time, tied to this case study; sent to Zolton when done.
+    // Zolton decides whether to share the password; Zoltbot never has it.
+    const EMAIL = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+    const AQ = ['First, what’s your name?', 'What’s the best email to reach you?', 'What company or team are you with?',
+      'And your role there?', 'How did you find Zolton’s site?', 'Last one: what are you most interested in seeing? (Optional, or say “skip”.)'];
+    const AQ_CHIPS = [[], [], ['Skip'], ['Recruiter', 'Hiring manager', 'Designer', 'Skip'], ['LinkedIn', 'Google', 'A referral', 'A job application', 'Skip'], ['Skip']];
+    const AL = ['Name', 'Email', 'Company', 'Role', 'Found the site via', 'Interested in'];
+    let astep = -1; const aa = [];
+    const firstName = n => (n || '').trim().split(/\s+/)[0];
+    function startAccess() {
+      astep = 0; aa.length = 0; pending = null; rstep = -1; step = -1;
+      track('request_access_started');
+      say('Happy to help you get into “' + CASE + '”. I’ll ask a few quick questions, one at a time, and send them to Zolton.', 'bot');
+      say('Your info is only used so Zolton can reply to you.', 'note');
+      say(AQ[0], 'bot'); setChips(AQ_CHIPS[0]);
+    }
+    const sayLink = (text, href, onClick) => {
+      const a = document.createElement('a'); a.className = 'zb-msg-link'; a.href = href; a.textContent = text;
+      if (onClick) a.addEventListener('click', onClick);
+      log.appendChild(a); log.scrollTop = log.scrollHeight; return a;
+    };
+    function accessEmail(r) {
+      const lines = AL.map((l, i) => '• ' + l + ': ' + (aa[i] || '—'));
+      const body = 'Hi Zolton,\n\nI’d like the password for “' + CASE + '” (' + r.url + ').\n\n' + lines.join('\n') + '\n\nRequested ' + r.when + '\n';
+      return 'mailto:' + MAILTO + '?subject=' + encodeURIComponent('Access request: ' + CASE + ' — ' + r.name + (r.company ? ' (' + r.company + ')' : '')) + '&body=' + encodeURIComponent(body);
+    }
+    async function submitAccess() {
+      const now = new Date();
+      const r = { kind: 'access', page: CASE, pagePath: protPath, url: location.origin + protPath, name: aa[0], email: aa[1], company: aa[2] || '', role: aa[3] || '',
+        found: aa[4] || '', interest: aa[5] || '', about: 'Access to ' + CASE, wantsToSee: aa[5] || '', at: now.toISOString(),
+        when: now.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) };
+      showTyping();
+      let delivered = false, dup = false;
+      if (ENDPOINT) {
+        try { const j = await post({ type: 'request', request: r, page: protPath }); delivered = !!(j && j.ok && j.delivered > 0); }
+        catch (err) { dup = err.status === 429; }
+      }
+      hideTyping();
+      if (delivered) {
+        track('request_access_submitted', { method: 'notify' });
+        bus.mood = 'happy'; bus.moodUntil = performance.now() / 1000 + 1.6; bus.hopReq = true;
+        say('Done! Your request for “' + CASE + '” is on its way to Zolton. He’ll follow up at ' + r.email + '.', 'bot', true);
+        setChips(['What’s behind the password?', 'Who is Zolton?']); log.scrollTop = log.scrollHeight; return;
+      }
+      if (dup) { say('Looks like you already sent Zolton a request today, so he has it and will follow up.', 'bot'); setChips(['Who is Zolton?']); return; }
+      if (!MAILTO) { say('Thanks! That’s everything Zolton needs.', 'bot'); say('Preview only: nothing was sent.', 'note'); setChips(['Who is Zolton?']); return; }
+      // No send backend (or it couldn't deliver): hand the request to their email app, all filled in.
+      say('Last step: send it from your email app. Everything’s filled in, including which case study you’d like.', 'bot', true);
+      sayLink('Email my request to Zolton', accessEmail(r), () => {
+        track('request_access_submitted', { method: 'email' });
+        setTimeout(() => { say('Thanks! Once that email’s sent, Zolton will follow up with you.', 'bot'); setChips(['Who is Zolton?']); }, 600);
+      });
+      setChips([]); log.scrollTop = log.scrollHeight;
+    }
     const isSkip = t => /^(skip( this( one)?)?|pass|no|nope|n\/?a|none|not sure|prefer not( to say)?|rather not( say)?|-)$/i.test(t.trim());
     async function treeReply(text) {
       const t = text.toLowerCase().trim();
       // ---- During the question flows (a role, a message, a password request) ----
-      const inFlow = rstep >= 0 || step >= 0;
+      const inFlow = rstep >= 0 || step >= 0 || astep >= 0;
       if (inFlow && /^(stop( the questions)?|cancel|never ?mind|quit|exit|forget it|no thanks)\b/.test(t)) {
-        const wasRole = rstep >= 0; rstep = -1; step = -1; pending = null;
+        const wasRole = rstep >= 0 || astep >= 0; rstep = -1; step = -1; astep = -1; pending = null;
         say('No problem, I’ve dropped that' + (wasRole ? ' and nothing was sent' : '') + '. What else can I do for you?', 'bot');
         setChips(CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message', 'What does he work on?'] : ['Request access', 'Who is Zolton?']); return true;
       }
@@ -640,15 +763,27 @@
       const offTopic = inFlow && !isSkip(text) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim()) &&
         (/\?\s*$/.test(text) || /^(who|what|why|how|are you|can you|could you|do you|does he|did he|is he|will you|would you|tell me|show me|sing|rap|bust|write|make|give me|say|joke)\b/.test(t));
       if (offTopic) {
-        const sr = rstep, ss = step; rstep = -1; step = -1;
+        const sr = rstep, ss = step, sa = astep; rstep = -1; step = -1; astep = -1;
+        if (sa >= 0) history.push({ role: 'user', content: text });   // a question, not an answer: fine for the AI to see
         const handled = await treeReply(text);
-        if (rstep < 0 && step < 0) {   // (unless that started a new flow)
+        if (rstep < 0 && step < 0 && astep < 0) {   // (unless that started a new flow)
           if (!handled) await offTrack();
-          rstep = sr; step = ss;
+          rstep = sr; step = ss; astep = sa;
           await wait(600);
-          say('Back to it: ' + (sr >= 0 ? RQ[sr] : QS[ss]), 'bot'); setChips(['Skip this one', 'Stop the questions']);
+          say('Back to it: ' + (sa >= 0 ? AQ[sa] : sr >= 0 ? RQ[sr] : QS[ss]), 'bot'); setChips(sa >= 0 ? AQ_CHIPS[sa].concat(['Stop the questions']) : ['Skip this one', 'Stop the questions']);
         }
         return true;
+      }
+      if (astep >= 0) {
+        const v = text.trim(), skipped = isSkip(v);
+        if (astep === 0 && (skipped || !v)) { say('I need a name so Zolton knows who’s asking. What should I call you?', 'bot'); return true; }
+        if (astep === 1 && !EMAIL.test(v)) { say('That email doesn’t look quite right. Mind checking it? Something like name@company.com.', 'bot'); return true; }
+        aa[astep] = skipped ? '' : v.slice(0, 300); astep++;
+        if (astep < AQ.length) {
+          say(astep === 1 ? 'Thanks, ' + firstName(aa[0]) + '! ' + AQ[1] : (skipped ? 'No worries. ' : '') + AQ[astep], 'bot', astep === 1);
+          setChips(AQ_CHIPS[astep]); return true;
+        }
+        astep = -1; await submitAccess(); return true;
       }
       if (rstep >= 0) {
         if (rstep === 9 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim())) { say('That email doesn’t look quite right. Mind checking it?', 'bot'); return true; }
@@ -715,8 +850,8 @@
       if (ENDPOINT && aiLeft() && !CHIPS.test(t) && !FIXED.test(t) && !ACCESS) return false;
       if (CONTACT && /^what does he work on\?$|\b(work on|case stud|portfolio|projects?|behind)\b/.test(t)) { say('Product design with lots of motion, 3D for the web and design systems. “Bringing Gold to Wells Fargo” makes the case for rendering material in 3D, “Drawing One Cohesive System” is an icon system built on grids and rules, and “A Teaching Machine” guides people through an ATM’s hardest moments. He has a lot more to show. I can have Zolton send you the password.', 'bot'); setChips(['Ask Zolton for the password', 'Tell Zolton about the role', 'Who is Zolton?']); return true; }
       if (!CONTACT && !/behind/.test(t) && /^(start over|request access)$|\b(request|access|let me in|get in)\b|\bpassword\b/.test(t)) {
-        if (/password/.test(t) && !/request|access/.test(t)) say('I don’t have the password, and that’s on purpose. But I can send Zolton a request right now.', 'bot');
-        step = 0; answers.length = 0; pending = null; if (/password/.test(t) && !/request|access/.test(t)) await wait(700); say('Great, a few quick questions. ' + QS[0], 'bot'); return true;
+        if (/password/.test(t) && !/request|access/.test(t)) { say('I don’t have the password, and that’s on purpose. But I can send Zolton a request right now.', 'bot'); await wait(700); }
+        startAccess(); return true;
       }
       if (/^what’s behind the password\?$|\b(behind|case stud|portfolio)\b/.test(t)) { say('Three case studies: “Bringing Gold to Wells Fargo” (motion, material and rendering it in 3D), “Drawing One Cohesive System” (an icon system built on grids and rules) and “A Teaching Machine” (an ATM that guides people through its hardest moments). He has a lot more to show, too.', 'bot'); setChips(['Request access', 'Who is Zolton?']); return true; }
       if (/^what’s he like outside work\?$|\b(hobb\w*|outside (of )?work|fun facts?|free time|for fun|cats?|ziggy|f45|3d print\w*|hoa)\b/.test(t)) {
@@ -766,7 +901,7 @@
       if (/^(hi|hello|hey|yo|sup)\b/.test(t)) { say(CONTACT ? 'Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to send Zolton a message, or know more about him?' : 'Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to know about Zolton, or get access?', 'bot'); setChips([ASK, 'Who is Zolton?']); return true; }
       return false;
     }
-    return { open, close, el };
+    return { open, close, el, request: () => open('request') };
   }
   window.zbChat = { open: () => chat && chat.open(), close: () => chat && chat.close() };   // e.g. a "Chat with Zoltbot" button
   const toggleChat = () => { if (!chat) { bus.poke = 0; return; } bus.chatOpen ? chat.close() : chat.open(); };
