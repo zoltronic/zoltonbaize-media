@@ -69,6 +69,12 @@
     '.zbi-study .m i{width:24px;height:24px;border:1px solid rgba(224,126,232,.55);border-radius:4px;display:flex;align-items:center;justify-content:center;transition:background 200ms,border-color 200ms}',
     '.zbi-study .m i.on{background:rgba(224,126,232,.18);border-color:var(--zbi-ortho)}',
     '.zbi-study .m svg{width:16px;height:16px}',
+    '.zbi-dots{display:none}',
+    '@media (max-width:640px){.zbi-studies{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;margin:0 -16px;padding:4px 16px 8px;scroll-padding:0 16px;scrollbar-width:none;-webkit-overflow-scrolling:touch}.zbi-studies::-webkit-scrollbar{display:none}' +
+      '.zbi-study{flex:0 0 82%;scroll-snap-align:center;flex-direction:column;align-items:stretch;padding:16px}.zbi-study .g{flex:none;width:168px;height:168px;margin:0 auto}.zbi-study .g>svg{inset:8px;width:152px;height:152px}' +
+      '.zbi-study .t{text-align:center;margin:4px 0 10px}.zbi-study .m{display:grid;grid-template-columns:repeat(3,44px);gap:8px;justify-content:center}.zbi-study .m i{width:44px;height:44px;border-radius:8px}.zbi-study .m svg{width:24px;height:24px}' +
+      '.zbi-dots{display:flex;justify-content:center;gap:6px;margin:10px 0 2px}.zbi-dots button{width:8px;height:8px;padding:0;border:0;border-radius:99px;background:rgba(7,40,61,.22);transition:width 200ms,background 200ms}.zbi-dots button[aria-current="true"]{width:20px;background:#07283D}' +
+      'html[data-mode="dark"] .zbi-dots button{background:rgba(234,246,253,.3)}html[data-mode="dark"] .zbi-dots button[aria-current="true"]{background:#EAF6FD}}',
     '.zbi-credit{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;color:var(--zbi-muted);margin-top:12px}',
     '.zbi-credit a{display:inline-flex;align-items:center;gap:5px;font-weight:600;text-decoration:none;color:var(--_zb-mode---mode--link,#0083B8)}',
     /* grid explorer */
@@ -77,6 +83,17 @@
     'html[data-mode="dark"] .zbi-gx .art{background:#eef3f6}',
     '.zbi-gx .art svg{position:absolute;inset:6%;width:88%;height:88%}',
     '.zbi-gx .art .lay{transition:opacity 260ms ease}',
+    '.zbi-sz{margin-top:28px}.zbi-szb{padding:clamp(14px,2.4vw,24px)}',
+    '.zbi-szb .hd{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:10px}',
+    '.zbi-szb .hd .zbi-mono{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--zbi-muted)}',
+    '.zbi-szb .pp{font:500 12px "JetBrains Mono",ui-monospace,monospace;color:var(--zbi-muted)}.zbi-szb .pp b{font-weight:600;color:#9747FF;margin-left:6px}',
+    '.zbi-szb .wrap{position:relative;border-radius:12px;background:#F5F5F5;background-image:radial-gradient(#E3E3E3 1px,transparent 1px);background-size:12px 12px;padding:10px 6px}',
+    'html[data-mode="dark"] .zbi-szb .wrap{background-color:#1E1E1E;background-image:radial-gradient(#333 1px,transparent 1px)}',
+    '.zbi-szb svg{display:block;width:100%;max-width:820px;height:auto;margin:0 auto;overflow:visible}',
+    '.zbi-szb .rl,.zbi-szb .cl{font:500 9px Inter,system-ui,sans-serif;fill:#7A7A7A}.zbi-szb .sl{font:600 10px Inter,system-ui,sans-serif;fill:#9747FF}',
+    '.zbi-szb .v{cursor:pointer}.zbi-szb .v .ol{opacity:0;transition:opacity 120ms}.zbi-szb .v:hover .ol,.zbi-szb .v.on .ol{opacity:1}',
+    '.zbi-szb .tip{position:absolute;transform:translate(-50%,-100%);background:#1E1E1E;color:#fff;font:500 11px Inter,system-ui,sans-serif;padding:5px 8px;border-radius:5px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 120ms}.zbi-szb .tip.on{opacity:1}',
+    '.zbi-gx .art .gsz{position:absolute;left:10px;bottom:6px;font-size:10px;letter-spacing:.06em;color:#4f6b7d}',
     '.zbi-gx .ctl{flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:18px}',
     '.zbi-gx .lbl{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--zbi-muted);margin-bottom:8px}',
     '.zbi-pills{display:flex;flex-wrap:wrap;gap:8px}',
@@ -234,8 +251,11 @@
   }
 
   // ---------- grid geometry (from Zolton's own 32px grid: Pixel, Keyshapes, Orthogonal, Full) ----------
+  // an n × n pixel grid drawn over the 32-unit artboard, so every size reads at the same display size
+  function pxGrid(n) { var d = '', st = 32 / n; for (var i = 0; i <= n; i++) { var v = +(i * st).toFixed(3); d += 'M' + v + ' 0V32M0 ' + v + 'H32'; }
+    return '<path d="' + d + '" stroke="#4280FC" stroke-opacity="' + (n < 32 ? .4 : .28) + '" stroke-width="' + (n < 32 ? .09 : .06) + '"/>'; }
   var G = {
-    px: (function () { var d = ''; for (var i = 0; i <= 32; i++) d += 'M' + i + ' 0V32M0 ' + i + 'H32'; return '<path d="' + d + '" stroke="#4280FC" stroke-opacity=".28" stroke-width=".06"/>'; })(),
+    px: pxGrid(32),
     key: '<g stroke="#006FCF" stroke-width=".28" fill="none" opacity=".75"><circle cx="16" cy="16" r="13"/><circle cx="16" cy="16" r="5.7"/><rect x="5" y="5" width="22" height="22"/><rect x="7" y="3" width="18" height="26"/><rect x="3" y="7" width="26" height="18"/></g>',
     ortho: '<g stroke="#FF2AEC" stroke-width=".22" opacity=".8"><path d="M1 1 31 31M31 1 1 31M12 1V31M16 1V31M20 1V31M1 12H31M1 16H31M1 20H31"/></g>',
     safe: '<g><path d="M0 0V32H32V0ZM31 31H1V1H31Z" fill="#FF00FF" fill-opacity=".16"/><path d="M1 1V31H31V1ZM30 30H2V2H30Z" fill="#FF00FF" fill-opacity=".1"/><rect x="1" y="1" width="30" height="30" rx="2.1" fill="none" stroke="#6D1ED4" stroke-width=".22"/></g>'
@@ -334,11 +354,19 @@
       function stop() { clearInterval(timer); timer = null; }
       card.addEventListener('mouseenter', start); card.addEventListener('mouseleave', stop);
       card.addEventListener('click', function () { k = (k + 1) % s[2].length; show(k); });
-      [].forEach.call(minis, function (m, j) { m.addEventListener('mouseenter', function () { stop(); k = j; show(j); }); m.addEventListener('mouseleave', start); });
+      [].forEach.call(minis, function (m, j) { m.addEventListener('mouseenter', function () { stop(); k = j; show(j); }); m.addEventListener('mouseleave', start);
+        m.addEventListener('click', function (e) { e.stopPropagation(); stop(); k = j; show(j); });
+        m.setAttribute('role', 'button'); m.setAttribute('tabindex', '0'); m.setAttribute('aria-label', 'Show ' + s[2][j]); });
       grid.appendChild(card); show(0);
     });
     w.appendChild(grid);
-    w.appendChild(el('div', 'zbi-cap', 'Shape studies: Phosphor icons sorted by the shape they are built on. Hover or tap a card'));
+    // phones: the cards become a swipeable row; dots show where you are
+    var dots = el('div', 'zbi-dots');
+    STUDIES.forEach(function (s, i) { var d = el('button', ''); d.type = 'button'; d.setAttribute('aria-label', s[0]); d.addEventListener('click', function () { var c = grid.children[i]; grid.scrollTo({ left: c.offsetLeft - (grid.clientWidth - c.offsetWidth) / 2, behavior: 'smooth' }); }); dots.appendChild(d); });
+    function cur() { var mid = grid.scrollLeft + grid.clientWidth / 2, best = 0, bd = 1e9; [].forEach.call(grid.children, function (c, i) { var dd = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid); if (dd < bd) { bd = dd; best = i; } }); [].forEach.call(dots.children, function (d, i) { d.setAttribute('aria-current', i === best ? 'true' : 'false'); }); }
+    grid.addEventListener('scroll', function () { requestAnimationFrame(cur); }, { passive: true }); setTimeout(cur, 0);
+    w.appendChild(dots);
+    w.appendChild(el('div', 'zbi-cap', 'Shape studies: Phosphor icons sorted by the shape they are built on. Hover or tap a card. On a phone, swipe through them'));
     w.appendChild(el('div', 'zbi-credit', '<span>The system I studied: Phosphor, by Helena Zhang and Tobias Fried</span><a href="https://phosphoricons.com/" target="_blank" rel="noopener">phosphoricons.com <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 .01 0M9.5 14.5l5-5M10 9.5h4.5V14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>'));
     return w;
   }
@@ -351,7 +379,7 @@
     var LAYERS = [['px', 'Pixel', '#4280FC'], ['key', 'Keyshapes', '#006FCF'], ['ortho', 'Orthogonal', '#FF2AEC'], ['safe', 'Full · safe area', '#b06bff']];
     box.innerHTML = '<div class="art"><svg viewBox="0 0 32 32" fill="none" role="img" aria-label="Hand with sparkles icon on its 32 pixel construction grid">' +
       LAYERS.map(function (l) { return '<g class="lay" data-l="' + l[0] + '">' + G[l[0]] + '</g>'; }).join('') +
-      '<g style="color:#07283D">' + icon.b + '</g></svg></div>' +
+      '<g style="color:#07283D">' + icon.b + '</g></svg><span class="gsz zbi-mono">32 × 32 px grid · the base grid</span></div>' +
       '<div class="ctl"><div><div class="lbl">Layers</div><div class="zbi-pills">' +
       LAYERS.map(function (l) { return '<button type="button" class="zbi-pill" data-l="' + l[0] + '"><span class="sw" style="background:' + l[2] + '"></span>' + l[1] + '</button>'; }).join('') +
       '</div></div><div><div class="lbl">Rendered at</div><div class="zbi-sizes"></div></div>' +
@@ -360,7 +388,8 @@
     [12, 16, 20, 24, 32, 48, 64].forEach(function (s, i) {
       var b = el('button', '', '<span class="cell" style="width:' + s + 'px;height:' + s + 'px;color:#07283D">' + svg(icon, ' width="' + s + '" height="' + s + '" shape-rendering="geometricPrecision"') + '</span><span class="zbi-mono">' + s + 'px</span>');
       b.type = 'button'; b.setAttribute('aria-label', 'Show the icon at ' + s + ' pixels'); b.setAttribute('aria-pressed', i === 4 ? 'true' : 'false');
-      b.addEventListener('click', function () { [].forEach.call(sizes.children, function (x) { x.setAttribute('aria-pressed', 'false'); }); b.setAttribute('aria-pressed', 'true'); });
+      b.addEventListener('click', function () { [].forEach.call(sizes.children, function (x) { x.setAttribute('aria-pressed', 'false'); }); b.setAttribute('aria-pressed', 'true');
+        box.querySelector('.lay[data-l="px"]').innerHTML = pxGrid(s); box.querySelector('.gsz').textContent = s + ' × ' + s + ' px grid' + (s === 32 ? ' · the base grid' : ''); });
       sizes.appendChild(b);
     });
     function paint() {
@@ -375,6 +404,53 @@
     });
     w.appendChild(box);
     w.appendChild(el('div', 'zbi-cap', 'The four layers of the grid. Turn each one on and off'));
+    w.appendChild(buildSizing());
+    return w;
+  }
+
+  // ---------- 05b the grid as a Figma component: 7 sizes × 4 grid views, drawn from Zolton's own geometry ----------
+  // Mirrors the "Icon -sizing" component set in his sandbox: same positions, colours and stroke widths at each size.
+  function buildSizing() {
+    var SIZES = [['64x64px', 64, 21], ['56x56', 56, 99], ['48x48', 48, 169], ['40x40', 40, 231], ['32x32', 32, 285], ['24x24', 24, 331], ['20x20', 20, 369]];
+    var GRIDS = ['Full grid', 'Keyshapes', 'Orthogonals', 'Pixel Grid'], ROWC = [52, 124, 196, 268];
+    function cell(n, g) {
+      var k = n / 32, h = n / 2, b = k, o = '<rect width="' + n + '" height="' + n + '" fill="#fff"/><g opacity=".5">';
+      if (g === 0 || g === 3) { var d = ''; for (var i = 0; i <= n; i++) d += 'M' + i + ' 0V' + n + 'M0 ' + i + 'H' + n; o += '<path d="' + d + '" stroke="#4280FC" stroke-width=".12" opacity=".85"/>'; }
+      if (g === 0 || g === 2) { var e = n - b, q = n / 8; o += '<path d="M' + b + ' ' + b + 'L' + e + ' ' + e + 'M' + e + ' ' + b + 'L' + b + ' ' + e +
+        [h - q, h, h + q].map(function (v) { return 'M' + v + ' ' + b + 'V' + e + 'M' + b + ' ' + v + 'H' + e; }).join('') + '" stroke="#FF2AEC" stroke-width=".3" opacity=".75"/>'; }
+      o += '<path d="M0 0V' + n + 'H' + n + 'V0ZM' + (n - 2) + ' ' + (n - 2) + 'H2V2H' + (n - 2) + 'Z" fill="#FF00FF" opacity=".49"/><path d="M0 0V' + n + 'H' + n + 'V0ZM' + (n - 1) + ' ' + (n - 1) + 'H1V1H' + (n - 1) + 'Z" fill="#FF00FF" opacity=".49"/>';
+      if (g === 0 || (n === 32 && g < 3)) o += '<rect x="1" y="1" width="' + (n - 2) + '" height="' + (n - 2) + '" rx="' + (n * .068).toFixed(2) + '" fill="none" stroke="#6D1ED4" stroke-width=".3"/>';
+      if (g === 0 || g === 1) { var r = function (x, y, w, hh) { return '<rect x="' + x * k + '" y="' + y * k + '" width="' + w * k + '" height="' + hh * k + '"/>'; };
+        o += '<g stroke="#006FCF" stroke-width=".46" fill="none"><circle cx="' + h + '" cy="' + h + '" r="' + 13 * k + '" opacity=".7"/><circle cx="' + h + '" cy="' + h + '" r="' + (5.67 * k).toFixed(2) + '" opacity=".7"/>' + r(5, 5, 22, 22) + r(7, 3, 18, 26) + r(3, 7, 26, 18) + '</g>'; }
+      return o + '</g>';
+    }
+    var LX = 86, TY = 26, W = 421, H = 313, inner = '';
+    GRIDS.forEach(function (g, gi) {
+      inner += '<text x="' + (LX - 12) + '" y="' + (TY + ROWC[gi] + 3) + '" text-anchor="end" class="rl">' + g + '</text>';
+      SIZES.forEach(function (sz) {
+        var n = sz[1], x = LX + sz[2] + (sz[1] === 56 ? 0 : 0), y = TY + ROWC[gi] - n / 2, name = 'Size=' + sz[0] + ', Grid=' + g;
+        inner += '<g class="v" data-n="' + name + '" data-s="' + sz[0] + '" data-g="' + g + '" transform="translate(' + x + ' ' + y + ')">' + cell(n, gi) +
+          '<rect class="hit" width="' + n + '" height="' + n + '" fill="transparent"/><rect class="ol" x="-.75" y="-.75" width="' + (n + 1.5) + '" height="' + (n + 1.5) + '" fill="none" stroke="#0D99FF" stroke-width="1.5"/></g>';
+      });
+    });
+    SIZES.forEach(function (sz) { inner += '<text x="' + (LX + sz[2] + sz[1] / 2) + '" y="' + (TY + H + 16) + '" text-anchor="middle" class="cl">' + sz[1] + '</text>'; });
+    var VW = LX + W + 8, VH = TY + H + 24;
+    var w = el('div', 'zbi zbi-sz');
+    w.innerHTML = '<div class="zbi-box zbi-szb"><div class="hd"><span class="zbi-mono">The grid, as a component</span><span class="pp"></span></div>' +
+      '<div class="wrap"><svg viewBox="0 0 ' + VW + ' ' + VH + '" role="img" aria-label="Zolton\'s grid component in Figma: seven sizes from 64 to 20 pixels, each in four views: full grid, keyshapes, orthogonals and pixel grid">' +
+      '<text x="' + LX + '" y="' + (TY - 8) + '" class="sl">❖ Icon -sizing</text><rect x="' + LX + '" y="' + TY + '" width="' + W + '" height="' + H + '" rx="5" fill="none" stroke="#9747FF" stroke-width="1" stroke-dasharray="4 3"/>' +
+      inner + '</svg><div class="tip"></div></div></div>' +
+      '<div class="zbi-cap">My grid component in Figma: 7 sizes × 4 grid views, 28 variants. Hover or tap one</div>';
+    var svgEl = w.querySelector('svg'), tip = w.querySelector('.tip'), pp = w.querySelector('.pp'), wrap = w.querySelector('.wrap');
+    function pick(v) {
+      [].forEach.call(svgEl.querySelectorAll('.v.on'), function (x) { x.classList.remove('on'); }); v.classList.add('on');
+      pp.innerHTML = '<b>Size</b> ' + v.getAttribute('data-s') + ' <b>Grid</b> ' + v.getAttribute('data-g');
+      var a = wrap.getBoundingClientRect(), r = v.getBoundingClientRect();
+      tip.textContent = v.getAttribute('data-n'); tip.style.left = (r.left - a.left + r.width / 2) + 'px'; tip.style.top = (r.top - a.top - 8) + 'px'; tip.classList.add('on');
+    }
+    [].forEach.call(svgEl.querySelectorAll('.v'), function (v) { v.addEventListener('mouseenter', function () { pick(v); }); v.addEventListener('click', function () { pick(v); }); });
+    svgEl.addEventListener('mouseleave', function () { tip.classList.remove('on'); });
+    setTimeout(function () { var d = svgEl.querySelector('.v[data-n="Size=32x32, Grid=Full grid"]'); if (d) { d.classList.add('on'); pp.innerHTML = '<b>Size</b> 32x32 <b>Grid</b> Full grid · the base'; } }, 0);
     return w;
   }
 
