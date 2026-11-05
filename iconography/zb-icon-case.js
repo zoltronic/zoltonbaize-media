@@ -182,12 +182,12 @@
     (function tick(t) { var k = Math.min(1, (t - t0) / ms); k = 1 - Math.pow(1 - k, 3); node.textContent = pre + Math.round(num * k) + suffix; if (k < 1) requestAnimationFrame(tick); })(t0);
   }
   function mount(name, build) {
-    var spots = document.querySelectorAll('[data-zb-ic="' + name + '"]');
+    var spots = document.querySelectorAll('[data-zb-ic~="' + name + '"]');   // one anchor can hold several, in order: "spot gap"
     [].forEach.call(spots, function (spot) {
-      if (spot.__zbi) return; spot.__zbi = true;
+      spot.__zbi = spot.__zbi || {}; if (spot.__zbi[name]) return; spot.__zbi[name] = true;
       var fig = build(); if (!fig) return;
       if (spot.classList.contains('zb-ph')) { spot.parentNode.insertBefore(fig, spot); spot.style.display = 'none'; }
-      else spot.parentNode.insertBefore(fig, spot.nextSibling);
+      else { var after = spot.__zbiLast || spot; after.parentNode.insertBefore(fig, after.nextSibling); spot.__zbiLast = fig; }
     });
   }
   function stats(list) {
