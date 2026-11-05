@@ -142,18 +142,50 @@
     '.zbi-rn .r{transition:opacity 500ms ease,transform 500ms cubic-bezier(.2,.8,.2,1)}',
     '@media (max-width:560px){.zbi-rn .r{grid-template-columns:30px minmax(0,1fr);row-gap:2px}.zbi-rn .ar{display:none}.zbi-rn b{grid-column:2}}',
     /* harness */
-    '.zbi-hx{padding:clamp(16px,2.6vw,26px);display:flex;flex-wrap:wrap;gap:24px;align-items:center}',
-    '.zbi-hx .src{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:10px}',
-    '.zbi-hx .src .t{width:104px;height:104px;border-radius:14px;background:var(--zbi-yellow);display:flex;align-items:center;justify-content:center;color:#07283D}',
-    '.zbi-hx .src svg{width:56px;height:56px}',
-    '.zbi-hx .flow{flex:1 1 360px;min-width:0}',
-    '.zbi-hx .steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}',
-    '.zbi-hx .steps span{font:500 11px "JetBrains Mono",ui-monospace,monospace;padding:7px 10px;border-radius:999px;border:1px solid var(--zbi-hair);color:var(--zbi-muted);transition:background 300ms,color 300ms,border-color 300ms}',
-    '.zbi-hx .steps span.on{background:#06222F;color:#EAFBF6;border-color:#06222F}',
-    '.zbi-hx .out{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px;align-items:end}',
-    '.zbi-hx .out i{display:flex;align-items:center;justify-content:center;aspect-ratio:1;border-radius:6px;background:var(--zbi-card2);border:1px solid var(--zbi-hair);opacity:.15;transform:scale(.8);transition:opacity 260ms ease,transform 260ms cubic-bezier(.2,.8,.2,1)}',
-    '.zbi-hx .out i.on{opacity:1;transform:none}',
-    '.zbi-hx .out svg{width:var(--s,60%);height:var(--s,60%)}',
+    '.zbi-hx{padding:clamp(12px,2vw,18px)}',
+    '.zbi-fx{--fx-bg:#fff;--fx-cv:#F5F5F5;--fx-ln:#E6E6E6;--fx-tx:#2B2B2B;--fx-mu:#8C8C8C;--fx-ink:#1E1E1E;--fx-cell:#fff;--fx-sel:#0D99FF;--fx-cmp:#9747FF;border-radius:12px;overflow:hidden;border:1px solid var(--fx-ln);background:var(--fx-bg);color:var(--fx-tx);font:500 11px Inter,system-ui,sans-serif;box-shadow:0 18px 40px -24px rgba(7,40,61,.45)}',
+    'html[data-mode="dark"] .zbi-fx{--fx-bg:#2C2C2C;--fx-cv:#1E1E1E;--fx-ln:#3D3D3D;--fx-tx:#EDEDED;--fx-mu:#9A9A9A;--fx-ink:#EDEDED;--fx-cell:#2C2C2C}',
+    '.zbi-fx .bar{display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:1px solid var(--fx-ln)}',
+    '.zbi-fx .bar>i{width:9px;height:9px;border-radius:50%;background:var(--fx-ln)}',
+    '.zbi-fx .ttl{margin-left:8px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}','.zbi-fx .live{white-space:nowrap;flex:0 0 auto}',
+    '.zbi-fx .live{margin-left:auto;display:flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:rgba(151,71,255,.12);color:var(--fx-cmp);font-weight:600}',
+    '.zbi-fx .live b{width:7px;height:7px;border-radius:50%;background:var(--fx-cmp);animation:zbiPulse 1.1s ease-in-out infinite}',
+    '.zbi-fx .live.done{background:rgba(20,174,92,.12);color:#14AE5C}.zbi-fx .live.done b{background:#14AE5C;animation:none}',
+    '@keyframes zbiPulse{50%{opacity:.25}}',
+    '.zbi-fx .body{display:grid;grid-template-columns:170px minmax(0,1fr) 180px;min-height:330px}',
+    '.zbi-fx .ph{padding:10px 12px 6px;font-weight:600;border-bottom:1px solid var(--fx-ln)}',
+    '.zbi-fx .lay{border-right:1px solid var(--fx-ln);display:flex;flex-direction:column;min-height:0}',
+    '.zbi-fx .ll{flex:1;overflow:hidden;padding:4px 0;max-height:290px}',
+    '.zbi-fx .ll div{padding:4px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;animation:zbiIn 220ms ease both}',
+    '.zbi-fx .ll .c{color:var(--fx-cmp);font-weight:600}.zbi-fx .ll .v{padding-left:26px;color:var(--fx-tx)}.zbi-fx .ll .v.act{background:rgba(13,153,255,.12)}',
+    '@keyframes zbiIn{from{opacity:0;transform:translateY(4px)}}',
+    '.zbi-fx .cv{position:relative;background:var(--fx-cv);background-image:radial-gradient(var(--fx-ln) 1px,transparent 1px);background-size:14px 14px;display:flex;align-items:center;justify-content:center;gap:26px;padding:34px 18px 18px;overflow:hidden}',
+    '.zbi-fx .lb{position:absolute;top:-18px;left:0;font-weight:600;white-space:nowrap;color:var(--fx-mu)}',
+    '.zbi-fx .mst{position:relative;flex:0 0 auto;width:74px;height:74px;background:var(--fx-cell);display:flex;align-items:center;justify-content:center;color:var(--fx-ink);outline:1px solid transparent;transition:outline-color 200ms}',
+    '.zbi-fx .mst.sel{outline:1.5px solid var(--fx-sel)}',
+    '.zbi-fx .mst svg{width:56px;height:56px}',
+    '.zbi-fx .set{position:relative;flex:1 1 auto;max-width:440px;border:1.5px dashed var(--fx-cmp);border-radius:4px;padding:10px;opacity:0;transform:scale(.97);transition:opacity 260ms,transform 260ms}',
+    '.zbi-fx .set.on{opacity:1;transform:none}',
+    '.zbi-fx .set .lb{color:var(--fx-cmp)}',
+    '.zbi-fx .cells{display:grid;grid-template-columns:44px repeat(9,minmax(0,1fr));gap:4px;align-items:center}',
+    '.zbi-fx .cells em{font-style:normal;font-size:9px;color:var(--fx-mu)}',
+    '.zbi-fx .cells i{aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--fx-cell);color:var(--fx-ink);outline:1px solid transparent;opacity:0;transform:scale(.6);transition:opacity 160ms,transform 220ms cubic-bezier(.2,.8,.2,1),outline-color 300ms}',
+    '.zbi-fx .cells i.on{opacity:1;transform:none}.zbi-fx .cells i.sel{outline:1.5px solid var(--fx-sel)}',
+    '.zbi-fx .cells svg{width:var(--s);height:var(--s)}',
+    '.zbi-fx .cur{position:absolute;left:0;top:0;z-index:3;pointer-events:none;transition:transform 240ms cubic-bezier(.3,.7,.2,1);display:flex;align-items:flex-start}',
+    '.zbi-fx .cur span{margin:14px 0 0 -2px;padding:2px 7px;border-radius:4px 10px 10px 10px;background:var(--fx-cmp);color:#fff;font-weight:600;font-size:10px}',
+    '.zbi-fx .props{border-left:1px solid var(--fx-ln)}',
+    '.zbi-fx .pr{padding:10px 12px;display:flex;flex-direction:column;gap:12px}',
+    '.zbi-fx .pr .k{color:var(--fx-mu);margin-bottom:5px}',
+    '.zbi-fx .pr .chips{display:flex;flex-wrap:wrap;gap:3px}',
+    '.zbi-fx .pr .chips span{padding:3px 6px;border-radius:4px;border:1px solid var(--fx-ln);transition:background 150ms,color 150ms,border-color 150ms}',
+    '.zbi-fx .pr .chips span.on{background:var(--fx-sel);border-color:var(--fx-sel);color:#fff}',
+    '.zbi-fx .pr .big{font-size:20px;font-weight:800;color:var(--fx-tx)}',
+    '.zbi-fx .log{border-top:1px solid var(--fx-ln);padding:10px 12px;font:500 11px "JetBrains Mono",ui-monospace,monospace;height:112px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:3px}',
+    '.zbi-fx .log div{animation:zbiIn 220ms ease both;color:var(--fx-mu)}.zbi-fx .log div:last-child{color:var(--fx-tx)}',
+    '.zbi-fx .log b{color:var(--fx-cmp);font-weight:600}.zbi-fx .log .ok{color:#14AE5C}',
+    '@media (max-width:760px){.zbi-fx .body{grid-template-columns:minmax(0,1fr)}.zbi-fx .lay,.zbi-fx .props{display:none}.zbi-fx .mst{display:none}.zbi-fx .cv{padding:30px 10px 12px}}',
+    '.zbi-hx .meta{margin-top:14px}',
     '.zbi-hx .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}',
     '.zbi-hx .meta div{flex:1 1 150px;padding:12px 14px;border-radius:12px;background:var(--zbi-card2)}',
     '.zbi-hx .meta b{display:block;font-size:22px;font-weight:900;letter-spacing:-.02em}',
@@ -418,30 +450,80 @@
     return box;
   }
 
-  // ---------- 10 harness ----------
+  // ---------- 10 harness: an agent building the component sets in Figma, live ----------
   function buildHarness() {
     var w = el('div', 'zbi'), box = el('div', 'zbi-box zbi-hx');
-    var icon = find(D.std, 'handshake');
-    var STEPS = ['Master 32px', 'Outline strokes', '9 sizes', '3 weights', 'Tokens + variants', 'Locked layers'];
-    var cells = '';
-    for (var wgt = 0; wgt < 3; wgt++) for (var s = 0; s < 9; s++) {
-      var sw = [1.5, 2, 2.6][wgt], sc = 34 + s * 7.5;
-      cells += '<i style="--s:' + sc + '%">' + svg({ v: icon.v, b: icon.b.replace(/stroke-width="2"/g, 'stroke-width="' + sw + '"') }) + '</i>';
+    var NAMES = ['calculator', 'graduation', 'house_cycle', 'seedling', 'clock_alarm'].filter(function (n) { return D.std.some(function (x) { return x.n === n; }); });
+    var SIZES = [12, 16, 20, 24, 32, 40, 48, 56, 64], WTS = [['Light', 1.5], ['Regular', 2], ['Bold', 2.6]];
+    var CUR = '<svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M1 1l13 7.2-5.8 1.5L5.5 16z" fill="#9747FF" stroke="#fff" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+    box.innerHTML = '<div class="zbi-fx" aria-label="An agent building icon component sets in Figma">' +
+      '<div class="bar"><i></i><i></i><i></i><span class="ttl">Fusion Icons / Components</span><span class="live"><b></b><em style="font-style:normal">Agent building</em></span></div>' +
+      '<div class="body"><div class="lay"><div class="ph">Layers</div><div class="ll"></div></div>' +
+      '<div class="cv"><div class="mst"><div class="lb"></div><div class="mi"></div></div><div class="set"><div class="lb"></div><div class="cells"></div></div><div class="cur">' + CUR + '<span>Agent</span></div></div>' +
+      '<div class="props"><div class="ph">Properties</div><div class="pr">' +
+        '<div><div class="k">Size</div><div class="chips sz">' + SIZES.map(function (z) { return '<span>' + z + '</span>'; }).join('') + '</div></div>' +
+        '<div><div class="k">Weight</div><div class="chips wt">' + WTS.map(function (x) { return '<span>' + x[0] + '</span>'; }).join('') + '</div></div>' +
+        '<div><div class="k">Variants</div><div class="big vc">0</div></div>' +
+        '<div><div class="k">Stroke</div><div class="big sk">—</div></div></div></div></div>' +
+      '<div class="log"></div></div>' +
+      '<div class="meta"><div><span>By hand</span><b>days</b></div><div><span>With the harness</span><b>a couple of hours</b></div><div><span>Files per icon</span><b>1 → 27</b></div></div>';
+    var q = function (c) { return box.querySelector(c); };
+    var cv = q('.cv'), mst = q('.mst'), set = q('.set'), cellsEl = q('.cells'), cur = q('.cur'), ll = q('.ll'), log = q('.log'), live = q('.live'), liveT = q('.live em');
+    var szs = box.querySelectorAll('.sz span'), wts = box.querySelectorAll('.wt span'), vc = q('.vc'), sk = q('.sk');
+    function weighted(ic, sw) { return { v: ic.v, b: ic.b.replace(/stroke-width="[^"]*"/g, 'stroke-width="' + sw + '"') }; }
+    function say(h) { var d = el('div', '', h); log.appendChild(d); while (log.children.length > 6) log.removeChild(log.firstChild); }
+    function layer(t, c) { var d = el('div', c, t); ll.appendChild(d); while (ll.children.length > 14) ll.removeChild(ll.children[1]); return d; }
+    function point(node) { var a = cv.getBoundingClientRect(), b = node.getBoundingClientRect(); cur.style.transform = 'translate(' + (b.left - a.left + b.width * .6) + 'px,' + (b.top - a.top + b.height * .6) + 'px)'; }
+    function chips(list, i) { [].forEach.call(list, function (s, j) { s.classList.toggle('on', j === i); }); }
+    var run = 0, k = 0, visible = false;
+    function paint(n, ic) {
+      mst.querySelector('.lb').textContent = 'Master · 32px'; mst.querySelector('.mi').innerHTML = svg(ic);
+      set.querySelector('.lb').textContent = '❖ ' + n;
+      var h = '';
+      WTS.forEach(function (wt) { h += '<em>' + wt[0] + '</em>'; SIZES.forEach(function (z) { h += '<i style="--s:' + Math.round(24 + (z - 12) / 52 * 70) + '%">' + svg(weighted(ic, wt[1])) + '</i>'; }); });
+      cellsEl.innerHTML = h;
     }
-    box.innerHTML = '<div class="src"><div class="t">' + svg(icon) + '</div><div class="zbi-mono" style="font-size:10px;color:var(--zbi-muted)">1 master icon</div></div>' +
-      '<div class="flow"><div class="steps">' + STEPS.map(function (s) { return '<span>' + s + '</span>'; }).join('') + '</div><div class="out">' + cells + '</div>' +
-      '<div class="meta"><div><span>By hand</span><b>days</b></div><div><span>With the harness</span><b>a couple of hours</b></div><div><span>Files per icon</span><b>1 → 27</b></div></div></div>';
-    var steps = box.querySelectorAll('.steps span'), outs = box.querySelectorAll('.out i');
-    function run() {
-      [].forEach.call(steps, function (s) { s.classList.remove('on'); }); [].forEach.call(outs, function (o) { o.classList.remove('on'); });
-      if (reduce) { [].forEach.call(steps, function (s) { s.classList.add('on'); }); [].forEach.call(outs, function (o) { o.classList.add('on'); }); return; }
-      [].forEach.call(steps, function (s, i) { setTimeout(function () { s.classList.add('on'); }, i * 420); });
-      [].forEach.call(outs, function (o, i) { setTimeout(function () { o.classList.add('on'); }, 800 + i * 60); });
+    function build(i) {
+      var my = ++run, n = NAMES[i], ic = find(D.std, n);
+      function T(ms, fn) { setTimeout(function () { if (my === run) fn(); }, ms); }
+      ll.innerHTML = ''; log.innerHTML = ''; vc.textContent = '0'; sk.textContent = '—'; chips(szs, -1); chips(wts, -1);
+      live.classList.remove('done'); liveT.textContent = 'Agent building';
+      set.classList.remove('on'); mst.classList.remove('sel'); paint(n, ic);
+      var cells = cellsEl.querySelectorAll('i');
+      layer('▢ Master / ' + n, '');
+      T(150, function () { point(mst); mst.classList.add('sel'); say('› Reading master <b>' + n + '</b> · 32 px grid'); });
+      T(800, function () { say('› Outlining strokes, snapping to the pixel grid'); sk.textContent = '2 px'; });
+      T(1400, function () { set.classList.add('on'); mst.classList.remove('sel'); layer('❖ ' + n, 'c'); say('› Creating component set <b>❖ ' + n + '</b>'); point(set); });
+      T(1900, function () { say('› Adding 27 variants: Size × Weight'); });
+      var prev = null;
+      [].forEach.call(cells, function (c, j) {
+        T(2000 + j * 75, function () {
+          var wi = Math.floor(j / 9), si = j % 9;
+          if (prev) prev.classList.remove('sel'); c.classList.add('on', 'sel'); prev = c; point(c);
+          chips(szs, si); chips(wts, wi); vc.textContent = j + 1; sk.textContent = WTS[wi][1] + ' px';
+          var old = ll.querySelector('.act'); if (old) old.classList.remove('act');
+          layer('Size=' + SIZES[si] + ', Weight=' + WTS[wi][0], 'v act'); ll.scrollTop = ll.scrollHeight;
+        });
+      });
+      var end = 2000 + cells.length * 75;
+      T(end + 150, function () { if (prev) prev.classList.remove('sel'); say('› Binding tokens <b>icon/stroke</b> · <b>icon/color</b>'); });
+      T(end + 750, function () { say('<span class="ok">✓</span> Layers locked · published to the Fusion library'); live.classList.add('done'); liveT.textContent = '27 variants ready'; point(set); });
+      T(end + 2900, function () { if (visible) { k = (k + 1) % NAMES.length; build(k); } });
     }
-    onView(box, run);
-    box.addEventListener('click', run);
+    function still() { // reduced motion: the finished state, no movement
+      var n = NAMES[0], ic = find(D.std, n); paint(n, ic); set.classList.add('on');
+      [].forEach.call(cellsEl.querySelectorAll('i'), function (c) { c.classList.add('on'); });
+      layer('❖ ' + n, 'c'); say('<span class="ok">✓</span> 27 variants built and published'); vc.textContent = '27';
+      live.classList.add('done'); liveT.textContent = '27 variants ready'; cur.style.display = 'none';
+    }
     w.appendChild(box);
-    w.appendChild(el('div', 'zbi-cap', 'One master icon in, 9 sizes × 3 weights out. Tap to run it again'));
+    w.appendChild(el('div', 'zbi-cap', 'The harness at work: one master icon in, a component set of 9 sizes × 3 weights out. Tap to watch the next icon'));
+    if (reduce || !NAMES.length) { if (NAMES.length) setTimeout(still, 0); return w; }
+    if ('IntersectionObserver' in window) new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting && !visible) { visible = true; build(k); } else if (!e.isIntersecting && visible) { visible = false; run++; } });
+    }, { threshold: .35 }).observe(box);
+    else { visible = true; setTimeout(function () { build(0); }, 0); }
+    box.addEventListener('click', function () { k = (k + 1) % NAMES.length; build(k); });
     return w;
   }
 
