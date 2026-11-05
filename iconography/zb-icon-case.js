@@ -453,11 +453,14 @@
   // ---------- 10 harness: an agent building the component sets in Figma, live ----------
   function buildHarness() {
     var w = el('div', 'zbi'), box = el('div', 'zbi-box zbi-hx');
-    var NAMES = ['calculator', 'graduation', 'house_cycle', 'seedling', 'clock_alarm'].filter(function (n) { return D.std.some(function (x) { return x.n === n; }); });
+    // the Personal Loan icons, the set where the harness started; label = the name the component set gets
+    var LOAN = [['Hand heartbeat 1', 'hand_heartbeat'], ['Rose 3', 'rose'], ['Hand and Plane', 'hand_plane'], ['Rental Key 3', 'rental_keys'],
+      ['hand holding med shield', 'hand_med_shield'], ['Suitcase rolling sheild', 'suitcase_shield'], ['Ticket attraction 1 new', 'ticket_attraction'], ['hands clock', 'hands_clock']];
+    var NAMES = LOAN.filter(function (x) { return find(D.pack, x[0]); });
     var SIZES = [12, 16, 20, 24, 32, 40, 48, 56, 64], WTS = [['Light', 1.5], ['Regular', 2], ['Bold', 2.6]];
     var CUR = '<svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M1 1l13 7.2-5.8 1.5L5.5 16z" fill="#9747FF" stroke="#fff" stroke-width="1.3" stroke-linejoin="round"/></svg>';
     box.innerHTML = '<div class="zbi-fx" aria-label="An agent building icon component sets in Figma">' +
-      '<div class="bar"><i></i><i></i><i></i><span class="ttl">Fusion Icons / Components</span><span class="live"><b></b><em style="font-style:normal">Agent building</em></span></div>' +
+      '<div class="bar"><i></i><i></i><i></i><span class="ttl">Personal Loan Icons / Components</span><span class="live"><b></b><em style="font-style:normal">Agent building</em></span></div>' +
       '<div class="body"><div class="lay"><div class="ph">Layers</div><div class="ll"></div></div>' +
       '<div class="cv"><div class="mst"><div class="lb"></div><div class="mi"></div></div><div class="set"><div class="lb"></div><div class="cells"></div></div><div class="cur">' + CUR + '<span>Agent</span></div></div>' +
       '<div class="props"><div class="ph">Properties</div><div class="pr">' +
@@ -484,7 +487,7 @@
       cellsEl.innerHTML = h;
     }
     function build(i) {
-      var my = ++run, n = NAMES[i], ic = find(D.std, n);
+      var my = ++run, n = NAMES[i][1], ic = find(D.pack, NAMES[i][0]);
       function T(ms, fn) { setTimeout(function () { if (my === run) fn(); }, ms); }
       ll.innerHTML = ''; log.innerHTML = ''; vc.textContent = '0'; sk.textContent = '—'; chips(szs, -1); chips(wts, -1);
       live.classList.remove('done'); liveT.textContent = 'Agent building';
@@ -511,7 +514,7 @@
       T(end + 2900, function () { if (visible) { k = (k + 1) % NAMES.length; build(k); } });
     }
     function still() { // reduced motion: the finished state, no movement
-      var n = NAMES[0], ic = find(D.std, n); paint(n, ic); set.classList.add('on');
+      var n = NAMES[0][1], ic = find(D.pack, NAMES[0][0]); paint(n, ic); set.classList.add('on');
       [].forEach.call(cellsEl.querySelectorAll('i'), function (c) { c.classList.add('on'); });
       layer('❖ ' + n, 'c'); say('<span class="ok">✓</span> 27 variants built and published'); vc.textContent = '27';
       live.classList.add('done'); liveT.textContent = '27 variants ready'; cur.style.display = 'none';
