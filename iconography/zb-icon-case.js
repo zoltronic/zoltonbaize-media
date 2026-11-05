@@ -186,7 +186,8 @@
     [].forEach.call(spots, function (spot) {
       spot.__zbi = spot.__zbi || {}; if (spot.__zbi[name]) return; spot.__zbi[name] = true;
       var fig = build(); if (!fig) return;
-      if (spot.classList.contains('zb-ph')) { spot.parentNode.insertBefore(fig, spot); spot.style.display = 'none'; }
+      if (spot.classList.contains('zb-ph')) { spot.parentNode.insertBefore(fig, spot); spot.style.display = 'none';
+        var card = spot.closest('.media_card, .media_wide'); if (card) { card.style.aspectRatio = 'auto'; card.style.display = 'block'; } }
       else { var after = spot.__zbiLast || spot; after.parentNode.insertBefore(fig, after.nextSibling); spot.__zbiLast = fig; }
     });
   }
