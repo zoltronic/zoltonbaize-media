@@ -500,12 +500,12 @@
     var tabs = el('div', 'zbi-tabs'), box = el('div', 'zbi-box zbi-g2i pre');
     function render(ex) {
       box.innerHTML = '<div class="st">' + (ex.old ? svg(ex.old) : '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="4" width="24" height="24" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 3" opacity=".5"/></svg>') + '<div class="zbi-mono">' + ex.oldName + '<br>' + (ex.old ? 'Icon 1.0' : 'no icon yet') + '</div></div><div class="op" aria-hidden="true">+</div>' +
-        '<div class="st"><div class="row">' + ex.parts.map(function (p) { return '<div>' + svg(ph(p)) + '<div class="zbi-mono">' + p + '<br>Phosphor</div></div>'; }).join('') + '</div></div>' +
+        '<div class="st"><div class="row">' + ex.parts.map(function (p) { return typeof p === 'string' ? '<div>' + svg(ph(p)) + '<div class="zbi-mono">' + p + '<br>Phosphor</div></div>' : '<div>' + svg(p.ic) + '<div class="zbi-mono">' + p.n + '<br>Fusion</div></div>'; }).join('') + '</div></div>' +
         '<div class="op" aria-hidden="true">=</div><div class="st fin">' + svg(ex.neu) + '<div class="zbi-mono">' + ex.neuName + '<br>Fusion · mine</div></div>';
     }
     function play() { box.classList.add('pre'); var kids = [].slice.call(box.children); kids.forEach(function (k, i) { k.style.transitionDelay = (reduce ? 0 : i * 260) + 'ms'; }); requestAnimationFrame(function () { requestAnimationFrame(function () { box.classList.remove('pre'); }); }); }
     EX.forEach(function (ex, i) {
-      var b = el('button', 'zbi-pill', ex.oldName + ' → ' + ex.neuName); b.type = 'button'; b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+      var b = el('button', 'zbi-pill', ex.neuName); b.type = 'button'; b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
       b.addEventListener('click', function () { [].forEach.call(tabs.children, function (x) { x.setAttribute('aria-pressed', 'false'); }); b.setAttribute('aria-pressed', 'true'); render(ex); play(); });
       tabs.appendChild(b);
     });
@@ -513,7 +513,7 @@
     if (EX.length > 1) w.appendChild(tabs);
     w.appendChild(box);
     onView(box, play);
-    w.appendChild(el('div', 'zbi-cap', 'The old icon, the Phosphor parts, the new icon'));
+    w.appendChild(el('div', 'zbi-cap', 'The old icon, the parts it was built from (Phosphor, or icons already in Fusion), the new icon. From my intake cards'));
     return w;
   }
 
