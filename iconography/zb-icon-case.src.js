@@ -279,7 +279,11 @@
     ['Landscape', '<rect x="3" y="7" width="26" height="18" rx="1.5" fill="none" stroke="#3b3f45" stroke-width="2"/>', ['credit-card', 'envelope-simple', 'monitor', 'wallet', 'ticket', 'folder']],
     ['Freeform', '', ['hands-clapping', 'bird', 'leaf', 'feather', 'butterfly', 'lightning']],
     ['Isometric', '<path d="M16 4l11 6v12l-11 6-11-6V10zM16 16l11-6M16 16v12M16 16 5 10" fill="none" stroke="#3b3f45" stroke-width="2" stroke-linejoin="round"/>', ['cube', 'package', 'stack', 'database', 'cylinder', 'cube']],
-    ['Hands', '', ['hand', 'hand-palm', 'hand-pointing', 'hand-grabbing', 'hand-heart', 'hand-coins']]
+    ['Hands', '', ['hand', 'hand-palm', 'hand-pointing', 'hand-grabbing', 'hand-heart', 'hand-coins']],
+    ['Portrait', '<rect x="7" y="3" width="18" height="26" rx="1.5" fill="none" stroke="#3b3f45" stroke-width="2"/>', ['file', 'device-mobile', 'clipboard-text', 'door', 'receipt', 'bookmark-simple']],
+    ['Triangle', '<path d="M16 4 29 27H3z" fill="none" stroke="#3b3f45" stroke-width="2" stroke-linejoin="round"/>', ['warning', 'triangle', 'play', 'mountains', 'tent', 'warning']],
+    ['People', '<path d="M16 5a5 5 0 1 0 .01 0M6 27a10 10 0 0 1 20 0" fill="none" stroke="#3b3f45" stroke-width="2" stroke-linecap="round"/>', ['user', 'users', 'user-circle', 'users-three', 'user-plus', 'identification-badge']],
+    ['Arrows', '<path d="M4 16h24M20 8l8 8-8 8" fill="none" stroke="#3b3f45" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>', ['arrow-right', 'arrow-up-right', 'arrows-clockwise', 'arrow-bend-up-right', 'caret-right', 'arrows-out']]
   ];
   function buildStudies() {
     var w = el('div', 'zbi'), grid = el('div', 'zbi-studies');
@@ -308,10 +312,10 @@
   // ---------- 05 grid explorer ----------
   function buildGrid() {
     var w = el('div', 'zbi'), box = el('div', 'zbi-box zbi-gx');
-    var icon = find(D.std, 'piggybank') || D.std[0];
+    var icon = find(D.std, 'hand_sparkles') || D.std[0];
     var lay = { px: 1, key: 1, ortho: 0, safe: 0 };
     var LAYERS = [['px', 'Pixel', '#4280FC'], ['key', 'Keyshapes', '#006FCF'], ['ortho', 'Orthogonal', '#FF2AEC'], ['safe', 'Full · safe area', '#b06bff']];
-    box.innerHTML = '<div class="art"><svg viewBox="0 0 32 32" fill="none" role="img" aria-label="Piggy bank icon on its 32 pixel construction grid">' +
+    box.innerHTML = '<div class="art"><svg viewBox="0 0 32 32" fill="none" role="img" aria-label="Hand with sparkles icon on its 32 pixel construction grid">' +
       LAYERS.map(function (l) { return '<g class="lay" data-l="' + l[0] + '">' + G[l[0]] + '</g>'; }).join('') +
       '<g style="color:#07283D">' + icon.b + '</g></svg></div>' +
       '<div class="ctl"><div><div class="lbl">Layers</div><div class="zbi-pills">' +
@@ -360,8 +364,8 @@
   // ---------- 07 spot mine ----------
   function buildSpot() {
     var w = el('div', 'zbi'), box = el('div', 'zbi-spot');
-    var mine = ['piggybank', 'hand_coin', 'house_cycle', 'credit_card_gift', 'seedling', 'check_magnifying_glass', 'mobile_devices', 'graduation'].map(function (n) { return { ic: find(D.std, n), who: 'Zolton', cls: 'mine' }; });
-    var theirs = ['bank', 'house', 'gift', 'lock-simple', 'bell', 'user', 'wallet', 'credit-card'].map(function (n) { return { ic: ph(n), who: 'Phosphor', cls: 'ph' }; });
+    var mine = ['hand_coin', 'hand_sparkles', 'atm', 'document_certification', 'rose 1', 'Cruise ship 17', 'ToothCare', 'hands holding heart'].map(function (n) { return { ic: find(D.std.concat(D.pack), n), who: 'Zolton', cls: 'mine' }; });
+    var theirs = ['bank', 'wallet', 'credit-card', 'file-text', 'flower-tulip', 'boat', 'tooth', 'hand-heart'].map(function (n) { return { ic: ph(n), who: 'Phosphor', cls: 'ph' }; });
     var all = [], order = [0, 8, 9, 1, 10, 2, 3, 11, 12, 4, 13, 5, 6, 14, 15, 7];
     var pool = mine.concat(theirs); order.forEach(function (i) { if (pool[i] && pool[i].ic) all.push(pool[i]); });
     box.innerHTML = '<div class="top"><b>Spot mine</b><span><span class="zbi-mono score">0 of 8 found</span> <button type="button" class="reset">Reset</button></span></div><div class="grid"></div>';
@@ -385,7 +389,7 @@
     var EX = D.gaps;
     var tabs = el('div', 'zbi-tabs'), box = el('div', 'zbi-box zbi-g2i pre');
     function render(ex) {
-      box.innerHTML = '<div class="st">' + svg(ex.old) + '<div class="zbi-mono">' + ex.oldName + '<br>Icon 1.0</div></div><div class="op" aria-hidden="true">+</div>' +
+      box.innerHTML = '<div class="st">' + (ex.old ? svg(ex.old) : '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="4" width="24" height="24" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 3" opacity=".5"/></svg>') + '<div class="zbi-mono">' + ex.oldName + '<br>' + (ex.old ? 'Icon 1.0' : 'no icon yet') + '</div></div><div class="op" aria-hidden="true">+</div>' +
         '<div class="st"><div class="row">' + ex.parts.map(function (p) { return '<div>' + svg(ph(p)) + '<div class="zbi-mono">' + p + '<br>Phosphor</div></div>'; }).join('') + '</div></div>' +
         '<div class="op" aria-hidden="true">=</div><div class="st fin">' + svg(ex.neu) + '<div class="zbi-mono">' + ex.neuName + '<br>Fusion · mine</div></div>';
     }
@@ -415,7 +419,7 @@
   // ---------- 10 harness ----------
   function buildHarness() {
     var w = el('div', 'zbi'), box = el('div', 'zbi-box zbi-hx');
-    var icon = find(D.std, 'piggybank');
+    var icon = find(D.std, 'handshake');
     var STEPS = ['Master 32px', 'Outline strokes', '9 sizes', '3 weights', 'Tokens + variants', 'Locked layers'];
     var cells = '';
     for (var wgt = 0; wgt < 3; wgt++) for (var s = 0; s < 9; s++) {

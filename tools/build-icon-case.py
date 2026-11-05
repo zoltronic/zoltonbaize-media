@@ -53,12 +53,14 @@ renames = [{'old': a['one'], 'neu': a['two'], 'ic': a['twoS']} for a in audit if
 
 def find(lst, n): return next(x for x in lst if x['n'] == n)
 ben = next(a for a in audit if a['one'] == 'benefits')
-gaps = [{'oldName': 'benefits', 'old': ben['oneS'], 'parts': ['hand-coins', 'sparkle'], 'neuName': 'hand_sparkles', 'neu': {'v': find(std, 'hand_sparkles')['v'], 'b': find(std, 'hand_sparkles')['b']}}]
+def ic(n): x = find(std, n); return {'v': x['v'], 'b': x['b']}
+gaps = [{'oldName': 'benefits', 'old': ben['oneS'], 'parts': ['hand-coins', 'sparkle'], 'neuName': 'hand_sparkles', 'neu': ic('hand_sparkles')},
+        {'oldName': 'house deed', 'old': None, 'parts': ['file-text', 'seal-check'], 'neuName': 'document_certification', 'neu': ic('document_certification')}]
 
 need = set(['clock', 'globe', 'compass', 'target', 'smiley', 'check-circle', 'calendar-blank', 'note-blank', 'grid-four', 'frame-corners', 'lock-simple', 'gift',
             'credit-card', 'envelope-simple', 'monitor', 'wallet', 'ticket', 'folder', 'hands-clapping', 'bird', 'leaf', 'feather', 'butterfly', 'lightning',
             'cube', 'package', 'stack', 'database', 'cylinder', 'hand', 'hand-palm', 'hand-pointing', 'hand-grabbing', 'hand-heart', 'hand-coins',
-            'bank', 'house', 'bell', 'user', 'sparkle'] + [a['ph'] for a in audit if a['ph']])
+            'bank', 'house', 'bell', 'user', 'sparkle', 'file', 'device-mobile', 'clipboard-text', 'door', 'receipt', 'bookmark-simple', 'warning', 'triangle', 'play', 'mountains', 'tent', 'users', 'user-circle', 'users-three', 'user-plus', 'identification-badge', 'arrow-right', 'arrow-up-right', 'arrows-clockwise', 'arrow-bend-up-right', 'caret-right', 'arrows-out', 'file-text', 'seal-check', 'flower-tulip', 'boat', 'tooth'] + [a['ph'] for a in audit if a['ph']])
 ph = {}
 for n in sorted(need):
     s = open(os.path.join(PH_DIR, n + '.svg')).read()
