@@ -5,7 +5,8 @@
    place relative to the hero, Selected work, Experience, Contact and the footer whatever their real heights.
    Parallax: each cloud is exactly where the design puts it when its middle crosses the middle of the screen; far clouds
    lag behind the scroll, near ones run slightly ahead. Light/dark crossfades with the site's mode.
-   Only runs when <html> has the class zb-cloud-cards (preview address, or ?clouds). */
+   Only runs when <html> has the class zb-cloud-cards (preview address, or ?clouds).
+   Other pages (the case studies) mark where the camera lands on the cloud tops with data-zb-sea-land. */
 (function () {
   'use strict';
   if (window.__zbClouds) return; window.__zbClouds = true;
@@ -58,7 +59,7 @@
   var root, scene, items = [];
   function top(el) { if (!el) return null; var rr = root.getBoundingClientRect(); return el.getBoundingClientRect().top - rr.top; }
   function sections() {
-    var card = document.querySelector('.work_card'), work = card && (card.closest('section') || card.parentElement);
+    var land = document.querySelector('[data-zb-sea-land]'), card = land || document.querySelector('.work_card'), work = land || (card && (card.closest('section') || card.parentElement));
     var track = document.querySelector('.zbx-track'), exp = track && (track.closest('section') || track.parentElement);
     var contact = document.getElementById('contact'); contact = contact && (contact.closest('section') || contact);
     var foot = root.querySelector('footer') || document.querySelector('footer');
@@ -301,7 +302,7 @@
   }
   function seaState() {
     if (window.__zbSeaForce) return window.__zbSeaForce;                         // test hook: pin camera + horizon
-    var card = document.querySelector('.work_card'), work = card && (card.closest('section') || card.parentElement);
+    var land = document.querySelector('[data-zb-sea-land]'), card = land || document.querySelector('.work_card'), work = land || (card && (card.closest('section') || card.parentElement));
     if (!work) return null;
     var vh = innerHeight, s = scrollY, wt = work.getBoundingClientRect().top;    // Selected work, on screen
     var L = Math.max(1, wt + s - SEA.land * vh);                                // scroll at which you land on the cloud tops
