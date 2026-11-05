@@ -63,6 +63,7 @@
     'html[data-mode="dark"] .zbi-study .g{background:#eef3f6}',
     '.zbi-study .g>svg{position:absolute;inset:6px;width:100px;height:100px}',
     '.zbi-study .big{color:#3b3f45;transition:opacity 180ms ease}',
+    '.zbi-study .ks *{stroke:var(--zbi-ortho);stroke-width:1;stroke-dasharray:2 1.5;opacity:.7}',
     '.zbi-study .t{font-weight:900;font-size:15px;margin-bottom:8px}',
     '.zbi-study .m{display:flex;flex-wrap:wrap;gap:5px}',
     '.zbi-study .m i{width:24px;height:24px;border:1px solid rgba(224,126,232,.55);border-radius:4px;display:flex;align-items:center;justify-content:center;transition:background 200ms,border-color 200ms}',
@@ -294,13 +295,14 @@
         '<g class="big"><svg x="0" y="0" width="32" height="32" viewBox="0 0 256 256">' + (first ? first.b : '') + '</svg></g></svg></div>' +
         '<div><div class="t">' + s[0] + '</div><div class="m">' + s[2].map(function (n) { var p = ph(n); return '<i data-n="' + n + '">' + (p ? svg(p) : '') + '</i>'; }).join('') + '</div></div>';
       var big = card.querySelector('.big'), minis = card.querySelectorAll('.m i'), k = 0, timer = null;
-      function show(i) { var p = ph(s[2][i]); if (!p) return; big.style.opacity = 0; setTimeout(function () { big.innerHTML = '<svg x="0" y="0" width="32" height="32" viewBox="0 0 256 256">' + p.b + '</svg>'; big.style.opacity = 1; }, 140);
+      var pend = null;
+      function show(i) { var p = ph(s[2][i]); if (!p) return; big.style.opacity = 0; clearTimeout(pend); pend = setTimeout(function () { big.innerHTML = '<svg x="0" y="0" width="32" height="32" viewBox="0 0 256 256">' + p.b + '</svg>'; big.style.opacity = 1; }, 140);
         [].forEach.call(minis, function (m, j) { m.classList.toggle('on', j === i); }); }
       function start() { if (timer || reduce) return; timer = setInterval(function () { k = (k + 1) % s[2].length; show(k); }, 900); }
       function stop() { clearInterval(timer); timer = null; }
       card.addEventListener('mouseenter', start); card.addEventListener('mouseleave', stop);
       card.addEventListener('click', function () { k = (k + 1) % s[2].length; show(k); });
-      [].forEach.call(minis, function (m, j) { m.addEventListener('mouseenter', function () { k = j; show(j); }); });
+      [].forEach.call(minis, function (m, j) { m.addEventListener('mouseenter', function () { stop(); k = j; show(j); }); m.addEventListener('mouseleave', start); });
       grid.appendChild(card); show(0);
     });
     w.appendChild(grid);
