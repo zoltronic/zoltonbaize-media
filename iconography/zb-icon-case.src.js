@@ -162,7 +162,9 @@
     '.zbi-res .zbi-stat b{font-size:clamp(24px,2.8vw,32px)}',
     /* new headings the script adds */
     '.zbi-h3{margin:34px 0 10px;font-size:24px;line-height:1.2;font-weight:900;letter-spacing:-.02em}',
-    '.zbi-p{margin:0 0 16px;font-size:16.5px;line-height:1.62;text-wrap:pretty}'
+    '.zbi-p{margin:0 0 16px;font-size:16.5px;line-height:1.62;text-wrap:pretty}',
+    /* the clouds give section text a soft light halo for legibility; on the dark band it reads as a glow, so drop it there */
+    'html.zb-cloud-cards .layout_band :is(h1,h2,h3,p,.label-mono){text-shadow:none}'
   ].join('\n');
 
   // ---------- helpers ----------
