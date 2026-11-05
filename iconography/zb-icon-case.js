@@ -443,8 +443,21 @@
     r.className = 'zbi-res'; w.style.marginTop = '8px'; w.appendChild(r); return w;
   }
 
+  // the site's blue sky (the <zb-sky> element defined in Site settings) behind the page, when the page has none of its own
+  function sky() {
+    if (document.querySelector('zb-sky') || !(window.customElements && customElements.get('zb-sky'))) return;
+    var s = document.createElement('zb-sky'); s.setAttribute('fixed', ''); s.setAttribute('aria-hidden', 'true');
+    var de = document.documentElement, dark = function () { return de.getAttribute('data-mode') === 'dark'; };
+    if (dark()) s.setAttribute('night', '1');
+    document.body.insertBefore(s, document.body.firstChild);
+    var root = document.querySelector('.page_root'); if (root && getComputedStyle(root).position === 'static') root.style.position = 'relative';
+    if (root && !root.style.zIndex) root.style.zIndex = '1';
+    document.body.style.backgroundColor = 'transparent';
+    new MutationObserver(function () { s.setAttribute('night', dark() ? '1' : '0'); }).observe(de, { attributes: true, attributeFilter: ['data-mode'] });
+  }
   function init() {
     if (!D) return;
+    try { sky(); } catch (e) {}
     var st = document.createElement('style'); st.id = 'zbi-css'; st.textContent = css; document.head.appendChild(st);
     mount('hero', buildHero);
     mount('rogue', buildRogue);
