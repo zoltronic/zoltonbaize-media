@@ -36,7 +36,7 @@
     '@media (max-width:640px){.zba-dg{grid-template-columns:52px repeat(3,minmax(0,1fr));gap:6px}.zba-dg .rh{font-size:9px;letter-spacing:.06em}.zba-tile{border-radius:8px}}',
     /* storyboard */
     '.zba-sk{padding:clamp(14px,2.4vw,22px)}',
-    '.zba-sk .strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}',
+    '.zba-sk .strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}',
     '.zba-sk .st{display:flex;flex-direction:column;gap:8px}',
     '.zba-sk .fr{position:relative;aspect-ratio:770/418;border-radius:10px;overflow:hidden;background:#fff;border:1px solid var(--zba-hair)}',
     '.zba-sk .fr img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}',
@@ -47,7 +47,7 @@
     '.zba-sk .n b{color:var(--zba-ink);font-weight:600;margin-right:4px}',
     '.zba-sk .sl{display:flex;align-items:center;gap:12px;margin-top:16px;font:500 11px "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--zba-muted)}',
     '.zba-sk input[type=range]{flex:1;accent-color:#00a5e0;height:44px}',
-    '@media (max-width:760px){.zba-sk .strip{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -14px;padding:0 14px 6px;scrollbar-width:none}.zba-sk .strip::-webkit-scrollbar{display:none}.zba-sk .st{flex:0 0 72%;scroll-snap-align:center}}',
+    '@media (max-width:640px){.zba-sk .strip{grid-template-columns:1fr}}',
     /* reader audit (sits on the dark band) */
     '.zba-rd{margin-top:26px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) minmax(0,1.15fr);gap:12px}',
     '.zba-rd .m{border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(234,246,253,.14);overflow:hidden;display:flex;flex-direction:column}',
@@ -166,7 +166,7 @@
   }
 
   // ---------- storyboard to final: Zolton's pencil frames, wiped to the finished art ----------
-  var STEPS = ['Held ready', 'Turned and lined up', 'Fed in as the light flashes green', 'Pulled into the slot', 'The slot settles'];
+  var STEPS = ['Held in both hands', 'Turned and lined up'];
   function buildSketch() {
     var w = el('div', 'zba'), box = el('div', 'zba-box zba-sk');
     var strip = el('div', 'strip');
@@ -177,7 +177,7 @@
     box.appendChild(strip);
     box.appendChild(el('div', 'sl', '<span>Sketch</span><input type="range" min="0" max="100" value="50" aria-label="Wipe from sketch to finished art"><span>Final</span>'));
     w.appendChild(box);
-    w.appendChild(el('div', 'zba-cap', 'My pencil storyboard, then the same beats in my final 2025 animation, where the hand was dropped. Drag to compare'));
+    w.appendChild(el('div', 'zba-cap', 'My pencil sketches, then the same moments in my final 2025 animation, where the hand was dropped. Drag to compare'));
     var r = box.querySelector('input');
     function set(v) { box.style.setProperty('--cut', (100 - v) + '%'); [].forEach.call(box.querySelectorAll('.fr'), function (f) { f.style.setProperty('--cut', (100 - v) + '%'); }); }
     r.addEventListener('input', function () { set(+r.value); }); set(50);
