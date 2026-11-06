@@ -147,11 +147,9 @@
 
   // ---------- the deposit system: six moves, two styles ----------
   var COLS = [['cash', 'Cash'], ['check', 'Check'], ['mixed', 'Cash + check']], ROWS = [['insert', 'Insert'], ['remove', 'Take back']];
-  var BEFORE = { 'insert-cash': 1, 'insert-check': 1, 'remove-cash': 1, 'remove-check': 1, 'remove-mixed': 1 };
   function buildDeposit() {
     var w = el('div', 'zba'), box = el('div', 'zba-box zba-dep');
-    box.innerHTML = '<div class="hd"><b>Every deposit move, as a loop</b><div class="zba-row" role="group" aria-label="Animation style">' +
-      '<button type="button" class="zba-pill" data-s="after" aria-pressed="true">2025 style</button><button type="button" class="zba-pill" data-s="before" aria-pressed="false">Earlier, with the hand</button></div></div>';
+    box.innerHTML = '<div class="hd"><b>Every deposit move, as a loop</b></div>';
     var g = el('div', 'zba-dg'); g.appendChild(el('div', ''));
     COLS.forEach(function (c) { g.appendChild(el('div', 'ch', c[1])); });
     ROWS.forEach(function (r) {
@@ -159,23 +157,16 @@
       COLS.forEach(function (c) { var k = r[0] + '-' + c[0], t = el('div', 'zba-tile'); t.setAttribute('data-k', k); g.appendChild(t); });
     });
     box.appendChild(g); w.appendChild(box);
-    w.appendChild(el('div', 'zba-cap', 'Insert and take back, for cash, checks or both. When the illustration style changed, the 2025 set dropped the hand'));
-    function show(s) {
-      [].forEach.call(box.querySelectorAll('.zba-pill'), function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-s') === s ? 'true' : 'false'); });
-      [].forEach.call(g.querySelectorAll('.zba-tile'), function (t) {
-        var k = t.getAttribute('data-k'), label = k.replace('-', ' ') + ' (' + (s === 'after' ? '2025 style' : 'earlier style') + ')';
-        if (s === 'before' && !BEFORE[k]) { t.className = 'zba-tile none'; t.textContent = 'Not in the earlier set'; return; }
-        t.className = 'zba-tile'; t.innerHTML = vid(s + '-' + k + '.mp4', label);
-      });
+    w.appendChild(el('div', 'zba-cap', 'Insert and take back, for cash, checks or both. The final 2025 set'));
+    onView(w, function () {
+      [].forEach.call(g.querySelectorAll('.zba-tile'), function (t) { var k = t.getAttribute('data-k'); t.innerHTML = vid('after-' + k + '.mp4', k.replace('-', ' ')); });
       watchVideos(g);
-    }
-    [].forEach.call(box.querySelectorAll('.zba-pill'), function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-s')); }); });
-    onView(w, function () { show('after'); }, '200px 0px');
+    }, '200px 0px');
     return w;
   }
 
   // ---------- storyboard to final: Zolton's pencil frames, wiped to the finished art ----------
-  var STEPS = ['Held in both hands', 'Turned and lined up', 'One hand feeds it in, the light flashes green', 'Pulled into the slot', 'The slot fades away'];
+  var STEPS = ['Held ready', 'Turned and lined up', 'Fed in as the light flashes green', 'Pulled into the slot', 'The slot settles'];
   function buildSketch() {
     var w = el('div', 'zba'), box = el('div', 'zba-box zba-sk');
     var strip = el('div', 'strip');
@@ -186,7 +177,7 @@
     box.appendChild(strip);
     box.appendChild(el('div', 'sl', '<span>Sketch</span><input type="range" min="0" max="100" value="50" aria-label="Wipe from sketch to finished art"><span>Final</span>'));
     w.appendChild(box);
-    w.appendChild(el('div', 'zba-cap', 'My pencil storyboard, then the same beats in the Wells Fargo illustration style. Drag to compare'));
+    w.appendChild(el('div', 'zba-cap', 'My pencil storyboard, then the same beats in my final 2025 animation, where the hand was dropped. Drag to compare'));
     var r = box.querySelector('input');
     function set(v) { box.style.setProperty('--cut', (100 - v) + '%'); [].forEach.call(box.querySelectorAll('.fr'), function (f) { f.style.setProperty('--cut', (100 - v) + '%'); }); }
     r.addEventListener('input', function () { set(+r.value); }); set(50);
