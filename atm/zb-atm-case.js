@@ -104,6 +104,25 @@
     '.zba-ts .f p{margin:0;font-size:15px;line-height:1.45}',
     '.zba-ts .f.hl{border-color:#1fbf6a;background:rgba(31,191,106,.1)}',
     '@media (max-width:760px){.zba-ts{grid-template-columns:1fr}}',
+    /* numbers */
+    '.zba-nums{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:22px 0 4px}',
+    '.zba-nums div{padding:14px 14px 16px;border-radius:14px;background:var(--zba-card2);border:1px solid var(--zba-hair)}',
+    '.zba-nums b{display:block;font-weight:800;font-size:clamp(26px,3.4vw,38px);line-height:1;letter-spacing:-.02em}',
+    '.zba-nums span{display:block;margin-top:8px;font:500 11px/1.35 "JetBrains Mono",monospace;color:var(--zba-muted)}',
+    '@media (max-width:900px){.zba-nums{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (max-width:520px){.zba-nums{grid-template-columns:repeat(2,minmax(0,1fr))}}',
+    /* cutting-room floor viewer */
+    '.zba-x{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,40px);opacity:0;transition:opacity 260ms cubic-bezier(.2,0,0,1)}',
+    '.zba-x.on{opacity:1}.zba-x .bg{position:absolute;inset:0;background:rgba(6,34,47,.55);-webkit-backdrop-filter:blur(24px) saturate(1.2);backdrop-filter:blur(24px) saturate(1.2)}',
+    '.zba-x .pn{position:relative;width:min(1180px,100%);max-height:100%;overflow:auto;border-radius:24px;background:rgba(246,250,252,.96);color:#07283D;padding:clamp(18px,3vw,34px);box-shadow:0 30px 80px -30px rgba(0,0,0,.5)}',
+    'html[data-mode="dark"] .zba-x .pn{background:rgba(12,30,42,.96);color:#EAF6FD}',
+    '.zba-x h3{margin:0 56px 4px 0;font-size:clamp(22px,2.6vw,30px);line-height:1.15}.zba-x .sub{margin:0 0 20px;opacity:.7;font-size:15px}',
+    '.zba-x .cl{position:absolute;top:14px;right:14px;width:48px;height:48px;border-radius:99px;border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer;display:grid;place-items:center;opacity:.75}.zba-x .cl:hover{opacity:1}',
+    '.zba-x .gr{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}',
+    '.zba-x figure{margin:0}.zba-x .v{aspect-ratio:770/418;border-radius:12px;overflow:hidden;background:#fff;border:1px solid rgba(7,40,61,.12)}',
+    '.zba-x video{width:100%;height:100%;object-fit:contain;display:block}',
+    '.zba-x figcaption{margin-top:8px;font:500 11px/1.4 "JetBrains Mono",monospace;opacity:.75}',
+    '.zba-x .grp{font:500 11px "JetBrains Mono",monospace;letter-spacing:.14em;text-transform:uppercase;opacity:.6;margin:22px 0 10px}.zba-x .grp:first-of-type{margin-top:0}',
+    'html.zba-x-open{overflow:hidden}',
     'html.zb-cloud-cards .layout_band :is(h1,h2,h3,p,.label-mono){text-shadow:none}'
   ].join('\n');
 
@@ -262,7 +281,7 @@
   // ---------- what testing showed: the animation alone vs. the animation plus one plain line ----------
   function buildTesting() {
     var w = el('div', 'zba'), g = el('div', 'zba-ts');
-    g.innerHTML = '<div class="scr"><div class="glass"><div class="ins">Tap your card to continue</div><img class="anim" src="' + BASE + 'atm-tap.webp" alt="Tap-to-pay animation on an ATM screen" loading="lazy"><div class="wel">Welcome to Wells Fargo</div></div>' +
+    g.innerHTML = '<div class="scr"><div class="glass"><div class="ins">Tap Card or Phone to continue.</div><img class="anim" src="' + BASE + 'atm-tap.webp" alt="Tap-to-pay animation on an ATM screen" loading="lazy"><div class="wel">Welcome to Wells Fargo</div></div>' +
       '<div class="zba-row" role="group" aria-label="Screen version"><button type="button" class="zba-pill" data-v="0" aria-pressed="true">Animation alone</button><button type="button" class="zba-pill" data-v="1" aria-pressed="false">Add one line of text</button></div></div>' +
       '<div class="fx"><div class="f hl" data-v="0"><b>Animation alone</b><p>Read as ready for a tap, and modern. One person found the loop a little distracting on its own, and “card reader unavailable” left them unsure what to try.</p></div>' +
       '<div class="f" data-v="1"><b>Animation + one line</b><p>No guessing. The line confirms the gesture the animation shows, and helps people with low vision or color blindness without getting in anyone’s way.</p></div></div>';
@@ -277,6 +296,47 @@
     onView(w, function () { if (!reduce) setTimeout(function () { if (auto) set(1); }, 3200); });
     return w;
   }
+
+  // ---------- the numbers, all from the project files ----------
+  var NUMS = [['4', 'ATM reader models documented on site'], ['6', 'deposit moves in the final pack'], ['39', 'deposit drafts and iterations exported'],
+    ['7', 'rounds of tap-to-pay revisions'], ['2', 'feedback sessions'], ['8 s', 'tap-to-pay loop, 478 frames at 60 fps']];
+  function buildNumbers() {
+    var w = el('div', 'zba'); w.style.margin = '18px 0 0';
+    w.appendChild(el('div', 'zba-nums', NUMS.map(function (n) { return '<div><b>' + n[0] + '</b><span>' + n[1] + '</span></div>'; }).join('')));
+    return w;
+  }
+
+  // ---------- cutting-room floor: drafts and iterations, opened from buttons marked data-zba-explore="deposit | tap" ----------
+  var X = A.replace(/case\/$/, 'explore/');
+  var EXPLORE = {
+    deposit: { t: 'Cutting-room floor: the deposit loops', s: 'Drafts from my After Effects exports, each with my motion-draft timing badge. 39 exports in all; these are a few.', g: [
+      ['With the hand, February 2025', [['comp-1', 'Cash, both hands'], ['comp-2', 'Check, both hands']]],
+      ['Insert drafts', [['cash-draft-1', 'Insert cash, draft 1'], ['cash-draft-3', 'Insert cash, draft 3'], ['check-draft-1', 'Insert check, draft 1'], ['check-draft-3', 'Insert check, draft 3'], ['mixed-draft-1', 'Insert cash + check, draft 1'], ['mixed-draft-3', 'Insert cash + check, draft 3']]],
+      ['Take back a check: four iterations', [['remove-check-it1', 'Iteration 1'], ['remove-check-it2', 'Iteration 2'], ['remove-check-it3', 'Iteration 3'], ['remove-check-it4', 'Iteration 4']]]] },
+    tap: { t: 'Cutting-room floor: tap to pay', s: 'The card tap as a timed motion draft, and the final GIF export before it was rebuilt as Lottie.', g: [
+      ['Drafts and exports', [['tap-draft-card', 'Card tap, motion draft with timing'], ['tap-final-gif', 'Final GIF export, 984 × 487']]]] }
+  };
+  function openExplore(key, from) {
+    var d = EXPLORE[key]; if (!d) return;
+    var x = el('div', 'zba-x'); x.setAttribute('role', 'dialog'); x.setAttribute('aria-modal', 'true'); x.setAttribute('aria-label', d.t);
+    x.innerHTML = '<div class="bg"></div><div class="pn"><button type="button" class="cl" aria-label="Close"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 3l12 12M15 3L3 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>' +
+      '<h3>' + d.t + '</h3><p class="sub">' + d.s + '</p>' + d.g.map(function (grp) {
+        return '<div class="grp">' + grp[0] + '</div><div class="gr">' + grp[1].map(function (it) {
+          return '<figure><div class="v"><video muted loop playsinline preload="metadata" aria-label="' + it[1] + '"><source src="' + X + it[0] + '.webm" type="video/webm"><source src="' + X + it[0] + '.mp4" type="video/mp4"></video></div><figcaption>' + it[1] + '</figcaption></figure>';
+        }).join('') + '</div>'; }).join('') + '</div>';
+    document.body.appendChild(x); document.documentElement.classList.add('zba-x-open');
+    requestAnimationFrame(function () { x.classList.add('on'); });
+    if (!reduce) [].forEach.call(x.querySelectorAll('video'), function (v) { v.play().catch(function () {}); });
+    var cl = x.querySelector('.cl'); cl.focus();
+    function close() { x.classList.remove('on'); document.documentElement.classList.remove('zba-x-open'); document.removeEventListener('keydown', onKey); setTimeout(function () { x.remove(); }, 280); if (from) from.focus(); }
+    function onKey(e) { if (e.key === 'Escape') close(); if (e.key === 'Tab') { e.preventDefault(); cl.focus(); } }
+    cl.addEventListener('click', close); x.querySelector('.bg').addEventListener('click', close); document.addEventListener('keydown', onKey);
+  }
+  window.zbaExplore = openExplore;
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-zba-explore]'); if (!b) return;
+    e.preventDefault(); openExplore(b.getAttribute('data-zba-explore'), b);
+  });
 
   // the site's blue sky (the <zb-sky> element from Site settings) behind the page, as on the other case studies
   function sky() {
@@ -299,6 +359,7 @@
     mount('readers', buildReaders);
     mount('tap', buildTap);
     mount('testing', buildTesting);
+    mount('numbers', buildNumbers);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
