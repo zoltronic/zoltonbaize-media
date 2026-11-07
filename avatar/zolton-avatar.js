@@ -141,7 +141,8 @@ const clouds=[];{const ct=CLOUD_SOFT;for(let i=0;i<10;i++){const s=new THREE.Spr
 const root=new THREE.Group(); scene.add(root);
 let mixer, actions={}, morphMeshes=[], eyeMat=null, bones={}, flames=[], palmNodes={}, footNozzle={};
 const hand={L:0,R:0,tL:0,tR:0,puffT:3,puffSide:'L',puffLeft:0,prevTz:0};
-const state={cloudRise:-1,mode:'loading',t:0,thrust:1,glow:1,yoga:false,seated:false,poseW:0,armW:0,cloudK:0,turnT:-1,cam:'full',expr:'neutral',exprHold:0,talkT:0};
+const EXITOFF=new THREE.Vector3();
+const state={scrollP:0,exitP:0,cloudRise:-1,mode:'loading',t:0,thrust:1,glow:1,yoga:false,seated:false,poseW:0,armW:0,cloudK:0,turnT:-1,cam:'full',expr:'neutral',exprHold:0,talkT:0};
 const shapeNow={}, shapeTarget={};
 let blinkL=0,blinkR=0,blinkTargetL=0,blinkTargetR=0,autoBlinkT=2.5,lookX=0,lookY=0;
 const pointer={x:0,y:0,has:false,lastMove:0};
@@ -716,6 +717,7 @@ function frame(){
   let dt=realDt, step=true;
   if(look==='spider'){ twosAcc+=realDt; if(twosAcc<1/12) step=false; else { dt=Math.min(twosAcc,0.12); twosAcc=0; } } else twosAcc=0;
   if(mixer && step){
+    root.position.sub(EXITOFF);
     // flight path
     if(state.mode==='flying'||state.mode==='braking'){
       state.t+=Math.min(look==='spider'?dt:rdt,0.25); const T=2.8; const u=Math.min(state.t/T,1); const e=ease(u);
@@ -729,16 +731,26 @@ function frame(){
     } else {
       root.position.x+=(HOME.x-root.position.x)*(1-Math.exp(-dt*3)); root.position.z+=(HOME.z-root.position.z)*(1-Math.exp(-dt*3));
       root.position.y = state.seated ? Math.sin(now*1.1)*0.03 : Math.sin(now*1.6)*0.045;
-      const tgt = state.seated?0.0:1.0;
+      const tgt = (state.seated?0.0:1.0)+Math.max(0,Math.min(1,(state.exitP-0.3)/0.3))*0.9;
       state.thrust+= (tgt-state.thrust)*Math.min(1,dt*(state.seated?3:2));
     }
     // seat weights
     const seatTarget=state.seated?1:0, armTarget=(state.seated&&state.mode!=='waving'&&state.mode!=='talking')?1:0;
     state.poseW+=(seatTarget-state.poseW)*Math.min(1,dt*2.4); state.armW+=(armTarget-state.armW)*Math.min(1,dt*2.4);
     root.position.y += YOGA_DROP*state.poseW;
+    // scroll exit: cloud drifts away, he unfolds out of yoga, then jets up and away (scrubbed both ways)
+    { const r=HOST.getBoundingClientRect(); const P=Math.max(0,Math.min(1,-r.top/Math.max(1,r.height*0.75)));
+      state.scrollP+=(P-state.scrollP)*Math.min(1,dt*6);
+      const armed = state.yoga && state.mode==='yoga' && state.cloudRise<0 && !(state.cloudDelay>0);
+      const sp = armed? state.scrollP : 0; state.exitP=sp;
+      if(armed) state.seated = sp<0.16;
+      const fly=Math.max(0,Math.min(1,(sp-0.38)/0.62)), f2=fly*fly;
+      EXITOFF.set(f2*1.2,f2*7.5,-f2*9); root.position.add(EXITOFF);
+      root.rotation.x += -0.35*Math.min(1,fly*2.2); }
     if(yogaCloud.visible&&state.mode==='yoga'&&state.cloudK<1) state.cloudK=Math.min(1,state.cloudK+dt*0.9);
     if(state.cloudDelay>0){ state.cloudDelay-=dt; if(state.cloudDelay<=0){ state.cloudRise=0; yogaCloud.visible=true; yogaCloud.position.y=-3.6; setStatus('cloud rising'); } }
-    if(yogaCloud.visible){ const k=state.cloudK; const sk=k<1?ease(k)*(1+0.08*Math.sin(k*Math.PI)):1; yogaCloud.scale.setScalar(Math.max(0.001,sk)); if(state.cloudRise>=0){ state.cloudRise+=dt; const u=Math.min(1,state.cloudRise/1.6), e=1-Math.pow(1-u,3); yogaCloud.position.y=-3.6+(0.8+3.6)*e; if(u>=1){ state.cloudRise=-1; setStatus('meditating'); } } else yogaCloud.position.y=0.8; }
+    if(yogaCloud.visible){ const ce=Math.max(0,Math.min(1,state.exitP/0.28)); for(const c of yogaCloud.children){ c.material.opacity=c.userData.baseOpacity*(1-ce); } }
+    if(yogaCloud.visible){ const k=state.cloudK; const sk=k<1?ease(k)*(1+0.08*Math.sin(k*Math.PI)):1; yogaCloud.scale.setScalar(Math.max(0.001,sk)); if(state.cloudRise>=0){ state.cloudRise+=dt; const u=Math.min(1,state.cloudRise/1.6), e=1-Math.pow(1-u,3); yogaCloud.position.y=-3.6+(0.8+3.6)*e; if(u>=1){ state.cloudRise=-1; setStatus('meditating'); } } else yogaCloud.position.y=0.8-Math.min(1,state.exitP/0.28)*0.7; }
 
     for(const [b,q,p] of restPose){ b.quaternion.copy(q); b.position.copy(p); }
     mixer.update(dt);
@@ -813,7 +825,7 @@ function frame(){
       fl.f.quaternion.setFromUnitVectors(_up,fl.dir.clone().applyQuaternion(root.quaternion));
       const flick=1+0.12*Math.sin(now*29+fl.ph)+0.08*Math.sin(now*61+fl.ph*2);
       const isL=fl.node===palmNodes.L, isR=fl.node===palmNodes.R;
-      const packI = state.mode==='flying'?1.7:(state.mode==='braking'?1.3:(state.seated?0.85:1.0));
+      const packI = (state.mode==='flying'?1.7:(state.mode==='braking'?1.3:(state.seated?0.85:1.0)))+Math.max(0,Math.min(1,(state.exitP-0.3)/0.3))*1.2;
       const base=fl.pack?packI:(isL?hand.L:isR?hand.R:state.thrust); fl.f.visible=base>0.03;
       const I=base*flick; const {o,i,s,mo,mi,len,rad}=fl.f.userData;
       o.scale.y=len*I; i.scale.y=len*0.6*I; s.scale.setScalar(rad*(2.2+0.8*I)); s.material.opacity=Math.min(0.8,0.3+0.18*I);
