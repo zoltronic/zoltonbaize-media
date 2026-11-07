@@ -92,7 +92,7 @@ function toComic(m,variant='spider'){ if(m.isMeshBasicMaterial) return m;
 const LIGHTS={
   day:   {sky:['#2f74d6','#7fb8f5','#cfe6ff'],hemi:[0xfff6ec,0x7d7468,1.0],key:[0xfff3e6,1.7,[-2.5,4,5]],rim:[0xd8ecff,1.0,[3,2.5,-4]],exp:0.92,cloud:[0xffffff,0.85,true],stars:false,glow:1},
   golden:{sky:['#3d4f96','#e58c68','#ffd59c'],hemi:[0xffd9b0,0x6b4a3a,0.75],key:[0xffad60,2.3,[-4,1.5,3.5]],rim:[0xff8656,1.7,[4,2,-3]],exp:0.95,cloud:[0xffc9a8,0.85,true],stars:false,glow:1.4},
-  night: {sky:['#040a1c','#10254d','#27426f'],hemi:[0x6d84c8,0x0d1020,0.42],key:[0xa8bfff,0.85,[-3,4,2]],rim:[0x7fd0ff,1.5,[3,3,-4]],exp:1.0,cloud:[0x52648f,0.5,true],stars:true,glow:6},
+  night: {sky:['#040a1c','#10254d','#27426f'],hemi:[0xc4cef0,0x3a3550,0.95],key:[0xdfe6ff,1.55,[-3,4,3]],rim:[0x7fd0ff,1.7,[3,3,-4]],exp:1.0,cloud:[0x52648f,0.5,true],stars:true,glow:6},
   studio:{sky:['#dfe3ea','#c9ced7','#b9bfca'],hemi:[0xffffff,0x8a8f99,1.1],key:[0xffffff,2.0,[-2,3,4]],rim:[0xffffff,1.6,[2.5,3,-3]],exp:0.9,cloud:[0xffffff,0,false],stars:false,glow:1}
 };
 const skyCanvas=document.createElement('canvas'); skyCanvas.width=2; skyCanvas.height=256;
@@ -602,7 +602,7 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
   window.__z={actions,mixer,setLook,inks,scene,camera,renderer,hand,state,bones,root,restPose,gear,yogaCloud,setCam,setLight,updateGear,setPalm:(v)=>{PALM_SIGN=v;}};
   document.getElementById('loader').hidden=true;
   buildFaceButtons(); updateGear(); setTest('Intro'); playIntro();
-  { const syncMode=()=>setLight(document.documentElement.classList.contains('zb-night')?'night':'day'); syncMode();
+  { const syncMode=()=>{ const n=document.documentElement.classList.contains('zb-night'); setLight(n?'night':'day'); if(gear.goggles){ gear.goggles.userData.on=n; gear.scarfOn=n; updateGear(); } }; syncMode();
     new MutationObserver(syncMode).observe(document.documentElement,{attributes:true,attributeFilter:['class']}); }
 },(e)=>{ if(e.total){const p=Math.round(e.loaded/e.total*100);document.getElementById('loadtxt').textContent=`Loading Zolton… ${p}%`;document.getElementById('loadbar').style.width=p+'%';}},
 (err)=>{document.getElementById('loadtxt').textContent='Could not load the 3D model. Reload the page to try again. ['+(err&&(err.message||err.type||err.target&&err.target.status)||err)+' | '+location.href+']';console.error(err);});
@@ -644,7 +644,11 @@ document.getElementById('b-hide').onclick=()=>{ const p=document.getElementById(
 document.getElementById('b-wave').onclick=()=>{ setTest('Wave'); upperAction(actions.wave,'waving','bigSmile'); };
 document.getElementById('b-talk').onclick=()=>{ setTest('Talk'); upperAction(actions.talk,'talking','happy'); };
 const REACT=['laughing','wink','surprised','skeptical','bigSmile','determined'];
-function react(){ if(state.mode==='flying') return; if(state.seated){ setExpr(['laughing','wink','bigSmile','zen'][Math.floor(Math.random()*4)],2.2); return; } setExpr(REACT[Math.floor(Math.random()*REACT.length)],2.2); }
+const clickTimes=[];
+function react(){ if(state.mode==='flying') return; const t=performance.now(); clickTimes.push(t); while(clickTimes.length&&t-clickTimes[0]>3000) clickTimes.shift();
+  if(clickTimes.length>=5){ setExpr('skeptical',3.5); clickTimes.length=0; return; }
+  const pool=state.seated?['laughing','wink','bigSmile','happyOpen']:['laughing','wink','surprised','bigSmile','determined'];
+  setExpr(pool[Math.floor(Math.random()*pool.length)],2.2); }
 document.getElementById('b-react').onclick=react;
 canvas.addEventListener('click',(e)=>{ if(cm.on){ commentAt(e); return; } react(); });
 function onPointer(e){const r=canvas.getBoundingClientRect();pointer.x=((e.clientX-r.left)/r.width)*2-1;pointer.y=-(((e.clientY-r.top)/r.height)*2-1);pointer.has=true;pointer.lastMove=performance.now();}
