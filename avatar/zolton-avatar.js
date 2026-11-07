@@ -706,6 +706,11 @@ function mudra(side,w){ const S=side==='L'?'Left':'Right', B=n=>bones['mixamorig
   const up=new THREE.Vector3(0,1,0).applyQuaternion(_rq);
   const pn=n.clone().sub(ax.clone().multiplyScalar(n.dot(ax))).normalize(), pu=up.clone().sub(ax.clone().multiplyScalar(up.dot(ax))).normalize();
   let ang=Math.acos(Math.max(-1,Math.min(1,pn.dot(pu)))); if(pn.clone().cross(pu).dot(ax)<0) ang=-ang;
+  // always roll the natural way (thumb sweeps up and in at mid-turn), never the shortest way: near 180deg that flips frame to frame
+  { const th=B('Thumb1'); if(th){ th.getWorldPosition(_p3); const td=_p3.sub(_p1); td.sub(ax.clone().multiplyScalar(td.dot(ax)));
+      const alt=ang-Math.sign(ang||1)*Math.PI*2, q=new THREE.Quaternion();
+      const upA=td.clone().applyQuaternion(q.setFromAxisAngle(ax,ang/2)).dot(up), upB=td.clone().applyQuaternion(q.setFromAxisAngle(ax,alt/2)).dot(up);
+      ang=upB>upA?alt:ang; } }
   _tq.setFromAxisAngle(ax,ang*w); hand.parent.getWorldQuaternion(_pq); const inv=_pq.clone().invert(); hand.quaternion.premultiply(inv.multiply(_tq).multiply(_pq)); hand.updateMatrixWorld(true);
   // thumb tip and index tip meet in a ring
   const tipT=B('Thumb4')||B('Thumb3'), tipI=B('Index4')||B('Index3'); if(!tipT||!tipI) return;
