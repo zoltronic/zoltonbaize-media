@@ -187,7 +187,7 @@ float eyeHL=hl*(1.0-lid)*mk.r;`)
 
 // ---- thruster flames ----
 function flameMaterial(core){
-  return new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
+  return new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor,blendSrcAlpha:THREE.OneFactor,blendDstAlpha:THREE.OneFactor,premultipliedAlpha:true,side:THREE.DoubleSide,
     uniforms:{uI:{value:1},uT:{value:0},uCore:{value:core?1:0}},
     vertexShader:`varying float vY; varying vec3 vN; varying vec3 vV; uniform float uT;
       void main(){ vY=-position.y; vec3 p=position; p.x*=1.0+0.08*sin(uT*31.0+p.y*40.0); p.z*=1.0+0.08*cos(uT*27.0+p.y*35.0);
@@ -195,7 +195,7 @@ function flameMaterial(core){
     fragmentShader:`varying float vY; varying vec3 vN; varying vec3 vV; uniform float uI,uCore;
       void main(){ float t=clamp(vY,0.0,1.0); float edge=pow(abs(dot(vN,vV)),uCore>0.5?0.6:1.6);
       float a=pow(1.0-t,1.6)*edge*uI; vec3 c=mix(vec3(0.15,0.5,1.0),vec3(0.9,0.97,1.0),pow(1.0-t,uCore>0.5?1.0:3.0));
-      gl_FragColor=vec4(c*a*(uCore>0.5?1.4:0.9),1.0); }`});
+      vec3 col=c*a*(uCore>0.5?1.4:0.9); gl_FragColor=vec4(col,clamp(max(col.r,max(col.g,col.b)),0.0,1.0)); }`});
 }
 function glowTex(){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');const gr=g.createRadialGradient(64,64,0,64,64,64);
  gr.addColorStop(0,'rgba(220,240,255,1)');gr.addColorStop(.25,'rgba(110,180,255,.7)');gr.addColorStop(1,'rgba(40,120,255,0)');g.fillStyle=gr;g.fillRect(0,0,128,128);return new THREE.CanvasTexture(c);}
@@ -206,7 +206,7 @@ function makeFlame(len,rad){ // flames are excluded from ink outlines
   const inner=new THREE.ConeGeometry(rad*0.45,len*0.6,18,4,true); inner.rotateX(Math.PI); inner.translate(0,-len*0.3,0); inner.scale(1,1/(len*0.6),1);
   const mo=flameMaterial(false), mi=flameMaterial(true); mo.userData.outlineParameters={visible:false}; mi.userData.outlineParameters={visible:false};
   const o=new THREE.Mesh(outer,mo), i=new THREE.Mesh(inner,mi); o.scale.y=len; i.scale.y=len*0.6;
-  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW,blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.SrcAlphaFactor,blendDst:THREE.OneFactor,blendSrcAlpha:THREE.SrcAlphaFactor,blendDstAlpha:THREE.OneFactor,depthWrite:false,transparent:true}));
   s.scale.setScalar(rad*5);
   g.add(o,i,s); g.userData={o,i,s,mo,mi,len,rad}; g.renderOrder=10; scene.add(g); return g;
 }
@@ -601,6 +601,8 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
   window.__z={actions,mixer,setLook,inks,scene,camera,renderer,hand,state,bones,root,restPose,gear,yogaCloud,setCam,setLight,updateGear,setPalm:(v)=>{PALM_SIGN=v;}};
   document.getElementById('loader').hidden=true;
   buildFaceButtons(); updateGear(); setTest('Intro'); playIntro();
+  { const syncMode=()=>setLight(document.documentElement.classList.contains('zb-night')?'night':'day'); syncMode();
+    new MutationObserver(syncMode).observe(document.documentElement,{attributes:true,attributeFilter:['class']}); }
 },(e)=>{ if(e.total){const p=Math.round(e.loaded/e.total*100);document.getElementById('loadtxt').textContent=`Loading Zolton… ${p}%`;document.getElementById('loadbar').style.width=p+'%';}},
 (err)=>{document.getElementById('loadtxt').textContent='Could not load the 3D model. Reload the page to try again. ['+(err&&(err.message||err.type||err.target&&err.target.status)||err)+' | '+location.href+']';console.error(err);});
 
