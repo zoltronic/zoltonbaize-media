@@ -14,8 +14,10 @@ const PRESETS={"neutral":{},"happy":{"shape":{"Smile":2.2,"BrowUp":0.39},"blink"
 const LABELS={happyOpen:'Happy (eyes open)',zen:'Zen',neutral:'Neutral',happy:'Happy',bigSmile:'Big smile',laughing:'Laughing',wink:'Wink',serious:'Serious',determined:'Determined',angry:'Angry',surprised:'Surprised',skeptical:'Skeptical',sad:'Sad'};
 
 const canvas=document.getElementById('stage');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,premultipliedAlpha:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+// phones/tablets: lighter rendering (no MSAA, lower resolution, 30 fps, adaptive) so scrolling stays smooth
+const TOUCH=matchMedia('(pointer: coarse)').matches;
+const renderer=new THREE.WebGLRenderer({canvas,antialias:!TOUCH,alpha:true,premultipliedAlpha:true,powerPreference:TOUCH?'low-power':'high-performance'});
+let PR=TOUCH?Math.min(devicePixelRatio,1.5):Math.min(devicePixelRatio,2); renderer.setPixelRatio(PR);
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.92;
 let look='cartoon', lightName='day'; const backings=[]; const swaps=[], inks=[], misprints=[];
@@ -723,7 +725,16 @@ function mudra(side,w){ const S=side==='L'?'Left':'Right', B=n=>bones['mixamorig
 }
 let PALM_SIGN=1;
 
+let onScreen=true, lastDraw=0, slowT=0, emaDt=1/60;
+try{ new IntersectionObserver(es=>{ onScreen=es[0].isIntersecting; },{rootMargin:'100px'}).observe(HOST); }catch(_){}
 function frame(){
+  const tnow=performance.now();
+  // skip work while the hero is scrolled away or the tab is hidden; phones draw at 30 fps
+  if(!onScreen||document.hidden||(TOUCH&&tnow-lastDraw<31)){ requestAnimationFrame(frame); if(!onScreen||document.hidden) clock.getDelta(); return; }
+  if(lastDraw){ const fd=(tnow-lastDraw)/1000; emaDt+=(fd-emaDt)*0.1;
+    // still struggling (under ~22 fps on a phone, ~40 on desktop) -> drop the resolution a step, down to 0.75x
+    if(emaDt>(TOUCH?0.045:0.025)){ slowT+=fd; if(slowT>1.5&&PR>(TOUCH?0.75:1)){ PR=Math.max(TOUCH?0.75:1,PR-0.25); renderer.setPixelRatio(PR); resize(); slowT=0; emaDt=TOUCH?1/30:1/60; } } else slowT=0; }
+  lastDraw=tnow;
   const rdt=clock.getDelta(); const realDt=Math.min(rdt,0.05); const now=performance.now()/1000;
   // Spider-Verse: character animates "on twos" (12 fps holds); camera, flames and sky stay smooth
   let dt=realDt, step=true;
