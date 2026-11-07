@@ -105,7 +105,7 @@ function applyEnv(){
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = P.exp;
   stars.visible=false; state.glow=P.glow;
   for(const c of clouds){ c.visible=false; c.material.color.set(P.cloud[0]); c.material.map = CLOUD_SOFT; c.material.opacity = P.cloud[1]; c.material.needsUpdate=true; }
-  for(const c of yogaCloud.children){ c.material.color.set(P.cloud[2]?P.cloud[0]:0xffffff); c.material.opacity=c.userData.baseOpacity*(lightName==='night'?0.75:1); }
+  for(const c of yogaCloud.children){ c.material.color.set(lightName==='night'?0x8d97ad:(P.cloud[2]?P.cloud[0]:0xffffff)); c.material.opacity=c.userData.baseOpacity; }
 }
 function setStyle(l){ look=l;
   for(const s of swaps) s.mesh.material = l==='real'?s.real:(l==='cartoon'?s.cartoon:s.spider);
