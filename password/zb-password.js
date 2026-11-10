@@ -705,7 +705,7 @@
       'How would you describe the team culture?', 'Who would Zolton report to, and who’s the CEO?', 'What’s the pay range? Totally fine to skip.',
       'What’s the timeline for filling it?', 'Got a link to the job posting? (Or say “skip”.)', 'And your name?', 'What’s the best email for Zolton to reply to?'];
     const RL = ['Role', 'Company and team', 'Type and location', 'Team culture', 'Reports to / CEO', 'Pay range', 'Timeline', 'Job link'];
-    let rstep = -1; const ra = [];
+    let rstep = -1; const ra = []; let sideQs = 0;   // side questions asked in a row during a flow
     // Access request (password pages): one short question at a time, tied to this case study; sent to Zolton when done.
     // Zolton decides whether to share the password; Zoltbot never has it.
     const EMAIL = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
@@ -779,12 +779,20 @@
         const handled = await treeReply(text);
         if (rstep < 0 && step < 0 && astep < 0) {   // (unless that started a new flow)
           if (!handled) await offTrack();
-          rstep = sr; step = ss; astep = sa;
-          await wait(600);
-          say('Back to it: ' + (sa >= 0 ? AQ[sa] : sr >= 0 ? RQ[sr] : QS[ss]), 'bot'); setChips(sa >= 0 ? AQ_CHIPS[sa].concat(['Stop the questions']) : ['Skip this one', 'Stop the questions']);
+          if (++sideQs >= 2) {   // they'd rather ask than answer: park the questions instead of repeating them
+            sideQs = 0; pending = null;
+            await wait(600);
+            say('I’ll set those questions aside. Pick them back up any time.', 'bot');
+            setChips(sa >= 0 ? ['Request access', 'Who is Zolton?'] : sr >= 0 ? ['Tell Zolton about the role', 'What does he work on?'] : [ASK, 'What does he work on?']);
+          } else {
+            rstep = sr; step = ss; astep = sa;
+            await wait(600);
+            say('Back to it: ' + (sa >= 0 ? AQ[sa] : sr >= 0 ? RQ[sr] : QS[ss]), 'bot'); setChips(sa >= 0 ? AQ_CHIPS[sa].concat(['Stop the questions']) : ['Skip this one', 'Stop the questions']);
+          }
         }
         return true;
       }
+      if (inFlow) sideQs = 0;   // a real answer to the flow's question
       if (astep >= 0) {
         const v = text.trim(), skipped = isSkip(v);
         if (astep === 0 && (skipped || !v)) { say('I need a name so Zolton knows who’s asking. What should I call you?', 'bot'); return true; }
@@ -844,7 +852,7 @@
         setChips(CONTACT ? ['What does he work on?'] : ['Who is Zolton?']); return true;
       }
       const asks = /\?\s*$/.test(text) || /^(who|what|why|how|is|are|does|do|can|could|would|will|should)\b/.test(t);   // a question, not an intent
-      if (CONTACT && (/^tell zolton about (the|a) role$|^i have a role/.test(t) || (/^start over$/.test(t) && lastFlow === 'role') || (/\b(role|position|job|opening|opportunit|recruit|hiring|hire)\b/.test(t) && !asks && step < 0))) {
+      if (CONTACT && (/^tell zolton about (the|a) role$|^i have a role/.test(t) || (/^start over$/.test(t) && lastFlow === 'role') || (/\b(i|we)('re|’re| are| am)? (hiring|recruiting)\b|\b(i|we) (have|’ve got|'ve got|got) (an? )?(role|position|job|opening|opportunity)\b|\b(role|position|job|opening|opportunity) (for him|for zolton)\b/.test(t) && !asks && step < 0))) {
         lastFlow = 'role'; rstep = 0; ra.length = 0; pending = null; say(RQ[0], 'bot'); setChips([]); return true;
       }
       if (CONTACT && /^ask zolton for the password$|\bpassword\b/.test(t)) {
@@ -856,7 +864,7 @@
       // ---- AI first: with the backend on and answers left today, free-form messages go to the model (it knows his facts).
       // Scripted replies below still answer the chip buttons exactly, and a few things always stay scripted (privacy, pay, resume, goodbyes).
       const CHIPS = /^(what does he work on\?|what’s behind the password\?|what’s he like outside work\?|who is zolton\?|what software does he use\?|what are his skills\?|how does he use ai\?)$/;
-      const FIXED = /\b(where (is|does) he (live|based)|location|located|address|phone|number|city|rate|rates|salary|pay|compensation|resume|cv|linkedin)\b|^(thanks?|thank you|thx|ty|cheers|bye|goodbye|see ya|later|cya)\b/;
+      const FIXED = /\b(where (is|does) he (live|based)|based (in|out of)|location|located|remote|on-?site|hybrid|relocat\w*|notice|how soon|when can he|start date|address|phone( number)?|(his|your|cell) number|city|neighbou?rhood|hourly rate|day rate|rates|salary|pay range|compensation|resume|cv|linkedin (profile|page|url|link))\b|^(thanks?|thank you|thx|ty|cheers|bye|goodbye|see ya|later|cya)\b/;
       const ACCESS = !CONTACT && !/behind/.test(t) && /^(start over|request access)$|\b(request|access|let me in|get in)\b|\bpassword\b/.test(t) && !asks;   // password pages: access requests stay scripted
       if (ENDPOINT && aiLeft() && !CHIPS.test(t) && !FIXED.test(t) && !ACCESS) return false;
       if (CONTACT && /^what does he work on\?$|\b(work on|case stud|portfolio|projects?|behind)\b/.test(t)) { say('Product design with lots of motion, 3D for the web and design systems. “Bringing Gold to Wells Fargo” makes the case for rendering material in 3D, “Drawing One Cohesive System” is an icon system built on grids and rules, and “A Teaching Machine” guides people through an ATM’s hardest moments. He has a lot more to show. I can have Zolton send you the password.', 'bot'); setChips(['Ask Zolton for the password', 'Tell Zolton about the role', 'Who is Zolton?']); return true; }
@@ -866,10 +874,10 @@
       }
       if (/^what’s behind the password\?$|\b(behind|case stud|portfolio)\b/.test(t)) { say('Three case studies: “Bringing Gold to Wells Fargo” (motion, material and rendering it in 3D), “Drawing One Cohesive System” (an icon system built on grids and rules) and “A Teaching Machine” (an ATM that guides people through its hardest moments). He has a lot more to show, too.', 'bot'); setChips(['Request access', 'Who is Zolton?']); return true; }
       if (/^what’s he like outside work\?$|\b(hobb\w*|outside (of )?work|fun facts?|free time|for fun|cats?|ziggy|f45|3d print\w*|hoa)\b/.test(t)) {
-        say('Outside work Zolton makes art, 3D prints, tinkers with all kinds of tech and trains at F45. His cat Ziggy supervises. He also runs his HOA’s board, and he got EV chargers set up for 35 units with a grant.', 'bot');
+        say('Outside work Zolton makes art, 3D prints, tinkers with all kinds of tech and trains at F45. His cat Ziggy supervises. He also runs his HOA’s board, and he got EV chargers set up for multiple units.', 'bot');
         setChips(CONTACT ? ['Tell Zolton about the role', 'What does he work on?'] : ['Request access', 'Who is Zolton?']); return true;
       }
-      if (/^who is zolton\?$|^(who is (he|zolton)|tell me about (him|zolton))/.test(t)) { say('Zolton is a senior product designer who has been doing paid design work since 2004, with Apple, Google, Wells Fargo, Zelle and Best Buy on his list. He specializes in motion design, 3D for the web and design systems, and he prototypes in code with AI in his workflow.', 'bot'); setChips(CONTACT ? ['What’s he like outside work?', 'What does he work on?', ASK] : ['Request access', 'What’s behind the password?']); return true; }
+      if (/^who is zolton\?$|^(who is (he|zolton)|tell me about (him|zolton))/.test(t)) { say('Zolton is a senior product designer who has been doing paid design work since 2004, with Wells Fargo, Google and Apple Retail on his list, plus Best Buy and FITLAB. He specializes in motion design, 3D for the web and design systems, and he prototypes in code with AI in his workflow.', 'bot'); setChips(CONTACT ? ['What’s he like outside work?', 'What does he work on?', ASK] : ['Request access', 'What’s behind the password?']); return true; }
       // ---- More scripted answers (no AI used). Facts only from what Zolton approved; never location, contact details or pay. ----
       const more = CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message'] : ['Request access', 'Who is Zolton?'];
       const reply = (msg, chips) => { say(msg, 'bot'); setChips(chips || more); return true; };
@@ -881,8 +889,8 @@
         return reply(CONTACT ? 'I can tell you about Zolton’s work, skills and experience, take down a role for him, or pass him a message. Want to start with one?' : 'I can tell you about Zolton and what’s behind this password, or send him a request for access.', CONTACT ? ['Tell Zolton about the role', 'What does he work on?', 'Send Zolton a message'] : ['Request access', 'What’s behind the password?']);
       if (/\b(skills?|specialt\w*|strengths?|good at|expertise|what (can|does) (he|zolton) do)\b/.test(t))
         return reply('Product design, UX and UI, motion and animation, 3D for the web, design systems, illustration and storytelling. He also prototypes in code and builds AI agent workflows.', CONTACT ? ['What software does he use?', 'Tell Zolton about the role'] : more);
-      if (/\b(software|tools?|stack|figma|after effects|adobe|lottie|three\.?js|spline|webflow|comfy\w*|claude)\b/.test(t))
-        return reply('Figma, Adobe Creative Cloud (After Effects, Illustrator, Photoshop), Lottie, three.js, Spline, Webflow, Claude Code and ComfyUI.', CONTACT ? ['How does he use AI?', 'Tell Zolton about the role'] : more);
+      if (/\b(software|tools?|stack|figma|after effects|adobe|lottie|blender|three\.?js|spline|webflow|comfy\w*|claude)\b/.test(t))
+        return reply('Figma, Adobe Creative Cloud (After Effects, Illustrator, Photoshop), Lottie, Blender, three.js, Spline, Webflow, Claude Code and ComfyUI.', CONTACT ? ['How does he use AI?', 'Tell Zolton about the role'] : more);
       if (/\b(ai|a\.i\.|agents?|llm|chatgpt|gpt|machine learning)\b/.test(t))
         return reply('He works AI-native: he prototypes in code and uses AI agents to take the tedium out of design work, so more time goes to the craft. Fun fact: I’m one of his experiments.', CONTACT ? ['What does he work on?', 'Tell Zolton about the role'] : more);
       if (/\b(motion|animat\w*|lottie|3d|three dimensional|webgl)\b/.test(t))
@@ -890,17 +898,21 @@
       if (/\b(design systems?|components?|react)\b/.test(t))
         return reply('On Wells Fargo Wire Transfers he helped deliver the move to React-based components and the design system, bringing wires in line with products like Zelle. His icon system case study goes deep on grids and rules.', more);
       if (/\b(experience|background|career|worked|companies|clients|wells fargo|google|apple|best buy|zelle|fitlab|glass)\b/.test(t))
-        return reply('He’s been designing professionally since 2004: Wells Fargo (Senior Product Designer on the Premiere team), Google (illustrations for Google Glass that got him onto the X team), Apple Retail, Best Buy, Zelle and FITLAB.', CONTACT ? ['What are his skills?', 'Tell Zolton about the role'] : more);
+        return reply('He’s been designing professionally since 2004: Wells Fargo (Senior Product Designer on the Premiere team), Google (a contractor on Google Glass, doing UI concepts and instructional illustrations), and Apple, where he was one of the first retail employees. Before that, Best Buy and FITLAB.', CONTACT ? ['What are his skills?', 'Tell Zolton about the role'] : more);
       if (/\b(school|educat\w*|degree|studied|study|college|aau|academy of art|general assembly)\b/.test(t))
         return reply('He studied at Academy of Art University and General Assembly.', more);
-      if (/\b(available|availability|open to work|looking|freelance|contract|full[- ]time|remote|start)\b/.test(t))
-        return reply('He’s open to senior roles where product, motion and AI meet, and always open to a role that’s a good fit. Want to tell him about yours?', CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message'] : more);
-      if (/\b(resume|cv|linkedin)\b/.test(t))
-        return reply('Zolton shares his resume directly. I can pass him a note and he’ll send it over.', CONTACT ? ['Send Zolton a message', 'Tell Zolton about the role'] : more);
-      if (/\b(rate|rates|salary|pay|compensation|price|cost|charge)\b/.test(t))
-        return reply('That’s one for Zolton himself. Tell me about the role and I’ll make sure he sees it.', CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message'] : more);
-      if (/\b(where (is|does) he (live|based)|location|located|address|phone|number|city)\b/.test(t))
+      if (/\b(address|phone( number)?|(his|your|cell) number|city|neighbou?rhood|where does he live)\b/.test(t))
         return reply('I keep the personal stuff private. The best way to reach Zolton is through me: I’ll pass your message right to him.', CONTACT ? ['Send Zolton a message'] : more);
+      if (/\b(where is he( based)?|based (in|out of)|location|located|remote|on-?site|hybrid|relocat\w*)\b/.test(t))
+        return reply('He’s in the SF Bay Area and open to remote or hybrid roles. Want to tell him about yours?', CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message'] : more);
+      if (/\b(notice|how soon|when can he|start date|start)\b/.test(t))
+        return reply('He can start with two weeks’ notice, sooner if needed. Want to tell him about the role?', CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message'] : more);
+      if (/\b(available|availability|open to work|looking|freelance|contract|full[- ]time)\b/.test(t))
+        return reply('He’s open to product designer, senior, principal and design engineer roles, especially where product, motion and AI meet. Remote or hybrid in the SF Bay Area, with two weeks’ notice. Want to tell him about yours?', CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message'] : more);
+      if (/\b(resume|cv|linkedin (profile|page|url|link))\b/.test(t))
+        return reply('Zolton shares his resume directly. I can pass him a note and he’ll send it over.', CONTACT ? ['Send Zolton a message', 'Tell Zolton about the role'] : more);
+      if (/\b(hourly rate|day rate|rates|salary|pay|pay range|compensation|equity|what does he charge)\b/.test(t))
+        return reply('That’s one for Zolton himself. Tell me about the role and I’ll make sure he sees it.', CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message'] : more);
       if (/\b(this site|website|built|made (this|you)|how (was|is) (this|it) made)\b/.test(t))
         return reply('Zolton built this site in Webflow with custom real-time 3D: the sky, the sea of clouds you scroll into, the splash and me. All designed and prototyped with AI in the loop.', more);
       if (/\b(joke|funny|make me laugh)\b/.test(t))
