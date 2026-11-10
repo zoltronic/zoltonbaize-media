@@ -7,7 +7,7 @@ window.ZB_CHAT_ENDPOINT='https://zoltbot.netlify.app/api/zoltbot';
 window.ZB_MAILTO='hello@zoltonbaize.com';
 window.ZB_BOT_STYLE='comic';   // comic Zoltbot (Spider-Verse look) for everyone; remove this line to go back to glossy
 (function(){
-  var SRC='https://zoltbot.netlify.app/s/password/zb-password.js';
+  var SRC='https://rawcdn.githack.com/zoltronic/zoltonbaize-media/26cb11c67fe7bf29e3ca771982ce4d928f422e60/password/zb-password.js';   // githack pinned to a commit (no Netlify deploy needed); live copy is Webflow registered script "Zoltbot" 1.6.0
   function load(){ if(window.__zbBotLoad)return; window.__zbBotLoad=1; var s=document.createElement('script'); s.src=SRC; s.defer=true; document.body.appendChild(s); }
   function init(){
     var host=document.querySelector('[data-zb-bot]');
