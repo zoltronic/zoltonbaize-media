@@ -48,3 +48,10 @@ The site's own scripts and cloud stills are served from this Netlify site at `ht
 (clouds, splash, experience strip, Zoltbot chat, analytics, Draft Controls). Only what `tools/release.sh` copies into
 `public/s/` is live, so work in progress elsewhere in the repo never reaches visitors. To release: run
 `tools/release.sh`, commit, push; Netlify redeploys in about 20 seconds.
+
+## Live branch (`bot`)
+
+The chat backend visitors use runs from the **`bot` branch deploy**: `https://bot--zoltbot.netlify.app/api/zoltbot`.
+Branch deploys cost no Netlify credits (production deploys cost 15 each, and the free plan's 300 a month ran out), so
+releasing the backend = push to `bot` (`git push origin main:bot`). Env vars used here must have a value in the
+"Branch deploys" context (OPENROUTER_API_KEY included). Blob stores (limits, requests) are site-wide, so they're shared.
