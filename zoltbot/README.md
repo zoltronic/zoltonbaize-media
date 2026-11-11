@@ -55,3 +55,4 @@ The chat backend visitors use runs from the **`bot` branch deploy**: `https://bo
 Branch deploys cost no Netlify credits (production deploys cost 15 each, and the free plan's 300 a month ran out), so
 releasing the backend = push to `bot` (`git push origin main:bot`). Env vars used here must have a value in the
 "Branch deploys" context (OPENROUTER_API_KEY included). Blob stores (limits, requests) are site-wide, so they're shared.
+Env var changes only take effect after the next `bot` build.
