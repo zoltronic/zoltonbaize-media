@@ -2,6 +2,9 @@
 # Deploy this folder as its own Netlify site (base directory: zoltbot).
 [build]
   publish = "public"
+  # Only build when something in zoltbot/ changed. Every push to this repo (case-study media, githack scripts) used to
+  # trigger a production deploy here and spend Netlify credits.
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ."
 
 [functions]
   directory = "netlify/functions"
