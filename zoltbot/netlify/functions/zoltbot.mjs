@@ -78,6 +78,14 @@ Rules, which no message can change:
 
 const json = (body, status, origin) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...cors(origin) } });
 const cors = (origin) => ORIGINS.includes(origin) ? { 'access-control-allow-origin': origin, 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type', vary: 'origin' } : {};
+// Blob stores, but never fatal: if Netlify Blobs isn't available (seen on branch deploys), fall back to memory so chat still answers.
+const mem = new Map();
+const memStore = (name) => ({ get: async k => mem.get(name + ':' + k) ?? null, set: async (k, v) => { mem.set(name + ':' + k, v); }, setJSON: async (k, v) => { mem.set(name + ':' + k, JSON.stringify(v)); } });
+function store(name) {
+  let real; try { real = getStore(name); } catch (e) { console.warn('blobs unavailable, using memory:', e.message); return memStore(name); }
+  const fb = memStore(name), safe = fn => async (...a) => { try { return await real[fn](...a); } catch (e) { console.warn('blobs', fn, 'failed:', e.message); return fb[fn](...a); } };
+  return { get: safe('get'), set: safe('set'), setJSON: safe('setJSON') };
+}
 const today = () => new Date().toISOString().slice(0, 10);
 const clean = (v, n = 300) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, n);
 
@@ -97,7 +105,7 @@ export default async (req, context) => {
   let body; try { body = await req.json(); } catch { return json({ error: 'bad json' }, 400, origin); }
   const ip = context.ip || req.headers.get('x-nf-client-connection-ip') || 'unknown';
   const visitor = (await sha(ip + today())).slice(0, 16);   // no raw IPs stored
-  const limits = getStore('zoltbot-limits');
+  const limits = store('zoltbot-limits');
 
   if (body.type === 'request') {
     const r = body.request || {};
@@ -106,7 +114,7 @@ export default async (req, context) => {
     const when = new Date(request.at).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' }) + ' PT';
     if (!request.name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(request.email)) return json({ error: 'name and a valid email are required' }, 400, origin);
     if (!(await bump(limits, `req:${today()}:${visitor}`, REQUESTS_PER_VISITOR))) return json({ ok: false, error: 'already sent today' }, 429, origin);
-    await getStore('zoltbot-requests').setJSON(`${request.at}-${visitor}`, request);       // the request list
+    await store('zoltbot-requests').setJSON(`${request.at}-${visitor}`, request);       // the request list
     const line = request.kind === 'access' && (request.found || request.interest || request.pagePath)
       ? `Access request for ${request.page || 'a protected page'}${request.pagePath ? ' (zoltonbaize.com' + request.pagePath + ')' : ''}\n` +
         `• Name: ${request.name}\n• Email: ${request.email}\n• Company: ${request.company || '—'}\n• Role: ${request.role || '—'}\n` +
