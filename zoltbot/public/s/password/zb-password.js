@@ -70,6 +70,13 @@
   // The case study's full name, for the access request (Zolton sees exactly which page someone asked for)
   const CASES = { '/gold': 'Bringing Gold to Wells Fargo', '/iconography': 'Drawing One Cohesive System', '/icons': 'Drawing One Cohesive System', '/atm': 'A Teaching Machine' };
   const CASE = CONTACT ? '' : (CASES[protPath.toLowerCase()] || PAGE || 'a protected page');
+  // One line on what's inside, so the password screen gives a reason to stay (people were leaving Gold's in 4 seconds)
+  const TEASERS = {
+    '/gold': 'How I made gold feel like gold: a premium Wells Fargo loader, rebuilt from a flat swatch into real, reflective material.',
+    '/iconography': 'The grid, the rules and the hand-drawn icons that turned a patchwork icon set into one system.',
+    '/icons': 'The grid, the rules and the hand-drawn icons that turned a patchwork icon set into one system.',
+    '/atm': 'A few seconds of motion that teach people to tap to pay, fitted to every ATM reader Wells Fargo runs.' };
+  const TEASER = CONTACT ? '' : (TEASERS[protPath.toLowerCase()] || '');
   // GA4 events for the access-request funnel: the page path only, never anything a visitor typed.
   const track = (name, extra) => { try { if (typeof window.gtag === 'function') window.gtag('event', name, Object.assign({ page_path: protPath }, extra || {})); } catch (e) {} };
   if (!CONTACT) {
@@ -82,6 +89,7 @@
       const help = document.createElement('p'); help.className = 'zb-pw-help';
       help.textContent = PAGE ? 'Enter the password Zolton shared with you to view this case study.' : 'Enter the password Zolton shared with you.';
       h.after(help);
+      if (TEASER) { const tz = document.createElement('p'); tz.className = 'zb-pw-teaser'; tz.textContent = TEASER; h.after(tz); }
     }
     if (PAGE) document.title = PAGE + ' is a protected page';
   }
@@ -104,6 +112,7 @@
     backdrop-filter: blur(9px) saturate(130%); -webkit-backdrop-filter: blur(9px) saturate(130%); }
   .zb-glass.zb-on-sky { background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
   .zb-pw-card { padding: 32px 28px; }
+  .zb-pw-card .zb-pw-teaser { margin: 0 0 10px; max-width: 32ch; font: 600 17px/1.4 'Schibsted Grotesk', system-ui, sans-serif; color: var(--_zb-mode---mode--ink, #07283D); text-wrap: pretty; }
   /* Card content in the site's own styles (field, field_label, btn btn--primary, label-mono, type is--h1) */
   .zb-pw-page .zb-pw-card { width: min(340px, calc(100vw - 32px)); max-width: none; box-sizing: border-box; padding: clamp(26px,4vw,40px); text-align: left; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: var(--_zb-mode---mode--ink, #07283D); }
   .zb-pw-card form { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
@@ -179,7 +188,7 @@
   /* Keyboard open on a phone: the card slides up so the field and Submit sit just above the keyboard; nav, toggle and bubble step aside */
   .zb-pw-card { transition: transform 260ms var(--zb-ease); }
   .zb-kb .nav_thumb, .zb-kb .theme_toggle, .zb-kb .zb-pw-bubble, .zb-kb .page_footer { opacity: 0 !important; pointer-events: none !important; transition: opacity 160ms; }
-  .zb-kb .zb-pw-help, .zb-kb .zb-pw-eyebrow, .zb-kb .pw_help, .zb-kb .pw_eyebrow { display: none !important; }   /* compact card so Zoltbot fits above it */
+  .zb-kb .zb-pw-help, .zb-kb .zb-pw-teaser, .zb-kb .zb-pw-eyebrow, .zb-kb .pw_help, .zb-kb .pw_eyebrow { display: none !important; }   /* compact card so Zoltbot fits above it */
   .zb-kb .zb-pw-card { padding-top: 22px; padding-bottom: 22px; }
   .zb-kb .zb-pw-dock { width: 190px !important; height: 190px !important; }   /* smaller Zoltbot so he fits above the keyboard too */
   .zb-kb .zb-pw-card .zb-pw-title { font-size: 30px; margin-bottom: 14px; }
