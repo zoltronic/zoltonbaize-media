@@ -57,3 +57,4 @@ releasing the backend = push to `bot` (`git push origin main:bot`). Env vars use
 "Branch deploys" context (OPENROUTER_API_KEY included). Blob stores (limits, requests) are site-wide, so they're shared.
 Env var changes only take effect after the next `bot` build.
 
+Phone alerts: ZB_NTFY_TOPIC is set in Netlify (topic name kept out of this repo).
