@@ -158,6 +158,12 @@
   .zb-chat-x { border: 0; background: rgba(255,255,255,.55); color: var(--zb-ink); width: 32px; height: 32px; border-radius: 50%; font-size: 18px; line-height: 1; cursor: pointer; }
   .zb-chat-log { flex: 1; overflow-y: auto; padding: 14px 14px 6px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
   .zb-msg { max-width: 85%; padding: 9px 12px; border-radius: 16px; white-space: pre-wrap; word-wrap: break-word; }
+  .zb-msg.zb-rr { padding: 6px; width: 100%; max-width: 100%; box-sizing: border-box; }
+  .zb-msg.zb-rr iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; }
+  .zb-pw-dock.zb-dancing::before, .zb-pw-dock.zb-dancing::after { content: '♪'; position: absolute; top: 4%; left: 12%; font: 700 28px/1 system-ui, sans-serif; color: #fff; text-shadow: 0 2px 8px rgba(4,34,58,.35); pointer-events: none; animation: zbNote 1.6s ease-out infinite; z-index: 3; }
+  .zb-pw-dock.zb-dancing::after { content: '♫'; left: auto; right: 14%; animation-delay: .8s; }
+  @keyframes zbNote { 0% { opacity: 0; transform: translateY(10px) rotate(-10deg) scale(.8); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-60px) rotate(14deg) scale(1.15); } }
+  @media (prefers-reduced-motion: reduce) { .zb-pw-dock.zb-dancing::before, .zb-pw-dock.zb-dancing::after { animation: none; opacity: .9; } }
   .zb-msg.bot { align-self: flex-start; background: rgba(255,255,255,.72); border-bottom-left-radius: 6px; }
   .zb-msg.me { align-self: flex-end; background: #06222F; color: #EAFBF6; border-bottom-right-radius: 6px; }
   .zb-msg.typing { display: inline-flex; gap: 5px; padding: 12px 14px; }
@@ -654,15 +660,32 @@
       if (!greeted) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. ' + (PAGE ? PAGE + ' is a password-protected page.' : 'This part of the site is password-protected.') + ' Need access? Have a question? I can tell you about Zolton’s work, or help you ask him for access.', 'bot'); setChips(['Request access', 'What’s behind the password?', 'Who is Zolton?']); }, 250); }
       setTimeout(() => inp.focus(), 320);
     }
-    function close() { bus.chatOpen = false; el.classList.remove('open', 'zb-peek'); el.setAttribute('aria-hidden', 'true'); dock.focus(); }
+    function close() { stopRickroll(); bus.chatOpen = false; el.classList.remove('open', 'zb-peek'); el.setAttribute('aria-hidden', 'true'); dock.focus(); }
     el.querySelector('.zb-chat-x').onclick = close;
     el.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
     addEventListener('resize', () => { if (bus.chatOpen) place(); });
     f.addEventListener('submit', e => { e.preventDefault(); const t = inp.value.trim(); if (t) { inp.value = ''; send(t); } });
 
     inp.addEventListener('focus', () => el.classList.remove('zb-peek'));
+    // Easter egg: type "rickroll" and he plays the official video (YouTube embed, so the music stays YouTube's) and dances to it.
+    let rrMsg = null;
+    function stopRickroll() { if (rrMsg) { rrMsg.remove(); rrMsg = null; } bus.danceUntil = 0; dock.classList.remove('zb-dancing'); }
+    function rickroll() {
+      stopRickroll();
+      rrMsg = document.createElement('div'); rrMsg.className = 'zb-msg bot zb-rr';
+      const fr = document.createElement('iframe');
+      fr.src = 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&playsinline=1&rel=0';
+      fr.title = 'Rick Astley, Never Gonna Give You Up (official video)';
+      fr.allow = 'autoplay; encrypted-media; picture-in-picture'; fr.allowFullscreen = true;
+      rrMsg.appendChild(fr); log.appendChild(rrMsg);   // created inside the Send click, so the browser lets it play with sound
+      say('You asked for it. Dance break! ♪', 'bot', true);
+      bus.danceUntil = performance.now() / 1000 + 214; dock.classList.add('zb-dancing');
+      setChips(['Stop the music']); log.scrollTop = log.scrollHeight;
+    }
     async function send(text) {
       if (/^I’ll try again$/.test(text) && el.classList.contains('zb-peek')) { close(); if (input) input.focus(); return; }
+      if (/\brick\s*-?\s*roll(ed|ing)?\b/i.test(text)) { el.classList.remove('zb-peek'); say(text, 'me', true); setChips([]); rickroll(); return; }
+      if (text === 'Stop the music' && rrMsg) { say(text, 'me', true); stopRickroll(); say('Okay, okay. Back to business. What would you like to know about Zolton?', 'bot', true); setChips(CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message'] : ['Who is Zolton?']); return; }
       el.classList.remove('zb-peek');
       say(text, 'me'); if (astep < 0) history.push({ role: 'user', content: text }); setChips([]);
       setTimeout(showTyping, 200);
@@ -1376,6 +1399,7 @@
       // decide mood
       let mood = 'idle';
       if (now < bus.moodUntil) mood = bus.mood;
+      else if (now < (bus.danceUntil || 0)) mood = 'happy';
       else if (typing > 0) mood = 'shy';
       else if (focused) mood = 'curious';
       else if (bus.chatOpen && bus.thinking) mood = 'think';
@@ -1400,7 +1424,7 @@
       let blink = 1;
       if (t > nextBlink && blinkT < 0) blinkT = 0;
       if (blinkT >= 0) { blinkT += dt; blink = blinkT < 0.08 ? 1 - blinkT / 0.08 : Math.min(1, (blinkT - 0.08) / 0.1); if (blinkT > 0.18) { blinkT = -1; nextBlink = t + 2.5 + Math.random() * 3.5; } }
-      const talk = now < bus.talkUntil ? (0.35 + 0.35 * Math.abs(Math.sin(t * 14))) : 0;
+      const talk = now < (bus.danceUntil || 0) ? (0.25 + 0.45 * Math.abs(Math.sin(t * Math.PI * 113 / 60))) : now < bus.talkUntil ? (0.35 + 0.35 * Math.abs(Math.sin(t * 14))) : 0;   // while dancing, he sings along
       drawFace(Math.max(-1, Math.min(1, look.x * 1.3)), Math.max(-1, Math.min(1, -look.y * 1.3)), Math.max(0.05, blink), talk, mood === 'think', t);
 
       cover += ((mood === 'shy' ? 1 : 0) - cover) * (1 - Math.pow(0.0008, dt));
@@ -1415,6 +1439,13 @@
       if (shake >= 0) { shake += dt; head.rotation.y += Math.sin(shake * 26) * 0.32 * Math.max(0, 1 - shake / 1.0); if (shake > 1.0) shake = -1; }
       if (hop >= 0) { hop += dt; const h = Math.min(1, hop / 0.55); bot.position.y += Math.sin(h * Math.PI) * 0.22; head.rotation.y += ease(h) * Math.PI * 2; if (hop > 0.55) hop = -1; }
       if (bus.poke >= 0) { bus.poke += dt; bot.position.y += Math.sin(Math.min(1, bus.poke / 0.4) * Math.PI) * 0.08; if (bus.poke > 0.4) bus.poke = -1; }
+      if (now < (bus.danceUntil || 0)) {
+        const b = t * Math.PI * 113 / 60;   // one beat per half turn
+        bot.position.y += Math.abs(Math.sin(b)) * 0.14 * m - 0.05;
+        bot.rotation.z = Math.sin(b / 2) * 0.22 * m;
+        head.rotation.y += Math.sin(b / 4) * 0.45 * m;
+        head.rotation.z += Math.sin(b) * 0.12 * m;
+      } else bot.rotation.z *= 0.85;
       hands.forEach(({ h }) => { h.visible = false; });
       head.rotation.y += c * 0.35; head.rotation.x -= c * 0.32;   // eyes shut, chin up, politely looking away
       rotors.forEach((r, i) => r.rotation.y += dt * (i ? -38 : 38));
