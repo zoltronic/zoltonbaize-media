@@ -204,7 +204,10 @@ const probe = document.createElement('canvas'); const hasGL = !!(probe.getContex
 for (const el of document.querySelectorAll('.gold_type')) {
   if (!hasGL) { el.classList.add('is-static'); continue; }
   el.style.position = el.style.position || 'relative';
-  makeScene(el, { text: el.dataset.text || 'GOLD', fixed: true }).start().catch(err => { console.warn('[gold-type]', err); el.classList.add('is-static'); });
+  /* start (and fetch the HDR + font) only when the letters come within ~1.5 screens, so they never slow the top of the page */
+  const go = () => makeScene(el, { text: el.dataset.text || 'GOLD', fixed: true }).start().catch(err => { console.warn('[gold-type]', err); el.classList.add('is-static'); });
+  if (!('IntersectionObserver' in window)) go();
+  else { const lio = new IntersectionObserver(es => { if (es[0].isIntersecting) { lio.disconnect(); go(); } }, { rootMargin: '150% 0px' }); lio.observe(el); }
 }
 
 const HINT_CSS = `.gold_modal-hint{position:fixed;left:50%;top:calc(max(14px,env(safe-area-inset-top)) + 62px);transform:translate(-50%,-6px);z-index:3;display:flex;align-items:center;gap:9px;max-width:min(86vw,360px);padding:10px 16px;border-radius:999px;font:500 13px/1.35 "Schibsted Grotesk",-apple-system,sans-serif;letter-spacing:.01em;color:inherit;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);opacity:0;transition:opacity .45s ease,transform .45s ease;pointer-events:none}

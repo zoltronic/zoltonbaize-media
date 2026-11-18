@@ -25,7 +25,11 @@ function setup(el) {
   const frames = new Array(count); let loaded = 0;
   const url = i => pattern.replace(/%0(\d)d/, (_, w) => String(i).padStart(+w, '0'));
   function load(i) { if (frames[i]) return; const im = new Image(); im.decoding = 'async'; im.src = url(i); frames[i] = im; im.onload = () => { loaded++; if (i === Math.round(current)) draw(); }; }
-  load(0); for (let i = 1; i < count; i++) setTimeout(() => load(i), 12 * i);
+  /* frame 0 now; the other frames only once the coin comes within ~1.5 screens (they're ~4 MB together) */
+  load(0);
+  const loadRest = () => { for (let i = 1; i < count; i++) setTimeout(() => load(i), 12 * i); };
+  if (!('IntersectionObserver' in window)) loadRest();
+  else { const lio = new IntersectionObserver(es => { if (es[0].isIntersecting) { lio.disconnect(); loadRest(); } }, { rootMargin: '150% 0px' }); lio.observe(el); }
 
   let current = 0, target = 0, hover = 0, hoverT = 0, tiltX = 0, tiltY = 0, raf = 0;
   function draw() {

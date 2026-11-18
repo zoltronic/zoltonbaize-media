@@ -43,7 +43,7 @@
     var video = document.createElement('video');
     // attributes, not just properties: iOS only autoplays inline when muted/playsinline are present as attributes
     video.setAttribute('muted', ''); video.muted = true; video.setAttribute('playsinline', ''); video.setAttribute('webkit-playsinline', ''); video.playsInline = true;
-    video.setAttribute('preload', 'auto'); if (!once) { video.setAttribute('loop', ''); video.setAttribute('autoplay', ''); }
+    video.setAttribute('preload', 'metadata'); if (!once) { video.setAttribute('loop', ''); video.setAttribute('autoplay', ''); }
     if (el.dataset.poster) video.setAttribute('poster', el.dataset.poster);
     video.setAttribute('aria-label', el.dataset.label || 'Phone screen recording');
     // mp4 first: every iOS version plays H.264; webm is the fallback

@@ -32,7 +32,7 @@ function fallback(el) { if (window.__phoneDom) { el.querySelectorAll('canvas').f
 
 async function init() {
   const probe = document.createElement('canvas'); if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) { mocks.forEach(fallback); return; }
-  const envTex = await new THREE.TextureLoader().loadAsync(BASE + 'env_roof_1k.png');
+  const envTex = await new THREE.TextureLoader().loadAsync(BASE + 'env_roof_1k.webp');
   envTex.mapping = THREE.EquirectangularReflectionMapping; envTex.colorSpace = THREE.SRGBColorSpace;
   for (const el of mocks) build(el, envTex);
 }
@@ -52,7 +52,7 @@ function build(el, envTex) {
   const once = 'once' in el.dataset;
   let video = el.querySelector('video');
   if (!video) {
-    video = document.createElement('video'); video.muted = true; video.loop = !once; video.playsInline = true; video.autoplay = !once; video.preload = 'auto'; video.crossOrigin = 'anonymous';
+    video = document.createElement('video'); video.muted = true; video.loop = !once; video.playsInline = true; video.autoplay = !once; video.preload = 'metadata'; video.crossOrigin = 'anonymous';
     if (el.dataset.poster) video.poster = el.dataset.poster;
     for (const [k, t] of [['webm', 'video/webm'], ['mp4', 'video/mp4']]) if (el.dataset[k]) { const s = document.createElement('source'); s.src = el.dataset[k]; s.type = t; video.appendChild(s); }
     video.setAttribute('aria-label', el.dataset.label || 'Phone screen recording'); el.appendChild(video);

@@ -48,9 +48,9 @@ async function init() {
   const [sceneJ, matJ, gltf, envTex, normalTex, lettersTex] = await Promise.all([
     fetch(BASE + 'scene.json').then(r => r.json()), fetch(BASE + 'material.json').then(r => r.json()),
     new GLTFLoader().loadAsync(BASE + 'wf_cube.glb'),
-    new THREE.TextureLoader().loadAsync(BASE + 'env_roof_1k.png'),
-    new THREE.TextureLoader().loadAsync(BASE + (CFG.normalMap || 'wf_normal_2k.png')),
-    new THREE.TextureLoader().loadAsync(BASE + 'wf_letters_2k.png'),
+    new THREE.TextureLoader().loadAsync(BASE + (CFG.env || 'env_roof_1k.webp')),
+    new THREE.TextureLoader().loadAsync(BASE + (CFG.normalMap || (matchMedia('(pointer: coarse)').matches ? 'wf_normal_1k.webp' : 'wf_normal_2k.webp')))  /* phones get the 1K carve */,
+    new THREE.TextureLoader().loadAsync(BASE + (CFG.letters || 'wf_letters_2k.webp')),
   ]);
   // warmth dial (0..1): tints the environment toward orange before it becomes the reflection map, and shifts the base gold the same way
   const WARM = Math.max(0, Math.min(1, CFG.warmth ?? 0.3));
