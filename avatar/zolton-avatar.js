@@ -498,30 +498,68 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
     const hsv=([r,g,b])=>{ const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn||1e-6; let h= mx===r?((g-b)/d)%6 : mx===g?(b-r)/d+2 : (r-g)/d+4; h*=60; if(h<0) h+=360; return [h,(mx-mn)/(mx||1e-6),mx]; };
     const isRed=(c)=>{ const [h,sa,v]=hsv(c); return (h<13||h>338)&&sa>0.5&&v>0.18; };
     const Y0=OFFY=>0; const oy=HEAD_OFF.y;
+    // give whole triangles their own copied vertices, all pointing at one texture pixel (a clean flat colour, no stretched streaks, no holes)
+    const repoint=(g,tris,uvAt)=>{ if(!tris.length) return; const idx=g.index.array, pos=g.attributes.position, n0=pos.count, add=tris.length*3;
+      const grow=(attr)=>{ const A=new attr.array.constructor((attr.count+add)*attr.itemSize); A.set(attr.array); return new THREE.BufferAttribute(A,attr.itemSize,attr.normalized); };
+      const names=Object.keys(g.attributes); const na={}; for(const k of names) na[k]=grow(g.attributes[k]);
+      const nm={}; for(const k in g.morphAttributes) nm[k]=g.morphAttributes[k].map(grow);
+      const ni=Array.from(idx); let nv=n0;
+      for(const t of tris){ const [u,v]=uvAt(t); for(let k=0;k<3;k++){ const src=idx[t+k];
+          for(const a of names){ const A=na[a], s2=A.itemSize; for(let c=0;c<s2;c++) A.array[nv*s2+c]=A.array[src*s2+c]; }
+          for(const a in nm) for(const A of nm[a]){ const s2=A.itemSize; for(let c=0;c<s2;c++) A.array[nv*s2+c]=A.array[src*s2+c]; }
+          na.uv.setXY(nv,u,v); ni[t+k]=nv; nv++; } }
+      for(const k of names) g.setAttribute(k,na[k]); for(const k in nm) g.morphAttributes[k]=nm[k];
+      g.setIndex(ni); g.computeBoundingSphere(); };
+    // the texel whose colour is the median of a set of candidate vertices (by brightness), so the flat patch matches its neighbours
+    const medianUV=(cands,P)=>{ if(!cands.length) return null; cands.sort((A,B)=>{ const a=at(P,A[0],A[1]), b2=at(P,B[0],B[1]); return (a[0]+a[1]+a[2])-(b2[0]+b2[1]+b2[2]); }); return cands[cands.length>>1]; };
     model.traverse(o=>{ if(!o.isSkinnedMesh||!o.material||!o.material.map) return; const isHeadM=/d58e4479/.test(o.material.name), isBody=/01a17fda/.test(o.material.name); if(!isHeadM&&!isBody) return;
       const P=px(o.material.map); if(!P) return; const g=o.geometry, pos=g.attributes.position, uv=g.attributes.uv, I=g.index; if(!uv||!I) return;
       const w=[]; const v=new THREE.Vector3(); for(let i=0;i<pos.count;i++){ v.fromBufferAttribute(pos,i); o.applyBoneTransform(i,v); v.applyMatrix4(o.matrixWorld); w.push(v.clone()); }
-      const src=I.array, keep=[];
-      for(let t=0;t<src.length;t+=3){ const ids=[src[t],src[t+1],src[t+2]]; const cy=(w[ids[0]].y+w[ids[1]].y+w[ids[2]].y)/3, cx=(w[ids[0]].x+w[ids[1]].x+w[ids[2]].x)/3, czz=(w[ids[0]].z+w[ids[1]].z+w[ids[2]].z)/3;
-        const near = cy>1.43+oy && cy<(isHeadM?1.598:1.64)+oy && Math.hypot(cx,czz-(-0.03+HEAD_OFF.z))<0.16;
-        if(near){ let n=0; for(const k of ids) if(isRed(at(P,uv.getX(k),uv.getY(k)))) n++; const mu=(uv.getX(ids[0])+uv.getX(ids[1])+uv.getX(ids[2]))/3, mv=(uv.getY(ids[0])+uv.getY(ids[1])+uv.getY(ids[2]))/3;
-          if(isRed(at(P,mu,mv))) n++; if(isHeadM?n>=2:(n>=4&&cy>1.5+oy&&!(Math.abs(cx)<0.07&&czz>HEAD_OFF.z))) continue; }
-        keep.push(...ids); }
-      g.setIndex(keep);
-      if(isHeadM){ // lower neck: re-point whole triangles (on their own copied vertices) at one clean skin pixel, so no stretched streaks or seam line
-        let best=null; for(let i=0;i<pos.count&&!best;i++){ const q=w[i]; if(q.y<1.6+oy||q.y>1.63+oy||Math.abs(q.x)<0.05||Math.abs(q.x)>0.075) continue; const [h,sa,vv]=hsv(at(P,uv.getX(i),uv.getY(i))); if(h>12&&h<35&&sa>0.3&&sa<0.6&&vv>0.55&&vv<0.9) best=[uv.getX(i),uv.getY(i)]; }
-        if(best){ const idx=g.index.array, tris=[]; for(let t=0;t<idx.length;t+=3){ const c=w[idx[t]].clone().add(w[idx[t+1]]).add(w[idx[t+2]]).multiplyScalar(1/3);
-            const lim=(Math.abs(c.x)<0.03&&c.z>HEAD_OFF.z+0.01)?1.597:1.574; if(c.y<lim+oy&&Math.hypot(c.x,c.z-(-0.01+HEAD_OFF.z))<0.085) tris.push(t); }
-          const n0=pos.count, add=tris.length*3; const grow=(attr)=>{ const A=new attr.array.constructor((attr.count+add)*attr.itemSize); A.set(attr.array); return new THREE.BufferAttribute(A,attr.itemSize,attr.normalized); };
-          const names=Object.keys(g.attributes); const na={}; for(const k of names) na[k]=grow(g.attributes[k]);
-          const nm={}; for(const k in g.morphAttributes) nm[k]=g.morphAttributes[k].map(grow);
-          const ni=Array.from(idx); let nv=n0;
-          for(const t of tris){ for(let k=0;k<3;k++){ const src=idx[t+k];
-              for(const a of names){ const A=na[a], s2=A.itemSize; for(let c=0;c<s2;c++) A.array[nv*s2+c]=A.array[src*s2+c]; }
-              for(const a in nm) for(const A of nm[a]){ const s2=A.itemSize; for(let c=0;c<s2;c++) A.array[nv*s2+c]=A.array[src*s2+c]; }
-              na.uv.setXY(nv,best[0],best[1]); ni[t+k]=nv; nv++; } }
-          for(const k of names) g.setAttribute(k,na[k]); for(const k in nm) g.morphAttributes[k]=nm[k];
-          g.setIndex(ni); g.computeBoundingSphere(); } }
+      const idx=I.array, cen=t=>w[idx[t]].clone().add(w[idx[t+1]]).add(w[idx[t+2]]).multiplyScalar(1/3);
+      const redCount=t=>{ let n=0; for(let k=0;k<3;k++){ const q=idx[t+k]; if(isRed(at(P,uv.getX(q),uv.getY(q)))) n++; }
+        const mu=(uv.getX(idx[t])+uv.getX(idx[t+1])+uv.getX(idx[t+2]))/3, mv=(uv.getY(idx[t])+uv.getY(idx[t+1])+uv.getY(idx[t+2]))/3; if(isRed(at(P,mu,mv))) n++; return n; };
+      if(isHeadM){
+        // relax the scanned neck surface (Laplacian smoothing, rim pinned) so folds and creases stop reading as dark slits
+        { const key=i=>{ const q=w[i]; return Math.round(q.x*2e4)+','+Math.round(q.y*2e4)+','+Math.round(q.z*2e4); };
+          const grp=new Map(), gid=new Int32Array(pos.count); for(let i=0;i<pos.count;i++){ const k=key(i); if(!grp.has(k)) grp.set(k,grp.size); gid[i]=grp.get(k); }
+          const G=grp.size, inR=new Uint8Array(G), nb=Array.from({length:G},()=>new Set()), gp=Array.from({length:G},()=>new THREE.Vector3()), mem=Array.from({length:G},()=>[]);
+          for(let i=0;i<pos.count;i++){ mem[gid[i]].push(i); gp[gid[i]].copy(w[i]); }
+          for(let gi=0;gi<G;gi++){ const q=gp[gi]; if(q.y<1.6+oy&&q.y>1.45+oy&&Math.hypot(q.x,q.z-(-0.01+HEAD_OFF.z))<0.09) inR[gi]=1; }
+          for(let t=0;t<idx.length;t+=3) for(let k=0;k<3;k++){ const a1=gid[idx[t+k]], b1=gid[idx[t+(k+1)%3]]; nb[a1].add(b1); nb[b1].add(a1); }
+          const pin=new Uint8Array(G); for(let gi=0;gi<G;gi++) if(inR[gi]) for(const j of nb[gi]) if(!inR[j]) { pin[gi]=1; break; }
+          const W0=gp.map(q=>q.clone()); let cur=gp.map(q=>q.clone());
+          for(let it=0;it<8;it++){ const nx=cur.map(q=>q.clone()); for(let gi=0;gi<G;gi++){ if(!inR[gi]||pin[gi]||!nb[gi].size) continue; const m=new THREE.Vector3(); for(const j of nb[gi]) m.add(cur[j]); m.multiplyScalar(1/nb[gi].size); nx[gi].lerp(m,0.6); } cur=nx; }
+          // local-space delta via this single-bone mesh's linear map
+          const W1=(i,x,y,z)=>{ const q=new THREE.Vector3(x,y,z); o.applyBoneTransform(i,q); return q.applyMatrix4(o.matrixWorld); };
+          const p0=new THREE.Vector3().fromBufferAttribute(pos,0), w0=W1(0,p0.x,p0.y,p0.z);
+          const c1=W1(0,p0.x+1,p0.y,p0.z).sub(w0), c2=W1(0,p0.x,p0.y+1,p0.z).sub(w0), c3=W1(0,p0.x,p0.y,p0.z+1).sub(w0);
+          const inv=new THREE.Matrix3().set(c1.x,c2.x,c3.x, c1.y,c2.y,c3.y, c1.z,c2.z,c3.z).invert();
+          for(let gi=0;gi<G;gi++){ if(!inR[gi]||pin[gi]) continue; const d=cur[gi].clone().sub(W0[gi]); if(d.lengthSq()<1e-12) continue; const dl=d.clone().applyMatrix3(inv);
+            for(const i of mem[gi]){ pos.setXYZ(i,pos.getX(i)+dl.x,pos.getY(i)+dl.y,pos.getZ(i)+dl.z); w[i].copy(cur[gi]); } }
+          pos.needsUpdate=true; g.computeVertexNormals(); }
+        // skin tone = median of the jaw/upper-neck skin just above the patch (not one random pixel, which came out too brown)
+        const cands=[]; for(let i=0;i<pos.count;i++){ const q=w[i]; if(q.y<1.585+oy||q.y>1.64+oy||Math.abs(q.x)<0.03||Math.abs(q.x)>0.08||q.z<HEAD_OFF.z-0.04) continue;
+          const [h,sa,vv]=hsv(at(P,uv.getX(i),uv.getY(i))); if(h>10&&h<38&&sa>0.25&&sa<0.65&&vv>0.5) cands.push([uv.getX(i),uv.getY(i)]); }
+        const skin=medianUV(cands,P);
+        const neck=[], drop=[];
+        for(let t=0;t<idx.length;t+=3){ const c=cen(t); const r=Math.hypot(c.x,c.z-(-0.01+HEAD_OFF.z));
+          const lim=(Math.abs(c.x)<0.03&&c.z>HEAD_OFF.z+0.01)?1.597:1.585;
+          if(c.y<1.6+oy&&c.y>1.5+oy&&r>0.1&&r<0.16&&c.z<HEAD_OFF.z+0.0){ drop.push(t); continue; } // stray scan strip sticking out behind the collar (never the chin, which is in front)
+          if(c.y<lim+oy&&r<0.085){ neck.push(t); continue; }            // lower neck: flat skin (red specks included, so no holes)
+          if(c.y<1.64+oy&&r<0.085){ const mu=(uv.getX(idx[t])+uv.getX(idx[t+1])+uv.getX(idx[t+2]))/3, mv=(uv.getY(idx[t])+uv.getY(idx[t+1])+uv.getY(idx[t+2]))/3;
+            const [h,sa,vv]=hsv(at(P,mu,mv)); if(h>8&&h<40&&sa>0.22&&vv>0.42){ neck.push(t); continue; } } // under-jaw skin up to the beard line, so the clean patch meets beard, not blotchy scan skin
+          if(c.y>1.43+oy&&c.y<1.598+oy&&redCount(t)>=2){ if(r<0.09) neck.push(t); else if(r<0.16&&c.z<HEAD_OFF.z+0.04) drop.push(t); } } // red specks on the neck become skin (no holes); stray scarf bits outside it go
+        if(skin){ repoint(g,neck,()=>skin); o.userData.skinUV=skin; }
+        if(drop.length){ const dr=new Set(drop), a2=g.index.array, keep=[]; for(let t=0;t<a2.length;t+=3) if(!dr.has(t)) keep.push(a2[t],a2[t+1],a2[t+2]); g.setIndex(keep); }
+      } else {
+        // collar: scarf-red smears on the jacket get the jacket's own navy instead of being cut out (cutting left holes)
+        const cands=[]; for(let i=0;i<pos.count;i++){ const q=w[i]; if(q.y<1.3+oy||q.y>1.5+oy||Math.abs(q.x)<0.09||Math.abs(q.x)>0.18) continue;
+          const [h,sa,vv]=hsv(at(P,uv.getX(i),uv.getY(i))); if(h>210&&h<245&&sa>0.4&&vv>0.15&&vv<0.6) cands.push([uv.getX(i),uv.getY(i)]); }
+        const navy=medianUV(cands,P); const red=[];
+        for(let t=0;t<idx.length;t+=3){ const c=cen(t); if(c.y>1.43+oy&&c.y<1.66+oy&&Math.hypot(c.x,c.z-(-0.03+HEAD_OFF.z))<0.17&&redCount(t)>=2) red.push(t); }
+        if(navy) repoint(g,red,()=>navy);
+        else if(red.length){ const dr=new Set(red), a2=g.index.array, keep=[]; for(let t=0;t<a2.length;t+=3) if(!dr.has(t)) keep.push(a2[t],a2[t+1],a2[t+2]); g.setIndex(keep); }
+      }
     }); })();
   // backing skin: a copy of the face shell pushed 1.5 mm inward, so any hairline seam in the scan shows skin, never sky
   model.traverse(o=>{ if(!o.isSkinnedMesh||!o.material||!/d58e4479/.test(o.material.name)) return;
@@ -533,6 +571,18 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
     const back=new THREE.SkinnedMesh(g,o.material); back.name='FaceBacking'; back.bind(o.skeleton,o.bindMatrix);
     back.morphTargetInfluences=o.morphTargetInfluences; back.morphTargetDictionary=o.morphTargetDictionary; back.frustumCulled=false;
     o.parent.add(back); back.position.copy(o.position); back.quaternion.copy(o.quaternion); back.scale.copy(o.scale); o.userData.backing=back; backings.push([o,back]); });
+  // skin core inside the neck: the scan has pin-holes there, and this makes them show skin instead of sky
+  model.traverse(o=>{ if(!o.isSkinnedMesh||!o.userData.skinUV||o.userData.neckFill) return; o.userData.neckFill=1;
+    const P=o.geometry.attributes.position, v=new THREE.Vector3(); const oy=HEAD_OFF.y; const xs=[], zs=[];
+    for(let i=0;i<P.count;i++){ v.fromBufferAttribute(P,i); o.applyBoneTransform(i,v); v.applyMatrix4(o.matrixWorld); if(v.y>1.5+oy&&v.y<1.56+oy&&Math.hypot(v.x,v.z-(-0.01+HEAD_OFF.z))<0.09){ xs.push(v.x); zs.push(v.z); } }
+    if(xs.length<20) return; const med=a=>{ const b=[...a].sort((p,q)=>p-q); return b[b.length>>1]; }, pct=(a,f)=>{ const b=[...a].sort((p,q)=>p-q); return b[Math.min(b.length-1,(b.length*f)|0)]; };
+    const xc=med(xs), zc=med(zs), rx=pct(xs.map(x=>Math.abs(x-xc)),0.7)*0.95, rz=pct(zs.map(z=>Math.abs(z-zc)),0.7)*0.75;
+    if(window.__neckdbg) console.log('neckfill',xs.length,xc.toFixed(3),zc.toFixed(3),rx.toFixed(3),rz.toFixed(3));
+    const geo=new THREE.CylinderGeometry(0.95,0.75,0.1,24,1,true); geo.scale(rx,1,rz);
+    const uvA=geo.attributes.uv; for(let i=0;i<uvA.count;i++) uvA.setXY(i,o.userData.skinUV[0],o.userData.skinUV[1]);
+    const fill=new THREE.Mesh(geo,o.material); fill.name='NeckFill'; fill.frustumCulled=false;
+    const nb=bones.mixamorigNeck; nb.updateMatrixWorld(true); const wp=new THREE.Vector3(xc,1.555+oy,zc); nb.worldToLocal(wp);
+    const wq=new THREE.Quaternion(); nb.getWorldQuaternion(wq); fill.quaternion.copy(wq.invert()); fill.position.copy(wp); const ws=new THREE.Vector3(); nb.getWorldScale(ws); fill.scale.set(1/ws.x,1/ws.y,1/ws.z); nb.add(fill); });
   fixScarf(model);
   buildGear(model);
   root.add(yogaCloud);
@@ -550,7 +600,7 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
     swaps.push({mesh:o,real,cartoon,spider:comic});
     if(o.userData.scarf){ for(const m of [real,cartoon,comic].flat()){ m.polygonOffset=true; m.polygonOffsetFactor=-1; m.polygonOffsetUnits=-6; } }
     const isHead=/d58e4479|Head_LOD_mesh/.test(o.name);
-    const px = isHead?1.3 : /GlassLens|GlassGlow|GlassHalo|CapSeam|CapEyelet/.test(o.name)?0 : /Strap|Buckle|Ring|Glass|Cap/.test(o.name)?1.3 : /PalmRing/.test(o.name)?0 : 2.2;
+    const px = isHead?1.3 : /GlassLens|GlassGlow|GlassHalo|CapSeam|CapEyelet|NeckFill/.test(o.name)?0 : /Strap|Buckle|Ring|Glass|Cap/.test(o.name)?1.3 : /PalmRing/.test(o.name)?0 : 2.2;
     if(px>0){
       const inkM=inkMaterial(px*Math.min(devicePixelRatio,2));
       const ink = o.isSkinnedMesh ? new THREE.SkinnedMesh(o.geometry,inkM) : new THREE.Mesh(o.geometry,inkM);
