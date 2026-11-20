@@ -71,6 +71,13 @@ function comicPatch(m,{dots=true,rimAmt=0.22,dotStart=0.95}={}){
   };
   m.customProgramCacheKey=()=>'comic'+dots+rimAmt+dotStart;
 }
+// head only: blend the scan texture toward one clean skin texel by the per-vertex 'skinMix' attribute (neck clean-up)
+function skinPatch(m){ const prev=m.onBeforeCompile, pk=m.customProgramCacheKey;
+  m.onBeforeCompile=(sh,r)=>{ prev&&prev(sh,r); if(!HEAD_SKIN_UV) return; sh.uniforms.uSkinUV={value:new THREE.Vector2(HEAD_SKIN_UV[0],HEAD_SKIN_UV[1])};
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float skinMix; varying float vSkinMix;').replace('#include <begin_vertex>','#include <begin_vertex>\nvSkinMix=skinMix;');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform vec2 uSkinUV; varying float vSkinMix;')
+      .replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\n diffuseColor.rgb=mix(diffuseColor.rgb, diffuse*texture2D(map,uSkinUV).rgb, clamp(vSkinMix,0.0,1.0));\n#endif'); };
+  m.customProgramCacheKey=()=>(pk?pk():'')+'skin'; }
 function matcapTex(){const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');
   g.fillStyle='#2b2f3d';g.beginPath();g.arc(128,128,128,0,7);g.fill();
   const bands=[['#4b5368',118],['#8792ac',104],['#c9d6ef',84],['#eef5ff',56]];
@@ -91,6 +98,7 @@ function toComic(m,variant='spider'){ if(m.isMeshBasicMaterial) return m;
     const inner=/Teeth|MouthInside|Tongue/.test(m.name);
     const sp=variant==='spider';
     comicPatch(c,{dots:sp&&!inner&&m.name!=='PalmRing'&&m.name!=='Cloud',rimAmt:inner?0:(sp?0.22:0.12)});
+    if(/d58e4479/.test(m.name)) skinPatch(c);
     c.userData.outlineParameters={thickness:/Teeth|MouthInside|Tongue|PalmRing/.test(m.name)?0.0:(/StrapBlack|Buckle/.test(m.name)?0.0034:0.0048),color:[0.04,0.03,0.07],visible:!inner};
   }
   c.name=m.name; c.toneMapped=false; return c;
@@ -145,7 +153,7 @@ const clouds=[];{const ct=CLOUD_SOFT;for(let i=0;i<10;i++){const s=new THREE.Spr
  const z=-25-Math.random()*80;s.position.set((Math.random()-.5)*(30-z*0.8),-2+Math.random()*9,z);const k=6+Math.random()*10;s.scale.set(k*1.8,k,1);s.visible=false;scene.add(s);clouds.push(s);}}
 
 const root=new THREE.Group(); scene.add(root);
-let mixer, actions={}, morphMeshes=[], eyeMat=null, bones={}, flames=[], palmNodes={}, footNozzle={};
+let HEAD_SKIN_UV=null; let mixer, actions={}, morphMeshes=[], eyeMat=null, bones={}, flames=[], palmNodes={}, footNozzle={};
 const hand={L:0,R:0,tL:0,tR:0,puffT:3,puffSide:'L',puffLeft:0,prevTz:0};
 const EXITOFF=new THREE.Vector3();
 const state={scrollP:0,exitP:0,cloudRise:-1,mode:'loading',t:0,thrust:1,glow:1,yoga:false,seated:false,poseW:0,armW:0,cloudK:0,turnT:-1,cam:'full',expr:'neutral',exprHold:0,talkT:0};
@@ -559,7 +567,18 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
             for(const [uu,vv2] of [[uv.getX(idx[t]),uv.getY(idx[t])],[uv.getX(idx[t+1]),uv.getY(idx[t+1])],[uv.getX(idx[t+2]),uv.getY(idx[t+2])],[mu,mv]]){ if(skinDist(at(P,uu,vv2))>0.16){ ok=false; break; } }
             if(ok){ neck.push(t); continue; } }
           if(c.y>1.43+oy&&c.y<1.598+oy&&redCount(t)>=2){ if(r<0.09) neck.push(t); else if(r<0.16&&c.z<HEAD_OFF.z+0.04) drop.push(t); } } // red specks on the neck become skin (no holes); stray scarf bits outside it go
-        if(skin){ repoint(g,neck,()=>skin); o.userData.skinUV=skin; }
+        if(skin){ o.userData.skinUV=skin; HEAD_SKIN_UV=skin;
+          // per-vertex 'skinMix' (0 = scan texture, 1 = clean skin), shared across UV-seam duplicates and softened over two rings,
+          // so beard fades into skin across each triangle instead of stepping along triangle edges
+          const kk=i=>{ const q=w[i]; return Math.round(q.x*2e4)+','+Math.round(q.y*2e4)+','+Math.round(q.z*2e4); };
+          const gm=new Map(), gidv=new Int32Array(pos.count); for(let i=0;i<pos.count;i++){ const k=kk(i); if(!gm.has(k)) gm.set(k,gm.size); gidv[i]=gm.get(k); }
+          const GN=gm.size, inc=new Float32Array(GN), tot=new Float32Array(GN), nbr=Array.from({length:GN},()=>[]), isNeck=new Uint8Array(idx.length/3);
+          for(const t of neck) isNeck[t/3]=1;
+          for(let t=0;t<idx.length;t+=3) for(let k=0;k<3;k++){ const a1=gidv[idx[t+k]]; tot[a1]++; if(isNeck[t/3]) inc[a1]++; nbr[a1].push(gidv[idx[t+(k+1)%3]]); }
+          let m=new Float32Array(GN); for(let gi=0;gi<GN;gi++) m[gi]=tot[gi]?inc[gi]/tot[gi]:0;
+          for(let it=0;it<2;it++){ const n2=new Float32Array(GN); for(let gi=0;gi<GN;gi++){ if(!nbr[gi].length){ n2[gi]=m[gi]; continue; } let a2=0; for(const j of nbr[gi]) a2+=m[j]; n2[gi]=m[gi]*0.5+0.5*a2/nbr[gi].length; } m=n2; }
+          const mixA=new Float32Array(pos.count); for(let i=0;i<pos.count;i++) mixA[i]=Math.min(1,m[gidv[i]]*1.15);
+          g.setAttribute('skinMix',new THREE.BufferAttribute(mixA,1)); }
         if(drop.length){ const dr=new Set(drop), a2=g.index.array, keep=[]; for(let t=0;t<a2.length;t+=3) if(!dr.has(t)) keep.push(a2[t],a2[t+1],a2[t+2]); g.setIndex(keep); }
       } else {
         // collar: scarf-red smears on the jacket get the jacket's own navy instead of being cut out (cutting left holes)
@@ -604,7 +623,7 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
     const cartoon=mk('cartoon'); let comic=mk('spider');
     if(/d58e4479|Head_LOD_mesh/.test(o.name)){ // face: thinner ink so it doesn't poke through the lips, softer dots
       const fix=c=>{ if(!c.isMeshToonMaterial||c.userData.outlineParameters?.visible===false) return c; const f=new THREE.MeshToonMaterial().copy(c); f.name=c.name;
-        comicPatch(f,{dots:true,rimAmt:0.18,dotStart:0.6}); f.userData.outlineParameters={thickness:0.0024,color:[0.04,0.03,0.07]}; return f; };
+        comicPatch(f,{dots:true,rimAmt:0.18,dotStart:0.6}); if(/d58e4479/.test(c.name)) skinPatch(f); f.userData.outlineParameters={thickness:0.0024,color:[0.04,0.03,0.07]}; return f; };
       comic=Array.isArray(comic)?comic.map(fix):fix(comic);
     }
     swaps.push({mesh:o,real,cartoon,spider:comic});
