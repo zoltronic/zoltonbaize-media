@@ -538,7 +538,13 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
           const inv=new THREE.Matrix3().set(c1.x,c2.x,c3.x, c1.y,c2.y,c3.y, c1.z,c2.z,c3.z).invert();
           for(let gi=0;gi<G;gi++){ if(!inR[gi]||pin[gi]) continue; const d=cur[gi].clone().sub(W0[gi]); if(d.lengthSq()<1e-12) continue; const dl=d.clone().applyMatrix3(inv);
             for(const i of mem[gi]){ pos.setXYZ(i,pos.getX(i)+dl.x,pos.getY(i)+dl.y,pos.getZ(i)+dl.z); w[i].copy(cur[gi]); } }
-          pos.needsUpdate=true; g.computeVertexNormals(); }
+          pos.needsUpdate=true; g.computeVertexNormals();
+          // even shading: neck normals point straight out from the neck's axis (blended in from the rim), so toon light falls as one smooth band, not blotches
+          { const nrm=g.attributes.normal, ax=new THREE.Vector3(), n2=new THREE.Vector3(), zc=-0.01+HEAD_OFF.z;
+            for(let gi=0;gi<G;gi++){ if(!inR[gi]) continue; const q=cur[gi]; const k=pin[gi]?0.35:Math.min(1,Math.max(0,(1.6+oy-q.y)/0.025))*0.85;
+              ax.set(q.x,0,q.z-zc); if(ax.lengthSq()<1e-8) continue; ax.normalize(); const loc=ax.clone().applyMatrix3(inv).normalize();
+              for(const i of mem[gi]){ n2.fromBufferAttribute(nrm,i).lerp(loc,k).normalize(); nrm.setXYZ(i,n2.x,n2.y,n2.z); } }
+            nrm.needsUpdate=true; } }
         // skin tone = median of the jaw/upper-neck skin just above the patch (not one random pixel, which came out too brown)
         const cands=[]; for(let i=0;i<pos.count;i++){ const q=w[i]; if(q.y<1.585+oy||q.y>1.64+oy||Math.abs(q.x)<0.03||Math.abs(q.x)>0.08||q.z<HEAD_OFF.z-0.04) continue;
           const [h,sa,vv]=hsv(at(P,uv.getX(i),uv.getY(i))); if(h>10&&h<38&&sa>0.25&&sa<0.65&&vv>0.5) cands.push([uv.getX(i),uv.getY(i)]); }
