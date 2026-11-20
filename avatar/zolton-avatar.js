@@ -540,14 +540,16 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
         // skin tone = median of the jaw/upper-neck skin just above the patch (not one random pixel, which came out too brown)
         const cands=[]; for(let i=0;i<pos.count;i++){ const q=w[i]; if(q.y<1.585+oy||q.y>1.64+oy||Math.abs(q.x)<0.03||Math.abs(q.x)>0.08||q.z<HEAD_OFF.z-0.04) continue;
           const [h,sa,vv]=hsv(at(P,uv.getX(i),uv.getY(i))); if(h>10&&h<38&&sa>0.25&&sa<0.65&&vv>0.5) cands.push([uv.getX(i),uv.getY(i)]); }
-        const skin=medianUV(cands,P);
+        const skin=medianUV(cands,P); const skinRGB=skin?at(P,skin[0],skin[1]):null; const skinDist=c2=>Math.hypot(c2[0]-skinRGB[0],c2[1]-skinRGB[1],c2[2]-skinRGB[2]);
         const neck=[], drop=[];
         for(let t=0;t<idx.length;t+=3){ const c=cen(t); const r=Math.hypot(c.x,c.z-(-0.01+HEAD_OFF.z));
           const lim=(Math.abs(c.x)<0.03&&c.z>HEAD_OFF.z+0.01)?1.597:1.585;
           if(c.y<1.6+oy&&c.y>1.5+oy&&r>0.1&&r<0.16&&c.z<HEAD_OFF.z+0.0){ drop.push(t); continue; } // stray scan strip sticking out behind the collar (never the chin, which is in front)
           if(c.y<lim+oy&&r<0.085){ neck.push(t); continue; }            // lower neck: flat skin (red specks included, so no holes)
-          if(c.y<1.64+oy&&r<0.085){ const mu=(uv.getX(idx[t])+uv.getX(idx[t+1])+uv.getX(idx[t+2]))/3, mv=(uv.getY(idx[t])+uv.getY(idx[t+1])+uv.getY(idx[t+2]))/3;
-            const [h,sa,vv]=hsv(at(P,mu,mv)); if(h>8&&h<40&&sa>0.22&&vv>0.42){ neck.push(t); continue; } } // under-jaw skin up to the beard line, so the clean patch meets beard, not blotchy scan skin
+          if(skinRGB&&c.y<1.64+oy&&r<0.085){ // under-jaw skin up to the beard line: only triangles whose every corner is clearly skin (beard is never touched)
+            let ok=true; const mu=(uv.getX(idx[t])+uv.getX(idx[t+1])+uv.getX(idx[t+2]))/3, mv=(uv.getY(idx[t])+uv.getY(idx[t+1])+uv.getY(idx[t+2]))/3;
+            for(const [uu,vv2] of [[uv.getX(idx[t]),uv.getY(idx[t])],[uv.getX(idx[t+1]),uv.getY(idx[t+1])],[uv.getX(idx[t+2]),uv.getY(idx[t+2])],[mu,mv]]){ if(skinDist(at(P,uu,vv2))>0.16){ ok=false; break; } }
+            if(ok){ neck.push(t); continue; } }
           if(c.y>1.43+oy&&c.y<1.598+oy&&redCount(t)>=2){ if(r<0.09) neck.push(t); else if(r<0.16&&c.z<HEAD_OFF.z+0.04) drop.push(t); } } // red specks on the neck become skin (no holes); stray scarf bits outside it go
         if(skin){ repoint(g,neck,()=>skin); o.userData.skinUV=skin; }
         if(drop.length){ const dr=new Set(drop), a2=g.index.array, keep=[]; for(let t=0;t<a2.length;t+=3) if(!dr.has(t)) keep.push(a2[t],a2[t+1],a2[t+2]); g.setIndex(keep); }
