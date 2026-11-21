@@ -16,7 +16,8 @@
      password_fail      {protected_page}       a wrong password
      case_study_unlock* {protected_page}       a correct password
      theme_toggle       {mode}                 light/dark switch
-     scroll_experience  {}                     the Experience strip scrolls into view (they read to the bottom) */
+     scroll_experience  {}                     the Experience strip scrolls into view (they read to the bottom)
+     page_speed         {device, connection, ttfb, fcp, lcp, load, cls, inp, coin_ready, hero_ready, bot_ready}  load times on real visitors' devices */
 (function () {
   'use strict';
   if (window.__zbAnalytics) return; window.__zbAnalytics = true;
@@ -114,8 +115,41 @@
     io.observe(x);
   }
 
+  // ---------- Page speed (real visitors) ----------
+  // One 'page_speed' event per page view with how long things took on that visitor's own device and connection (ms).
+  // To see averages in GA4: Admin > Custom definitions > Custom metrics, add each param below (unit: milliseconds; cls: standard).
+  function watchSpeed() {
+    if (!window.PerformanceObserver || !performance.getEntriesByType) return;
+    var m = { fcp: 0, lcp: 0, cls: 0, inp: 0, coin_ready: 0, hero_ready: 0, bot_ready: 0 }, sent = false;
+    function obs(type, fn) { try { new PerformanceObserver(function (l) { l.getEntries().forEach(fn); }).observe({ type: type, buffered: true }); } catch (e) {} }
+    obs('paint', function (e) { if (e.name === 'first-contentful-paint') m.fcp = e.startTime; });
+    obs('largest-contentful-paint', function (e) { m.lcp = e.startTime; });
+    obs('layout-shift', function (e) { if (!e.hadRecentInput) m.cls += e.value; });
+    obs('event', function (e) { if (e.interactionId && e.duration > m.inp) m.inp = e.duration; });
+    // when each 3D piece is actually on screen
+    var t0 = Date.now(), poll = setInterval(function () {
+      var now = performance.now();
+      if (!m.coin_ready && document.querySelector('.gold_coin.is-live')) m.coin_ready = now;
+      if (!m.hero_ready && window.__goldHero) m.hero_ready = now;
+      if (!m.bot_ready && document.querySelector('.zb-pw-dock canvas')) m.bot_ready = now;
+      if (Date.now() - t0 > 30000) clearInterval(poll);
+    }, 200);
+    function send() {
+      if (sent) return; sent = true; clearInterval(poll);
+      var n = performance.getEntriesByType('navigation')[0] || {}, c = navigator.connection || {};
+      var p = { page: page, device: matchMedia('(pointer: coarse)').matches ? 'phone' : 'desktop', connection: c.effectiveType || 'unknown',
+        ttfb: Math.round(n.responseStart || 0), load: Math.round(n.loadEventEnd || 0), fcp: Math.round(m.fcp), lcp: Math.round(m.lcp),
+        cls: Math.round(m.cls * 1000) / 1000, inp: Math.round(m.inp), transport_type: 'beacon' };
+      ['coin_ready', 'hero_ready', 'bot_ready'].forEach(function (k) { if (m[k]) p[k] = Math.round(m[k]); });
+      ev('page_speed', p);
+    }
+    addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') send(); });
+    addEventListener('pagehide', send);
+    setTimeout(send, 30000);   // long visits: report after 30 s instead of waiting for the tab to close
+  }
+
   function boot() {
-    passwordPage(); watchExperience();
+    passwordPage(); watchExperience(); watchSpeed();
     var found = document.querySelector('.zb-chat');
     if (found) watchChat(found);
     else {   // the chat is added later by zb-password.js

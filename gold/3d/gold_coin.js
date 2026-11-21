@@ -139,6 +139,8 @@ function setup(el) {
     : over ? `position:absolute;left:${-over * 100}%;top:${-over * 100}%;width:${100 + over * 200}%;height:${100 + over * 200}%;display:block;pointer-events:none;z-index:-1`
     : 'display:block;width:100%;height:100%';
   if (over && getComputedStyle(el).position === 'static') el.style.position = 'relative';
+  /* still first: the page CSS shows the coin's poster on .gold_coin until it has .is-ready; the live canvas fades in over it */
+  canvas.style.opacity = '0'; canvas.style.transition = 'opacity .6s ease';
   el.appendChild(canvas);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !M || !!M.antialias, alpha: true, powerPreference: M ? 'default' : 'high-performance', preserveDrawingBuffer: !!CFG.capture });
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, M ? (M.pixelRatio || 1.25) : fixed ? 1.5 : 2)); renderer.setClearColor(0, 0);
@@ -334,6 +336,7 @@ function setup(el) {
     coin.traverse(o => { if (o.isMesh) o.material = material(o.material.name); });
     spin.add(coin); scene.environment = env; fullEnv(renderer).then(hi => { if (hi) { const lo = scene.environment; scene.environment = hi; if (lo && lo !== hi) lo.dispose(); } });
     ready = true; el.classList.add('is-live'); draw(performance.now()); start();
+    requestAnimationFrame(() => { canvas.style.opacity = '1'; setTimeout(() => el.classList.add('is-ready'), 650); });
   }).catch(err => { console.warn('[gold-coin]', err); el.classList.add('is-static'); });
 
   new ResizeObserver(resize).observe(el); resize();
