@@ -45,12 +45,15 @@ async function init() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   // ---------- assets ----------
+  const COARSE = matchMedia('(pointer: coarse)').matches, STAGED = CFG.staged !== false && !CFG.env && !CFG.normalMap && !CFG.letters;
   const [sceneJ, matJ, gltf, envTex, normalTex, lettersTex] = await Promise.all([
     fetch(BASE + 'scene.json').then(r => r.json()), fetch(BASE + 'material.json').then(r => r.json()),
     new GLTFLoader().loadAsync(BASE + 'wf_cube.glb'),
-    new THREE.TextureLoader().loadAsync(BASE + (CFG.env || 'env_roof_1k.webp')),
-    new THREE.TextureLoader().loadAsync(BASE + (CFG.normalMap || (matchMedia('(pointer: coarse)').matches ? 'wf_normal_1k.webp' : 'wf_normal_2k.webp')))  /* phones get the 1K carve */,
-    new THREE.TextureLoader().loadAsync(BASE + (CFG.letters || 'wf_letters_2k.webp')),
+    /* staged load: the intro starts on small first-pass maps (256px sky, 1K carve, 1K glow mask, ~130 KB together), and the
+       full-quality maps stream in behind it and swap in place (see UPGRADE below). Set CFG.staged = false to load full maps up front. */
+    new THREE.TextureLoader().loadAsync(BASE + (CFG.env || (STAGED ? 'env_roof_256.webp' : 'env_roof_1k.webp'))),
+    new THREE.TextureLoader().loadAsync(BASE + (CFG.normalMap || (STAGED || COARSE ? 'wf_normal_1k.webp' : 'wf_normal_2k.webp'))),
+    new THREE.TextureLoader().loadAsync(BASE + (CFG.letters || (STAGED ? 'wf_letters_1k.webp' : 'wf_letters_2k.webp'))),
   ]);
   // warmth dial (0..1): tints the environment toward orange before it becomes the reflection map, and shifts the base gold the same way
   const WARM = Math.max(0, Math.min(1, CFG.warmth ?? 0.3));
@@ -97,6 +100,14 @@ async function init() {
       .replace('#include <opaque_fragment>', 'float zbLetters = texture2D(uLetters, vNormalMapUv).r; float zbMask = zbLetters * uGlowGain;\noutgoingLight = mix(outgoingLight, vec3(uGlowStrength), zbMask);\noutgoingLight = mix(outgoingLight, mix(uFlatColor, vec3(1.0), zbLetters), uFlat); /* flat two-colour lockup as the hero scrolls out */\n#include <opaque_fragment>');
   };
   cube.material = mat;
+
+  // ---------- UPGRADE: swap the first-pass maps for full quality once they arrive ----------
+  if (STAGED) {
+    const L = new THREE.TextureLoader(), prep = t => { t.colorSpace = THREE.NoColorSpace; t.flipY = false; t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; return t; };
+    L.loadAsync(BASE + 'wf_letters_2k.webp').then(t => { const old = glow.mask.value; glow.mask.value = prep(t); old.dispose(); }).catch(() => {});
+    if (!COARSE) L.loadAsync(BASE + 'wf_normal_2k.webp').then(t => { const old = mat.normalMap; mat.normalMap = prep(t); mat.needsUpdate = true; old.dispose(); }).catch(() => {});
+    if (WARM === 0) L.loadAsync(BASE + 'env_roof_1k.webp').then(t => { t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; const pm = new THREE.PMREMGenerator(renderer); const old = scene.environment; scene.environment = pm.fromEquirectangular(t).texture; t.dispose(); pm.dispose(); if (old) old.dispose(); }).catch(() => {});
+  }
 
   // ---------- lights (Blender area lights → RectAreaLight) ----------
   RectAreaLightUniformsLib.init();

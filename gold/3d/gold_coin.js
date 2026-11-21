@@ -23,7 +23,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 const BASE = window.GOLD_COIN_BASE || window.GOLD_HERO_BASE || './';
 const CFG = Object.assign({
-  model: 'coin/coin_d1.glb', env: 'hdr/env_coin_d1_1k.hdr',
+  model: 'coin/coin_d1.glb', env: 'hdr/env_coin_d1_1k.hdr', envLow: 'hdr/env_coin_d1_256.hdr',
   period: 28,          // seconds per full turn
   fill: 0.62,          // coin diameter as a fraction of the stage's shorter side
   fixedLayer: true,    // draw on a fixed full-viewport layer behind the copy so glow, light bar and sparkles spill past the tile
@@ -115,9 +115,16 @@ function assets(renderer) {
   const pmrem = new THREE.PMREMGenerator(renderer);
   shared = Promise.all([
     new GLTFLoader().loadAsync(abs(CFG.model)),
-    new RGBELoader().loadAsync(abs(CFG.env)).then(t => { t.mapping = THREE.EquirectangularReflectionMapping; const e = pmrem.fromEquirectangular(t).texture; t.dispose(); pmrem.dispose(); return e; }),
+    new RGBELoader().loadAsync(abs(envFirst())).then(t => { t.mapping = THREE.EquirectangularReflectionMapping; const e = pmrem.fromEquirectangular(t).texture; t.dispose(); pmrem.dispose(); return e; }),
   ]);
   return shared;
+}
+/* staged load: the coin starts on a tiny 256px reflection map (~86 KB) so it shows up fast, then swaps to the full 1K map once it arrives */
+function envFirst() { return (CFG.envLow && CFG.env === 'hdr/env_coin_d1_1k.hdr') ? CFG.envLow : CFG.env; }
+let sharedFull = null;
+function fullEnv(renderer) {
+  if (envFirst() === CFG.env) return Promise.resolve(null);
+  return sharedFull || (sharedFull = new RGBELoader().loadAsync(abs(CFG.env)).then(t => { const pm = new THREE.PMREMGenerator(renderer); t.mapping = THREE.EquirectangularReflectionMapping; const e = pm.fromEquirectangular(t).texture; t.dispose(); pm.dispose(); return e; }).catch(() => null));
 }
 
 function setup(el) {
@@ -325,7 +332,7 @@ function setup(el) {
   assets(renderer).then(([gltf, env]) => {
     const coin = gltf.scene.clone(true);
     coin.traverse(o => { if (o.isMesh) o.material = material(o.material.name); });
-    spin.add(coin); scene.environment = env;
+    spin.add(coin); scene.environment = env; fullEnv(renderer).then(hi => { if (hi) { const lo = scene.environment; scene.environment = hi; if (lo && lo !== hi) lo.dispose(); } });
     ready = true; el.classList.add('is-live'); draw(performance.now()); start();
   }).catch(err => { console.warn('[gold-coin]', err); el.classList.add('is-static'); });
 
