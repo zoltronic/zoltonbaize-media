@@ -682,7 +682,7 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
   actions.talk.setLoop(THREE.LoopOnce,1); actions.talk.clampWhenFinished=true;
   mixer.addEventListener('finished',e=>{ if(e.action===actions.wave||e.action===actions.talk){ actions.hoverUp.reset().fadeIn(0.5).play(); e.action.fadeOut(0.5); state.mode=state.seated?'yoga':'hover'; setStatus(state.seated?'meditating':'hovering'); setExpr(state.seated?'zen':'happy');}});
 
-  window.__z={actions,mixer,setLook,inks,scene,camera,renderer,hand,state,bones,root,restPose,gear,yogaCloud,setCam,setLight,updateGear,setPalm:(v)=>{PALM_SIGN=v;}};
+  window.__z={onFrame:(f)=>frameHooks.push(f),aimBoneAt,addWorldRot,setExpr,camFull,HOST,PRESETS,actions,mixer,setLook,inks,scene,camera,renderer,hand,state,bones,root,restPose,gear,yogaCloud,setCam,setLight,updateGear,setPalm:(v)=>{PALM_SIGN=v;}};
   document.getElementById('loader').hidden=true;
   buildFaceButtons(); updateGear(); setTest('Intro'); playIntro();
   { const syncMode=()=>{ const n=document.documentElement.classList.contains('zb-night'); setLight(n?'night':'day'); if(gear.goggles){ gear.goggles.userData.on=n; gear.scarfOn=n; updateGear(); } }; syncMode();
@@ -804,6 +804,7 @@ function mudra(side,w){ const S=side==='L'?'Left':'Right', B=n=>bones['mixamorig
 }
 let PALM_SIGN=1;
 
+const frameHooks=[];
 let onScreen=true, lastDraw=0, slowT=0, emaDt=1/60;
 try{ new IntersectionObserver(es=>{ onScreen=es[0].isIntersecting; },{rootMargin:'100px'}).observe(HOST); }catch(_){}
 function frame(){
@@ -841,7 +842,7 @@ function frame(){
     state.poseW+=(seatTarget-state.poseW)*Math.min(1,dt*2.4); state.armW+=(armTarget-state.armW)*Math.min(1,dt*2.4);
     root.position.y += YOGA_DROP*state.poseW;
     // scroll exit: cloud drifts away, he unfolds out of yoga, then jets up and away (scrubbed both ways)
-    { const r=HOST.getBoundingClientRect(); const P=Math.max(0,Math.min(1,-r.top/Math.max(1,r.height*0.75)));
+    if(state.story){ state.exitP=0; } else { const r=HOST.getBoundingClientRect(); const P=Math.max(0,Math.min(1,-r.top/Math.max(1,r.height*0.75)));
       state.scrollP+=(P-state.scrollP)*Math.min(1,dt*6);
       const armed = state.yoga && state.mode==='yoga' && state.cloudRise<0 && !(state.cloudDelay>0);
       const sp = armed? state.scrollP : 0; state.exitP=sp;
@@ -918,6 +919,8 @@ function frame(){
     hand.prevTz=tilt.z;
     hand.L+=(gL-hand.L)*Math.min(1,dt*(gL>hand.L?14:6)); hand.R+=(gR-hand.R)*Math.min(1,dt*(gR>hand.R?14:6));
     root.updateMatrixWorld(true);
+    // add-on scenes (the About scroll story) run here, after the pose is built and before rendering
+    for(const f of frameHooks){ try{ f(dt,now,realDt); }catch(e){ console.error('[zolton] hook',e); } }
   }
   if(mixer){
     // flames follow nozzles (every frame, so they stay smooth even when the body holds on twos)
