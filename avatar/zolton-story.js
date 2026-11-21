@@ -141,7 +141,8 @@ function makeBolt(to) {
 // the coin
 const coinSide = new THREE.MeshStandardMaterial({ color: 0xd9a032, roughness: 0.3, metalness: 0.6, emissive: 0x4a2c00, emissiveIntensity: 0.6 });
 const coinFace = new THREE.MeshStandardMaterial({ map: coinTex, roughness: 0.32, metalness: 0.45, emissive: 0x3a2200, emissiveIntensity: 0.5 });
-const coinBackTex = coinTex.clone(); coinBackTex.wrapS = THREE.RepeatWrapping; coinBackTex.repeat.x = -1; coinBackTex.offset.x = 1; coinBackTex.needsUpdate = true;
+coinTex.center.set(0.5, 0.5); coinTex.rotation = -Math.PI / 2;
+const coinBackTex = coinTex.clone(); coinBackTex.rotation = -Math.PI / 2; coinBackTex.needsUpdate = true;
 const coinBack = coinFace.clone(); coinBack.map = coinBackTex;
 const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.035, 56), [coinSide, coinFace, coinBack]);
 coin.geometry.rotateX(Math.PI / 2); coin.visible = false; scene.add(coin);
@@ -237,7 +238,7 @@ Z.onFrame((dt, now, realDt) => {
   bones.mixamorigLeftHand.getWorldPosition(handL); bones.mixamorigRightHand.getWorldPosition(handR);
   const lap = handL.clone().add(handR).multiplyScalar(0.5).add(V(0, 0.1, 0.16));
   coin.visible = P >= 0.9; if (coin.visible) { coin.position.lerpVectors(bulbPos, lap, sm(ramp(P, 0.9, 0.975))); coin.position.y += Math.sin(now * 1.6) * 0.02;
-    coin.rotation.set(0.15, Math.sin(now * 1.3) * 0.9 + now * 0.6, 0); coin.scale.setScalar(0.6 + 0.4 * ramp(P, 0.9, 0.93)); }
+    coin.rotation.set(0.15, Math.sin(now * 1.3) * 0.9 + now * 0.6, 0); if (window.__coinFreeze != null) coin.rotation.set(0, window.__coinFreeze, 0); coin.scale.setScalar(0.6 + 0.4 * ramp(P, 0.9, 0.93)); }
   for (const s of sparks) { const u = s.userData; s.visible = coin.visible; if (!s.visible) continue;
     const a = u.a + now * u.sp; s.position.set(coin.position.x + Math.cos(a) * u.r, coin.position.y + u.y + Math.sin(now * 2 + u.ph) * 0.05, coin.position.z + Math.sin(a) * u.r * 0.5);
     const tw = Math.max(0, Math.sin(now * 5 + u.ph)); s.scale.setScalar(0.05 + tw * 0.08); s.material.opacity = tw; }
