@@ -186,9 +186,9 @@ Z.onFrame((dt, now, realDt) => {
   // storm clouds: gather in from far away, wrap around him, part outward in the sun
   for (const s of puffs) { const u = s.userData; const rr = u.r * (1 + (1 - gather) * 1.8 + sun * 2.4) * (1 - stormK * 0.12);
     const a = u.a + spinA * (1.1 - u.r * 0.08);
-    s.position.set(center.x + Math.cos(a) * rr, center.y + u.y + Math.sin(now * 0.5 + u.ph) * 0.06, center.z - 1.0 + Math.sin(a) * rr * 0.75);
+    s.position.set(center.x + Math.cos(a) * rr, center.y + u.y + Math.sin(now * 0.5 + u.ph) * 0.06, center.z - 1.5 + Math.sin(a) * rr * 0.75);
     const front = clamp((s.position.z - center.z + 0.2) / 1.4); // puffs in front of him stay thin so he reads
-    s.material.opacity = gather * Math.pow(1 - sun, 2) * (0.9 - front * 0.6) * (1 - bloom);
+    s.material.opacity = gather * Math.pow(1 - sun, 2) * (0.9 - front * 0.88) * (1 - bloom);
     s.material.color.setRGB(0.16 + stormK * 0.02 + sun * 0.5, 0.2 + sun * 0.45, 0.3 + sun * 0.3);
     s.material.rotation = a * 0.3; s.visible = s.material.opacity > 0.01; }
 
