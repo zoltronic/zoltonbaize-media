@@ -21,7 +21,7 @@ hero.classList.add('zstory');
 const css = document.createElement('style');
 css.textContent = `
 .about_hero.zstory{display:block!important;min-height:0!important;height:${100 + TRACK}vh;padding-top:0!important;padding-bottom:0!important}
-.about_hero.zstory > .w-embed{position:sticky!important;top:0!important;right:auto!important;bottom:auto!important;left:auto!important;width:100%;height:100vh;margin-bottom:-100vh}
+.about_hero.zstory > .w-embed{position:sticky!important;top:0!important;right:auto!important;bottom:auto!important;left:auto!important;width:100vw;margin-left:calc((100% - 100vw) / 2);height:100vh;margin-bottom:-100vh}
 .about_hero.zstory > .page_wrap{min-height:100vh;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:111px;box-sizing:border-box}
 #zs-dim,#zs-rays,#zs-flash,#zs-bloom{position:absolute;inset:0;pointer-events:none;opacity:0}
 #zs-dim{background:radial-gradient(120% 90% at 62% 40%,#1b2a44 0%,#0b1424 70%,#070d18 100%)}
@@ -141,7 +141,9 @@ function makeBolt(to) {
 // the coin
 const coinSide = new THREE.MeshStandardMaterial({ color: 0xd9a032, roughness: 0.3, metalness: 0.6, emissive: 0x4a2c00, emissiveIntensity: 0.6 });
 const coinFace = new THREE.MeshStandardMaterial({ map: coinTex, roughness: 0.32, metalness: 0.45, emissive: 0x3a2200, emissiveIntensity: 0.5 });
-const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.035, 56), [coinSide, coinFace, coinFace]);
+const coinBackTex = coinTex.clone(); coinBackTex.wrapS = THREE.RepeatWrapping; coinBackTex.repeat.x = -1; coinBackTex.offset.x = 1; coinBackTex.needsUpdate = true;
+const coinBack = coinFace.clone(); coinBack.map = coinBackTex;
+const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.035, 56), [coinSide, coinFace, coinBack]);
 coin.geometry.rotateX(Math.PI / 2); coin.visible = false; scene.add(coin);
 const sparkMat = new THREE.SpriteMaterial({ map: canvasTex(64, 64, (g) => { g.translate(32, 32); g.fillStyle = '#fff6cf'; for (let k = 0; k < 4; k++) { g.rotate(Math.PI / 4); g.beginPath(); g.moveTo(0, -30); g.lineTo(3, 0); g.lineTo(0, 30); g.lineTo(-3, 0); g.fill(); } }),
   transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
