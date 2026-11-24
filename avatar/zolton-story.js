@@ -187,6 +187,7 @@ const lights = []; scene.traverse(o => { if (o.isLight && o !== bulbLight) light
 const COOL = new THREE.Color(0x8fb2ff), WARM = new THREE.Color(0xffd08a);
 
 // ---------- run ----------
+let gestT = -1, gestTo = false;
 let Ps = 0, spinA = 0, struck = false, strikeT = -1, glow = 0, gogglesWas = null, exprNow = '', last = 0;
 const headW = V(), handL = V(), handR = V(), tmp = V(), bulbPos = V();
 let camBase = null;
@@ -252,9 +253,30 @@ Z.onFrame((dt, now, realDt) => {
     h.visible = h.material.opacity > 0.01 && P < 0.66; }
 
   // glasses: on as he crosses into the storm, pushed off when the sun breaks through
-  const wantG = P > 0.2 && P < 0.77;
-  if (Z.gear && Z.gear.goggles && wantG !== gogglesWas) { if (gogglesWas === null) gogglesWas = !!Z.gear.goggles.userData.on;
-    Z.gear.goggles.userData.on = wantG || (P < 0.2 && document.documentElement.classList.contains('zb-night')); Z.updateGear(); gogglesWas = wantG; }
+  // glasses go on (and come off in the sun) with a real gesture: both hands rise to his temples,
+  // the glasses slide on at the top of the move, then the hands settle back into his lap
+  if (Z.gear && Z.gear.goggles) {
+    const night = document.documentElement.classList.contains('zb-night');
+    const want = (P > 0.2 && P < 0.77) || (P <= 0.2 && night);
+    const isOn = !!Z.gear.goggles.userData.on;
+    if (gestT < 0 && want !== isOn) { if (P < 0.02) { Z.gear.goggles.userData.on = want; Z.updateGear(); } else { gestT = 0; gestTo = want; } }
+    if (gestT >= 0) { gestT += realDt; if (window.__gestHold != null) gestT = window.__gestHold; const t = gestT;
+      const w = sm(t / 0.5) * (1 - sm((t - 0.95) / 0.55));
+      if (t >= 0.62 && !!Z.gear.goggles.userData.on !== gestTo) { Z.gear.goggles.userData.on = gestTo; Z.updateGear(); }
+      if (w > 0.005) {
+        // one hand rises and slides the glasses up onto the bridge of his nose
+        const arm = bones.mixamorigRightArm, fore = bones.mixamorigRightForeArm, hand = bones.mixamorigRightHand, idx = bones.mixamorigRightHandIndex1;
+        const lift = sm(t / 0.62);  // hand travels from chin height up to the bridge as the glasses go on
+        const bridge = tmp.set(headW.x - 0.005, headW.y + 0.02 + 0.07 * lift, headW.z + 0.16);
+        if (arm && fore && hand) {
+          Z.aimBoneAt(arm, fore, V(headW.x - 0.24, headW.y - 0.32, headW.z + 0.1), w);
+          Z.aimBoneAt(fore, hand, bridge.clone().add(V(-0.1, -0.12, 0.04)), w);
+          if (idx) Z.aimBoneAt(hand, idx, bridge.clone().add(V(0, -0.01, 0.01)), w);
+        }
+        Z.addWorldRot(bones.mixamorigHead, 0, 0.06 * w);
+      }
+      if (t > 1.55) gestT = -1; }
+  }
 
   const sp0 = bulbPos.clone().project(camera); const bx0 = ((sp0.x + 1) / 2 * HOST.clientWidth).toFixed(0), by0 = ((1 - sp0.y) / 2 * HOST.clientHeight).toFixed(0);
   // bulb forms from the holograms, waits dark in the hush, ignites on the strike
@@ -322,7 +344,7 @@ Z.onFrame((dt, now, realDt) => {
   bloomEl.style.opacity = (bloom * 0.98).toFixed(3);
   CAPS.forEach((c, i) => { const o = band(P, c[0], c[1], c[2], c[3]); capEls[i].style.opacity = o.toFixed(3); capEls[i].style.transform = `translateY(${((1 - o) * 12).toFixed(1)}px)`; });
   const co = ramp(P, 0.95, 0.985); cta.style.opacity = co.toFixed(3); cta.style.pointerEvents = co > 0.5 ? 'auto' : 'none';
-  if (window.__storyDebug) { window.__storyDebug.P = P; window.__storyDebug.strikeT = strikeT; window.__storyDebug.flick = flick; }
+  if (window.__storyDebug) { window.__storyDebug.P = P; window.__storyDebug.strikeT = strikeT; window.__storyDebug.flick = flick; window.__storyDebug.gestT = gestT; }
 });
 window.__storyDebug = { P: 0 };
 console.log('[zolton] scroll story ready');
