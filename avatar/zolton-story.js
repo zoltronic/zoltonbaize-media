@@ -94,13 +94,31 @@ const coinTex = canvasTex(256, 256, (g) => {
 
 // ---------- 3D props ----------
 const storm = new THREE.Group(); storm.name = 'StoryStorm'; scene.add(storm);
+// storm deck: big billboards of billowy smoke, lit by the scene (so in-cloud lightning lights them from inside)
+function smokeTex(seed) { return canvasTex(256, 256, (g) => {
+  let r = seed; const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 170; i++) { const a = rnd() * 6.283, d = Math.pow(rnd(), 0.7) * 88, x = 128 + Math.cos(a) * d, y = 128 + Math.sin(a) * d * 0.8, rad = 16 + rnd() * 38;
+    const gr = g.createRadialGradient(x, y, 0, x, y, rad); const al = 0.05 + rnd() * 0.09; gr.addColorStop(0, `rgba(255,255,255,${al})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill(); }
+  const m = g.createRadialGradient(128, 128, 60, 128, 128, 128); m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(1, 'rgba(0,0,0,0)');
+  g.globalCompositeOperation = 'destination-in'; g.fillStyle = m; g.fillRect(0, 0, 256, 256); }); }
+const smokeTexs = [smokeTex(11), smokeTex(4242), smokeTex(90001)];
 const puffs = [];
-for (let i = 0; i < 54; i++) {
-  const m = new THREE.SpriteMaterial({ map: puffTex, color: 0x4a5874, transparent: true, opacity: 0, depthWrite: false });
-  const s = new THREE.Sprite(m); const sz = 1.4 + Math.random() * 2.2; s.scale.set(sz * 1.6, sz, 1);
-  s.userData = { a: Math.random() * Math.PI * 2, r: 1.9 + Math.random() * 3.2, y: -0.9 + Math.random() * 3.4, sz, ph: Math.random() * 6 };
+for (let i = 0; i < 44; i++) {
+  const m = new THREE.MeshBasicMaterial({ map: smokeTexs[i % 3], color: 0x6a7a98, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+  const s = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m); const sz = 2.6 + Math.random() * 3.4; s.scale.set(sz * 1.35, sz, 1);
+  s.userData = { a: Math.random() * Math.PI * 2, r: 2.0 + Math.random() * 3.4, y: -1.2 + Math.random() * 3.8, sz, ph: Math.random() * 6, rz: Math.random() * 6.28, rs: (Math.random() - 0.5) * 0.12, tone: 0.75 + Math.random() * 0.5 };
   storm.add(s); puffs.push(s);
 }
+// lightning inside the clouds: a cold light that flickers on random timers during the storm
+const cloudFlash = new THREE.PointLight(0xa9d4ff, 0, 40, 1); storm.add(cloudFlash);
+let flick = 0, flickT = -1, flickNext = 1.5;
+// rain: cheap falling streaks, all in one draw
+const RN = 1400, rainPos = new Float32Array(RN * 6), rainD = [];
+for (let i = 0; i < RN; i++) rainD.push({ x: (Math.random() - 0.5) * 14, y: -3 + Math.random() * 10, z: -6 + Math.random() * 8.5, l: 0.18 + Math.random() * 0.22, v: 8 + Math.random() * 5 });
+const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+const rainMat = new THREE.LineBasicMaterial({ color: 0xbfd6ff, transparent: true, opacity: 0, depthWrite: false });
+const rain = new THREE.LineSegments(rainGeo, rainMat); rain.frustumCulled = false; rain.renderOrder = 4; scene.add(rain);
 const holos = []; const LABELS = ['Product', 'Motion', '3D', 'AI agents'];
 for (let i = 0; i < 26; i++) {
   const label = i < 4 ? LABELS[i] : null; const tex = holoTex(i % 6, label);
@@ -135,7 +153,7 @@ function makeBolt(to) {
   const seg = (a, b, n, jit) => { const pts = []; for (let i = 0; i <= n; i++) { const p = a.clone().lerp(b, i / n); if (i > 0 && i < n) p.add(V((Math.random() - 0.5) * jit, (Math.random() - 0.5) * jit * 0.4, (Math.random() - 0.5) * jit * 0.6)); pts.push(p); } return pts; };
   const add = (pts, r) => { const c = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.05);
     bolt.add(new THREE.Mesh(new THREE.TubeGeometry(c, pts.length * 6, r, 6), boltMatCore), new THREE.Mesh(new THREE.TubeGeometry(c, pts.length * 6, r * 4, 6), boltMatGlow)); };
-  const main = seg(from, to.clone().add(V(0, 0.22, 0)), 14, 0.7); add(main, 0.012);
+  const main = seg(from, to.clone().add(V(0, 0.22, 0)), 14, 0.7); add(main, 0.022);
   for (let k = 0; k < 2; k++) { const i = 3 + Math.floor(Math.random() * 7), a = main[i]; add(seg(a, a.clone().add(V((Math.random() - 0.5) * 1.6, -0.8 - Math.random() * 0.8, 0)), 6, 0.35), 0.007); }
 }
 // the coin
@@ -186,11 +204,28 @@ Z.onFrame((dt, now, realDt) => {
   // storm clouds: gather in from far away, wrap around him, part outward in the sun
   for (const s of puffs) { const u = s.userData; const rr = u.r * (1 + (1 - gather) * 1.8 + sun * 2.4) * (1 - stormK * 0.12);
     const a = u.a + spinA * (1.1 - u.r * 0.08);
-    s.position.set(center.x + Math.cos(a) * rr, center.y + u.y + Math.sin(now * 0.5 + u.ph) * 0.06, center.z - 1.5 + Math.sin(a) * rr * 0.75);
-    const front = clamp((s.position.z - center.z + 0.2) / 1.4); // puffs in front of him stay thin so he reads
-    s.material.opacity = gather * Math.pow(1 - sun, 2) * (0.9 - front * 0.88) * (1 - bloom);
-    s.material.color.setRGB(0.16 + stormK * 0.02 + sun * 0.5, 0.2 + sun * 0.45, 0.3 + sun * 0.3);
-    s.material.rotation = a * 0.3; s.visible = s.material.opacity > 0.01; }
+    s.position.set(center.x + Math.cos(a) * rr, center.y + u.y + Math.sin(now * 0.5 + u.ph) * 0.06, center.z - 2.6 + Math.sin(a) * rr * 0.55);
+    const front = clamp((s.position.z - center.z + 1.2) / 1.2); // puffs in front of him stay thin so he reads
+    s.material.opacity = gather * Math.pow(1 - sun, 2) * (1 - front * 0.92) * (1 - bloom);
+    // own tone per cloud for depth; lightning lights the clouds nearest the flash from inside
+    const lit = flick * Math.max(0, 1 - s.position.distanceTo(cloudFlash.position) / 5.5);
+    const tn = u.tone * (1 - sun) + sun; s.material.color.setRGB((0.16 + sun * 0.76) * tn + lit * 0.7, (0.2 + sun * 0.7) * tn + lit * 0.78, (0.32 + sun * 0.6) * tn + lit * 0.85);
+    u.rz += u.rs * realDt * (1 - hush); s.quaternion.copy(camera.quaternion); s.rotateZ(u.rz); s.visible = s.material.opacity > 0.01; }
+
+  // in-cloud lightning: random flickers through the storm (stops for the hush and the sun)
+  const flickOn = ramp(P, 0.22, 0.34) * (1 - ramp(P, 0.6, 0.64)) * (1 - sun);
+  flickNext -= realDt; if (flickOn > 0.05 && flickNext <= 0 && flickT < 0) { flickT = 0; flickNext = 1.2 + Math.random() * 3.2;
+    cloudFlash.position.set(center.x + (Math.random() - 0.5) * 8, center.y + 1 + Math.random() * 3, center.z - 2.5 - Math.random() * 2.5); }
+  if (flickT >= 0) { flickT += realDt; const t = flickT; flick = (t < 0.06 ? 1 : t < 0.12 ? 0.25 : t < 0.18 ? 0.85 : Math.max(0, 0.7 - (t - 0.18) * 3)) * flickOn; if (t > 0.45) { flickT = -1; flick = 0; } }
+  cloudFlash.intensity = flick * 60;
+
+  // rain: starts as the clouds gather, freezes mid-air in the hush, stops when the sun breaks through
+  const rainK = ramp(P, 0.16, 0.32) * (1 - ramp(P, 0.72, 0.77)) * (1 - bloom);
+  rain.visible = rainK > 0.01; rainMat.opacity = rainK * 0.42; rain.position.set(center.x, center.y, center.z);
+  if (rain.visible) { const fall = (1 - hush * 0.985); let k = 0;
+    for (const d of rainD) { d.y -= d.v * realDt * fall; d.x -= 1.4 * realDt * fall; if (d.y < -3) { d.y += 10; d.x = (Math.random() - 0.5) * 14; } if (d.x < -7) d.x += 14;
+      rainPos[k++] = d.x; rainPos[k++] = d.y; rainPos[k++] = d.z; rainPos[k++] = d.x + d.l * 0.14; rainPos[k++] = d.y + d.l; rainPos[k++] = d.z; }
+    rainGeo.attributes.position.needsUpdate = true; }
 
   // holograms: appear once the glasses are on, orbit with the storm, then get pulled into the bulb
   for (const h of holos) { const u = h.userData; const on = ramp(P, u.on, u.on + 0.03) * (1 - pull);
@@ -207,25 +242,29 @@ Z.onFrame((dt, now, realDt) => {
   if (Z.gear && Z.gear.goggles && wantG !== gogglesWas) { if (gogglesWas === null) gogglesWas = !!Z.gear.goggles.userData.on;
     Z.gear.goggles.userData.on = wantG || (P < 0.2 && document.documentElement.classList.contains('zb-night')); Z.updateGear(); gogglesWas = wantG; }
 
+  const sp0 = bulbPos.clone().project(camera); const bx0 = ((sp0.x + 1) / 2 * HOST.clientWidth).toFixed(0), by0 = ((1 - sp0.y) / 2 * HOST.clientHeight).toFixed(0);
   // bulb forms from the holograms, waits dark in the hush, ignites on the strike
   const form = ramp(P, 0.57, 0.65);
   bulb.visible = form > 0.01 && P < 0.905; bulb.position.copy(bulbPos); bulb.position.y += Math.sin(now * 1.4) * 0.015;
   bulb.scale.setScalar(Math.max(0.001, form) * (1 + glow * 0.06 * Math.sin(now * 9)));
-  if (!struck && P >= 0.72) { struck = true; strikeT = 0; makeBolt(bulbPos); setE('surprised'); }
+  if (!struck && P >= 0.72) { struck = true; strikeT = 0; makeBolt(bulbPos); setE('surprised'); glow = 1.8; }
   if (struck && P < 0.7) { struck = false; strikeT = -1; }
   if (strikeT >= 0) strikeT += realDt;
-  const gTarget = struck ? 1 : 0; glow += (gTarget - glow) * Math.min(1, realDt * (struck ? 3 : 6));
+  const gTarget = struck ? 1 : 0; glow += (gTarget - glow) * Math.min(1, realDt * (struck ? 1.6 : 6));
   glassMat.emissiveIntensity = glow * 2.6; glassMat.opacity = 0.55 + glow * 0.4; glassMat.color.setRGB(0.19 + glow * 0.8, 0.25 + glow * 0.65, 0.37 + glow * 0.3);
   filMat.color.setRGB(0.16 + glow, 0.18 + glow * 0.85, 0.22 + glow * 0.5);
   haloMat.opacity = glow * (0.9 + 0.1 * Math.sin(now * 13)); halo.scale.setScalar(0.5 + glow * 1.6 + bloom * 3);
-  bulbLight.intensity = glow * 3.5;
+  bulbLight.intensity = glow * 3.5 + (strikeT >= 0 && strikeT < 0.5 ? (1 - strikeT * 2) * 40 : 0);
   // bolt flickers for ~0.45s
   bolt.visible = strikeT >= 0 && strikeT < 0.45 && Math.sin(strikeT * 70) > -0.3;
   if (strikeT >= 0 && strikeT < 0.45 && Math.random() < realDt * 10) makeBolt(bulbPos);
-  flashEl.style.opacity = strikeT >= 0 ? Math.max(0, 0.85 - strikeT * 3).toFixed(3) : 0;
+  // the strike: a white-out centred on the bulb (with a second pulse), fading as the bulb settles to gold
+  if (strikeT >= 0 && strikeT < 0.9) { const t = strikeT, f = t < 0.09 ? 1 : t < 0.14 ? 0.55 : t < 0.2 ? 0.95 : Math.max(0, 0.95 - (t - 0.2) * 1.4);
+    flashEl.style.background = `radial-gradient(70% 70% at ${bx0}px ${by0}px, #ffffff 0%, #f2f8ff 30%, rgba(214,232,255,.92) 70%, rgba(190,215,255,.85) 100%)`;
+    flashEl.style.opacity = f.toFixed(3); } else flashEl.style.opacity = 0;
 
   // he looks up and reaches for the bulb in the hush; the hand lands on the glass at the strike, then comes back down
-  const reach = ramp(P, 0.64, 0.715) * (1 - ramp(P, 0.8, 0.88));
+  const reach = 0; // he looks up at the bulb; no hand on the glass
   if (reach > 0.01) {
     Z.aimBoneAt(bones.mixamorigRightArm, bones.mixamorigRightForeArm, tmp.copy(bulbPos).add(V(-0.2, -0.42, 0.18)), reach);
     Z.aimBoneAt(bones.mixamorigRightForeArm, bones.mixamorigRightHand, tmp.copy(bulbPos).add(V(-0.04, -0.2, 0.05)), reach);
@@ -258,7 +297,7 @@ Z.onFrame((dt, now, realDt) => {
   else if (exprNow) { exprNow = ''; Z.setExpr('zen', 0); }
 
   // overlays (screen space)
-  dimEl.style.opacity = dark.toFixed(3);
+  dimEl.style.opacity = (dark * (1 - flick * 0.22)).toFixed(3);
   const sp = bulbPos.clone().project(camera); const cw = HOST.clientWidth, ch = HOST.clientHeight;
   const bx = ((sp.x + 1) / 2 * cw).toFixed(0), by = ((1 - sp.y) / 2 * ch).toFixed(0);
   const rays = band(P, 0.74, 0.8, 0.88, 0.93);
@@ -269,7 +308,7 @@ Z.onFrame((dt, now, realDt) => {
   bloomEl.style.opacity = (bloom * 0.98).toFixed(3);
   CAPS.forEach((c, i) => { const o = band(P, c[0], c[1], c[2], c[3]); capEls[i].style.opacity = o.toFixed(3); capEls[i].style.transform = `translateY(${((1 - o) * 12).toFixed(1)}px)`; });
   const co = ramp(P, 0.95, 0.985); cta.style.opacity = co.toFixed(3); cta.style.pointerEvents = co > 0.5 ? 'auto' : 'none';
-  if (window.__storyDebug) window.__storyDebug.P = P;
+  if (window.__storyDebug) { window.__storyDebug.P = P; window.__storyDebug.strikeT = strikeT; window.__storyDebug.flick = flick; }
 });
 window.__storyDebug = { P: 0 };
 console.log('[zolton] scroll story ready');
