@@ -3,6 +3,7 @@
 // Motion model: ambient motion never stops (clouds turn, holograms orbit, he breathes); scroll sets how far the
 // story has got (eased), and the big moments (glasses on, lightning, coin) fire once you scroll past them.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/+esm';
+import {GLTFLoader} from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js/+esm';
 
 const Z = await new Promise(res => { const t = setInterval(() => {
   const z = window.__z; if (z && z.onFrame && z.bones && z.bones.mixamorigHead && z.HOST) { clearInterval(t); res(z); } }, 100); });
@@ -144,6 +145,19 @@ const haloMat = new THREE.SpriteMaterial({ map: canvasTex(128, 128, (g) => { con
 const halo = new THREE.Sprite(haloMat); halo.position.y = 0.06;
 const bulbLight = new THREE.PointLight(0xffc463, 0, 6, 1.6); bulbLight.position.y = 0.06;
 bulb.add(glass, neck, screw, tip, fil, halo, bulbLight); bulb.visible = false;
+// Zolton's modelled bulb (lights.blend → bulb.glb) replaces the stand-in once it loads
+const stemMat = glassMat.clone(); stemMat.opacity = 0.35;
+const insMat = new THREE.MeshStandardMaterial({ color: 0x15171c, roughness: 0.5, metalness: 0.1 });
+const wireMat = new THREE.MeshStandardMaterial({ color: 0x8a8f98, roughness: 0.3, metalness: 0.9 });
+new GLTFLoader().load(new URL('./bulb.glb', import.meta.url).href, (g) => {
+  const m = g.scene; const box = new THREE.Box3().setFromObject(m); const h = box.max.y - box.min.y; const k = 0.44 / h;
+  m.scale.setScalar(k); m.position.set(-(box.min.x + box.max.x) / 2 * k, -0.22 - box.min.y * k, -(box.min.z + box.max.z) / 2 * k);
+  const MAT = { Glass: glassMat, Stem: stemMat, Screw: baseMat, Insulator: insMat, Wire: wireMat, Filament: filMat };
+  m.traverse(o => { if (!o.isMesh) return; const key = Object.keys(MAT).find(n => (o.name + ' ' + (o.parent && o.parent.name)).includes(n)); o.material = MAT[key] || baseMat;
+    o.geometry.computeVertexNormals(); if (key === 'Glass' || key === 'Stem') o.renderOrder = 6; });
+  for (const o of [glass, neck, screw, tip, fil]) o.visible = false;
+  bulb.add(m); console.log('[zolton] bulb model loaded');
+}, undefined, (e) => console.warn('[zolton] bulb model failed, keeping stand-in', e));
 // lightning
 const boltMatCore = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
 const boltMatGlow = new THREE.MeshBasicMaterial({ color: 0x8fd8ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false });
