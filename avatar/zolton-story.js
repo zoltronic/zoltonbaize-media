@@ -59,6 +59,8 @@ function placeCaps() {
 }
 placeCaps(); addEventListener('resize', placeCaps);
 
+// seeded randomness: every cloud, hologram and raindrop gets its own speed, tilt and phase, the same on every visit
+let _seed = 20261124; const rnd = () => ((_seed = (_seed * 16807) % 2147483647) / 2147483647);
 // ---------- textures ----------
 function canvasTex(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
@@ -107,8 +109,8 @@ const smokeTexs = [smokeTex(11), smokeTex(4242), smokeTex(90001)];
 const puffs = [];
 for (let i = 0; i < 44; i++) {
   const m = new THREE.MeshBasicMaterial({ map: smokeTexs[i % 3], color: 0x6a7a98, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
-  const s = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m); const sz = 2.6 + Math.random() * 3.4; s.scale.set(sz * 1.35, sz, 1);
-  s.userData = { a: Math.random() * Math.PI * 2, r: 2.0 + Math.random() * 3.4, y: -1.2 + Math.random() * 3.8, sz, ph: Math.random() * 6, rz: Math.random() * 6.28, rs: (Math.random() - 0.5) * 0.12, tone: 0.75 + Math.random() * 0.5 };
+  const s = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m); const sz = 3.2 + rnd() * 3.8; s.scale.set(sz * 1.4, sz, 1);
+  s.userData = { a: Math.random() * Math.PI * 2, r: 2.0 + Math.random() * 3.4, y: -1.2 + Math.random() * 3.8, sz, ph: Math.random() * 6, rz: rnd() * 6.28, rs: (rnd() - 0.5) * 0.12, tone: rnd() < 0.5 ? 0.35 + rnd() * 0.35 : 1.3 + rnd() * 0.9, ang: rnd() * 6.283, w: 0.55 + rnd() * 0.9, dir: rnd() < 0.12 ? -0.35 : 1, tilt: (rnd() - 0.5) * 0.5 };
   storm.add(s); puffs.push(s);
 }
 // lightning inside the clouds: a cold light that flickers on random timers during the storm
@@ -116,7 +118,7 @@ const cloudFlash = new THREE.PointLight(0xa9d4ff, 0, 40, 1); storm.add(cloudFlas
 let flick = 0, flickT = -1, flickNext = 1.5;
 // rain: cheap falling streaks, all in one draw
 const RN = 1400, rainPos = new Float32Array(RN * 6), rainD = [];
-for (let i = 0; i < RN; i++) rainD.push({ x: (Math.random() - 0.5) * 14, y: -3 + Math.random() * 10, z: -6 + Math.random() * 8.5, l: 0.18 + Math.random() * 0.22, v: 8 + Math.random() * 5 });
+for (let i = 0; i < RN; i++) rainD.push({ r: 0.7 + Math.pow(rnd(), 0.8) * 6.5, a: rnd() * 6.283, y: -3 + rnd() * 10, l: 0.18 + rnd() * 0.22, v: 7 + rnd() * 5, w: 0.7 + rnd() * 0.6 });
 const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
 const rainMat = new THREE.LineBasicMaterial({ color: 0xbfd6ff, transparent: true, opacity: 0, depthWrite: false });
 const rain = new THREE.LineSegments(rainGeo, rainMat); rain.frustumCulled = false; rain.renderOrder = 4; scene.add(rain);
@@ -126,7 +128,7 @@ for (let i = 0; i < 26; i++) {
   const mat = new THREE.MeshBasicMaterial({ map: tex, color: 0x5fe3ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const w = label ? 0.62 : 0.42 + Math.random() * 0.18; const geo = new THREE.PlaneGeometry(w, w * (label ? 96 / 256 : 168 / 256));
   const h = new THREE.Mesh(geo, mat); h.renderOrder = 5;
-  h.userData = { a: (i / 26) * Math.PI * 2 + Math.random() * 0.4, r: 0.95 + Math.random() * 0.9, y: -0.55 + Math.random() * 1.35, ph: Math.random() * 6,
+  h.userData = { ang: (i / 26) * Math.PI * 2 + rnd() * 0.4, w: 0.6 + rnd() * 0.9, tumX: (rnd() - 0.5) * 1.2, tumY: (rnd() - 0.5) * 2.4, tx: 0, ty: 0, a: 0, r: 0.95 + Math.random() * 0.9, y: -0.55 + Math.random() * 1.35, ph: Math.random() * 6,
     on: label ? 0.40 + i * 0.012 : 0.21 + (i - 4) * 0.0055, label: !!label };
   storm.add(h); holos.push(h);
 }
@@ -145,10 +147,24 @@ const haloMat = new THREE.SpriteMaterial({ map: canvasTex(128, 128, (g) => { con
 const halo = new THREE.Sprite(haloMat); halo.position.y = 0.06;
 const bulbLight = new THREE.PointLight(0xffc463, 0, 6, 1.6); bulbLight.position.y = 0.06;
 bulb.add(glass, neck, screw, tip, fil, halo, bulbLight); bulb.visible = false;
+// materialize: the real bulb is revealed below a rising line, the hologram stays above it
+const realClip = new THREE.Plane(new THREE.Vector3(0, -1, 0), -1e6);
+const holoBulbMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  uniforms: { uTime: { value: 0 }, uAlpha: { value: 0 }, uClipY: { value: -1e6 }, uColor: { value: new THREE.Color(0x66e6ff) } },
+  vertexShader: 'varying vec3 vN; varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }',
+  fragmentShader: 'uniform float uTime; uniform float uAlpha; uniform float uClipY; uniform vec3 uColor; varying vec3 vN; varying vec3 vW;' +
+    'void main(){ if (vW.y < uClipY) discard; vec3 V = normalize(cameraPosition - vW); float f = pow(1.0 - abs(dot(normalize(vN), V)), 2.0);' +
+    ' float scan = 0.55 + 0.45 * sin(vW.y * 260.0 - uTime * 7.0); float a = (f * 0.95 + 0.1) * scan * uAlpha; gl_FragColor = vec4(uColor * a * 1.7, a); }' });
+let arBulb = null;
+const sweep = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.006, 8, 64), new THREE.MeshBasicMaterial({ color: 0x9ff3ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+sweep.rotation.x = Math.PI / 2; scene.add(sweep);
+if (Z.renderer) Z.renderer.localClippingEnabled = true;
 // Zolton's modelled bulb (lights.blend → bulb.glb) replaces the stand-in once it loads
 const stemMat = glassMat.clone(); stemMat.opacity = 0.35;
 const insMat = new THREE.MeshStandardMaterial({ color: 0x15171c, roughness: 0.5, metalness: 0.1 });
+for (const mm of [glassMat, baseMat, filMat]) mm.clippingPlanes = [realClip];
 const wireMat = new THREE.MeshStandardMaterial({ color: 0x8a8f98, roughness: 0.3, metalness: 0.9 });
+for (const mm of [stemMat, insMat, wireMat]) mm.clippingPlanes = [realClip];
 new GLTFLoader().load(new URL('./bulb.glb', import.meta.url).href, (g) => {
   const m = g.scene; const box = new THREE.Box3().setFromObject(m); const h = box.max.y - box.min.y; const k = 0.44 / h;
   m.scale.setScalar(k); m.position.set(-(box.min.x + box.max.x) / 2 * k, -0.22 - box.min.y * k, -(box.min.z + box.max.z) / 2 * k);
@@ -156,7 +172,10 @@ new GLTFLoader().load(new URL('./bulb.glb', import.meta.url).href, (g) => {
   m.traverse(o => { if (!o.isMesh) return; const key = Object.keys(MAT).find(n => (o.name + ' ' + (o.parent && o.parent.name)).includes(n)); o.material = MAT[key] || baseMat;
     o.geometry.computeVertexNormals(); if (key === 'Glass' || key === 'Stem') o.renderOrder = 6; });
   for (const o of [glass, neck, screw, tip, fil]) o.visible = false;
-  bulb.add(m); console.log('[zolton] bulb model loaded');
+  bulb.add(m);
+  // the AR version: same shape as a cyan hologram (rim glow + scanlines), shown first, then 'printed' into the real bulb
+  const ar = m.clone(true); ar.traverse(o => { if (o.isMesh) { o.material = holoBulbMat; o.renderOrder = 7; } }); bulb.add(ar); arBulb = ar;
+  console.log('[zolton] bulb model loaded');
 }, undefined, (e) => console.warn('[zolton] bulb model failed, keeping stand-in', e));
 // lightning
 const boltMatCore = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -218,14 +237,15 @@ Z.onFrame((dt, now, realDt) => {
 
   // storm clouds: gather in from far away, wrap around him, part outward in the sun
   for (const s of puffs) { const u = s.userData; const rr = u.r * (1 + (1 - gather) * 1.8 + sun * 2.4) * (1 - stormK * 0.12);
-    const a = u.a + spinA * (1.1 - u.r * 0.08);
-    s.position.set(center.x + Math.cos(a) * rr, center.y + u.y + Math.sin(now * 0.5 + u.ph) * 0.06, center.z - 2.6 + Math.sin(a) * rr * 0.55);
+    u.ang += speed * u.w * u.dir * (2.6 / u.r) * realDt;           // inner clouds whip round faster: a vortex, not a turning disc
+    const a = u.ang, yy = u.y + Math.sin(a * 2 + u.ph) * 0.25 * stormK; // a little rise and fall as they go round
+    s.position.set(center.x + Math.cos(a) * rr, center.y + yy + Math.sin(now * 0.5 + u.ph) * 0.06, center.z - 2.6 + Math.sin(a) * rr * 0.55 + Math.cos(a) * u.tilt);
     const front = clamp((s.position.z - center.z + 1.2) / 1.2); // puffs in front of him stay thin so he reads
     s.material.opacity = gather * Math.pow(1 - sun, 2) * (1 - front * 0.92) * (1 - bloom);
     // own tone per cloud for depth; lightning lights the clouds nearest the flash from inside
     const lit = flick * Math.max(0, 1 - s.position.distanceTo(cloudFlash.position) / 5.5);
-    const tn = u.tone * (1 - sun) + sun; s.material.color.setRGB((0.16 + sun * 0.76) * tn + lit * 0.7, (0.2 + sun * 0.7) * tn + lit * 0.78, (0.32 + sun * 0.6) * tn + lit * 0.85);
-    u.rz += u.rs * realDt * (1 - hush); s.quaternion.copy(camera.quaternion); s.rotateZ(u.rz); s.visible = s.material.opacity > 0.01; }
+    const tn = u.tone * (1 - sun) + sun; s.material.color.setRGB((0.17 + sun * 0.75) * tn + lit * 0.7, (0.21 + sun * 0.69) * tn + lit * 0.78, (0.33 + sun * 0.59) * tn + lit * 0.85);
+    u.rz += (u.rs + speed * u.w * 0.35) * realDt; s.quaternion.copy(camera.quaternion); s.rotateZ(u.rz); s.visible = s.material.opacity > 0.01; }
 
   // in-cloud lightning: random flickers through the storm (stops for the hush and the sun)
   const flickOn = ramp(P, 0.22, 0.34) * (1 - ramp(P, 0.6, 0.64)) * (1 - sun);
@@ -238,16 +258,20 @@ Z.onFrame((dt, now, realDt) => {
   const rainK = ramp(P, 0.16, 0.32) * (1 - ramp(P, 0.72, 0.77)) * (1 - bloom);
   rain.visible = rainK > 0.01; rainMat.opacity = rainK * 0.42; rain.position.set(center.x, center.y, center.z);
   if (rain.visible) { const fall = (1 - hush * 0.985); let k = 0;
-    for (const d of rainD) { d.y -= d.v * realDt * fall; d.x -= 1.4 * realDt * fall; if (d.y < -3) { d.y += 10; d.x = (Math.random() - 0.5) * 14; } if (d.x < -7) d.x += 14;
-      rainPos[k++] = d.x; rainPos[k++] = d.y; rainPos[k++] = d.z; rainPos[k++] = d.x + d.l * 0.14; rainPos[k++] = d.y + d.l; rainPos[k++] = d.z; }
+    for (const d of rainD) { const om = speed * d.w * 3.2 / d.r;    // rain spirals round him with the storm
+      d.a += om * realDt; d.y -= d.v * realDt * fall; if (d.y < -3) { d.y += 10; d.a = rnd() * 6.283; }
+      const ca = Math.cos(d.a), sa = Math.sin(d.a), x = ca * d.r, z = sa * d.r * 0.6 - 1.2;
+      const tx = -sa * d.r * om, tz = ca * d.r * om * 0.6, vy = -d.v * fall, n = Math.hypot(tx, vy, tz) || 1; // streak along its velocity
+      rainPos[k++] = x; rainPos[k++] = d.y; rainPos[k++] = z; rainPos[k++] = x - tx / n * d.l; rainPos[k++] = d.y - vy / n * d.l; rainPos[k++] = z - tz / n * d.l; }
     rainGeo.attributes.position.needsUpdate = true; }
 
   // holograms: appear once the glasses are on, orbit with the storm, then get pulled into the bulb
   for (const h of holos) { const u = h.userData; const on = ramp(P, u.on, u.on + 0.03) * (1 - pull);
-    const a = u.a + spinA * 1.6, rr = u.r * (1 + stormK * 0.25);
+    u.ang += speed * u.w * 1.9 * (1.3 / u.r) * realDt; u.tx += u.tumX * speed * realDt; u.ty += u.tumY * speed * realDt;
+    const a = u.ang, rr = u.r * (1 + stormK * 0.25);
     const orbit = V(center.x + Math.cos(a) * rr * 1.25, center.y + u.y + Math.sin(now * 1.3 + u.ph) * 0.05, center.z + Math.sin(a) * rr * 0.55 - 0.2);
     const pk = Math.pow(pull, 1.6); h.position.lerpVectors(orbit, bulbPos, pk);
-    h.quaternion.copy(camera.quaternion); h.rotateY(Math.sin(a) * 0.35);
+    h.quaternion.copy(camera.quaternion); h.rotateY(Math.sin(a) * 0.35 + Math.sin(u.ty) * 0.5); h.rotateX(Math.sin(u.tx) * 0.35);
     h.scale.setScalar(Math.max(0.001, (1 - pk * 0.9) * (0.8 + 0.2 * on)));
     h.material.opacity = (on + pull * (1 - pk) * 0.8) * (0.75 + 0.25 * Math.sin(now * 7 + u.ph)) * (1 - hush * 0.6);
     h.visible = h.material.opacity > 0.01 && P < 0.66; }
@@ -283,6 +307,15 @@ Z.onFrame((dt, now, realDt) => {
   const form = ramp(P, 0.57, 0.65);
   bulb.visible = form > 0.01 && P < 0.905; bulb.position.copy(bulbPos); bulb.position.y += Math.sin(now * 1.4) * 0.015;
   bulb.scale.setScalar(Math.max(0.001, form) * (1 + glow * 0.06 * Math.sin(now * 9)));
+  // AR bulb forms from the holograms, then a scan line 'prints' the real bulb from the base up
+  const mat = arBulb ? ramp(P, 0.635, 0.69) : 1;
+  const sc = Math.max(0.001, form), y0 = bulb.position.y - 0.235 * sc, y1 = bulb.position.y + 0.235 * sc, clipY = y0 + (y1 - y0) * mat;
+  realClip.constant = mat >= 1 ? 1e6 : clipY;
+  holoBulbMat.uniforms.uClipY.value = clipY; holoBulbMat.uniforms.uTime.value = now;
+  holoBulbMat.uniforms.uAlpha.value = form * (1 - ramp(P, 0.68, 0.695)) * (0.85 + 0.15 * Math.sin(now * 23));
+  if (arBulb) arBulb.visible = holoBulbMat.uniforms.uAlpha.value > 0.01;
+  sweep.visible = mat > 0.001 && mat < 0.999 && bulb.visible; sweep.position.set(bulb.position.x, clipY, bulb.position.z);
+  sweep.scale.setScalar(sc * (0.7 + 0.5 * Math.sin(Math.PI * clamp((clipY - y0) / (y1 - y0 || 1))))); sweep.material.opacity = 0.9;
   if (!struck && P >= 0.72) { struck = true; strikeT = 0; makeBolt(bulbPos); setE('surprised'); glow = 1.8; }
   if (struck && P < 0.7) { struck = false; strikeT = -1; }
   if (strikeT >= 0) strikeT += realDt;
