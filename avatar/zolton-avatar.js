@@ -725,7 +725,7 @@ function upperAction(a,mode,expr){ if(state.mode==='flying'||state.mode==='braki
   state.mode=mode; setStatus(mode); setExpr(expr); state.talkT=0; }
 function playIntro(){ state.intro=true; state.introStep='fly'; state.introWait=0.35; flyIn(false); setExpr('happyOpen'); setStatus('intro: flying in'); }
 // yoga: no fly-in. A cloud rises from below the frame, stops under him, then he settles onto it.
-function sitOnCloud(){ if(state.seated||state.cloudRise>=0) return; state.turnT=-1; state.yoga=true; state.seated=true; state.mode='yoga'; setExpr(state.intro?'happyOpen':'zen'); yogaCloud.visible=false; state.cloudK=1; yogaCloud.scale.setScalar(1); state.cloudDelay=state.intro?0.7:1.3; setStatus('into yoga pose'); }
+function sitOnCloud(){ if(state.seated||state.cloudRise>=0) return; state.turnT=-1; state.yoga=true; state.seated=true; state.mode='yoga'; setExpr(state.intro?'happyOpen':'zen'); yogaCloud.visible=false; state.cloudK=1; yogaCloud.scale.setScalar(1); state.cloudDelay=state.intro?0.35:1.3; setStatus('into yoga pose'); }
 document.getElementById('b-intro').onclick=()=>{ setTest('Intro'); playIntro(); };
 document.getElementById('b-fly').onclick=()=>{ state.intro=false; setTest('Fly in'); flyIn(false); };
 document.getElementById('b-yoga').onclick=()=>{ if(state.mode==='flying'||state.mode==='braking'||state.mode==='loading') return; state.intro=false; setTest('Yoga'); sitOnCloud(); };
@@ -861,7 +861,8 @@ function frame(){
       EXITOFF.set(f2*1.2,f2*7.5,-f2*9); root.position.add(EXITOFF);
       root.rotation.x += -0.35*Math.min(1,fly*2.2); }
     if(yogaCloud.visible&&state.mode==='yoga'&&state.cloudK<1) state.cloudK=Math.min(1,state.cloudK+dt*0.9);
-    if(state.cloudDelay>0){ state.cloudDelay-=cdt; if(state.cloudDelay<=0){ state.cloudRise=0; yogaCloud.visible=true; yogaCloud.position.y=-3.6; setStatus('cloud rising'); } }
+    if(state.cloudDelay>0&&(!state.intro||state.poseW>0.96)){ state.cloudDelay-=cdt;   /* intro: the cloud waits until he's fully in the cross-legged pose */
+       if(state.cloudDelay<=0){ state.cloudRise=0; yogaCloud.visible=true; yogaCloud.position.y=-3.6; setStatus('cloud rising'); } }
     if(yogaCloud.visible){ const ce=Math.max(0,Math.min(1,state.exitP/0.28)); for(const c of yogaCloud.children){ c.material.opacity=c.userData.baseOpacity*(1-ce); } }
     if(yogaCloud.visible){ const k=state.cloudK; const sk=k<1?ease(k)*(1+0.08*Math.sin(k*Math.PI)):1; yogaCloud.scale.setScalar(Math.max(0.001,sk)); if(state.cloudRise>=0){ state.cloudRise+=cdt; const u=Math.min(1,state.cloudRise/1.6), e=1-Math.pow(1-u,3); yogaCloud.position.y=-3.6+(0.8+3.6)*e; if(u>=1){ state.cloudRise=-1; setStatus('meditating'); } } else yogaCloud.position.y=0.8-Math.min(1,state.exitP/0.28)*0.7; }
 
