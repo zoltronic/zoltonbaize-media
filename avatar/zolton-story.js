@@ -44,6 +44,7 @@ document.head.appendChild(css);
 
 const canvas = HOST.querySelector('canvas');
 const mk = (id, before) => { const d = document.createElement('div'); d.id = id; before ? HOST.insertBefore(d, canvas) : HOST.appendChild(d); return d; };
+const boltCv = document.createElement('canvas'); boltCv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; HOST.appendChild(boltCv); const bctx = boltCv.getContext('2d');
 const dimEl = mk('zs-dim', true), raysEl = mk('zs-rays', true), flashEl = mk('zs-flash'), flareEl = mk('zs-flare'), bloomEl = mk('zs-bloom'), capsEl = mk('zs-caps');
 // lens flare: soft ghosts along the line from the light through the centre of the screen, plus a horizontal streak
 const FLARE = [[0, 90, 'rgba(255,240,210,.55)'], [0.35, 26, 'rgba(255,200,140,.35)'], [0.6, 60, 'rgba(160,210,255,.18)'], [0.85, 16, 'rgba(255,230,180,.45)'], [1.25, 110, 'rgba(255,190,120,.12)'], [1.55, 34, 'rgba(170,230,255,.25)']];
@@ -186,7 +187,7 @@ const fil = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.006, 8, 24, Math.PI)
 const haloMat = new THREE.SpriteMaterial({ map: canvasTex(128, 128, (g) => { const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,240,190,1)'); gr.addColorStop(0.3, 'rgba(255,200,90,.55)'); gr.addColorStop(1, 'rgba(255,170,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); }),
   transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
 const halo = new THREE.Sprite(haloMat); halo.position.y = 0.06;
-const bulbLight = new THREE.PointLight(0xffc463, 0, 6, 1.6); bulbLight.position.y = 0.06;
+const bulbLight = new THREE.PointLight(0xfff1d6, 0, 6, 1.6); bulbLight.position.y = 0.06;
 bulb.add(glass, neck, screw, tip, fil, halo, bulbLight); bulb.visible = false;
 // materialize: the real bulb is revealed below a rising line, the hologram stays above it
 const realClip = new THREE.Plane(new THREE.Vector3(0, -1, 0), -1e6);
@@ -219,8 +220,8 @@ new GLTFLoader().load(new URL('./bulb.glb', import.meta.url).href, (g) => {
   console.log('[zolton] bulb model loaded');
 }, undefined, (e) => console.warn('[zolton] bulb model failed, keeping stand-in', e));
 // lightning
-const boltMatCore = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
-const boltMatGlow = new THREE.MeshBasicMaterial({ color: 0x8fd8ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false });
+const boltMatCore = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1, depthWrite: false });
+const boltMatGlow = new THREE.MeshBasicMaterial({ color: 0x4f7dff, transparent: true, opacity: 0.5, depthWrite: false });
 const bolt = new THREE.Group(); scene.add(bolt); bolt.visible = false;
 const boltMatHaze = new THREE.MeshBasicMaterial({ color: 0x6fb8ff, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false });
 function fractal(a, b, depth, rough) { // midpoint displacement: the jagged, self-similar path real lightning has
@@ -229,14 +230,35 @@ function fractal(a, b, depth, rough) { // midpoint displacement: the jagged, sel
       m.add(V((Math.random() - 0.5) * L * rough, (Math.random() - 0.5) * L * rough * 0.35, (Math.random() - 0.5) * L * rough * 0.6)); nx.push(m, q); } pts = nx; }
   return pts; }
 const boltParts = [];
+// screen-space comic bolt: always composed in frame, from the upper-left sky down onto the bulb
+let bolt2d = null;
+function frac2(a, b, depth, rough) { let pts = [a, b];
+  for (let d = 0; d < depth; d++) { const nx = [pts[0]]; for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], q = pts[i], dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy), o = (Math.random() - 0.5) * L * rough;
+      nx.push([(p[0] + q[0]) / 2 - dy / L * o, (p[1] + q[1]) / 2 + dx / L * o], q); } pts = nx; } return pts; }
+function makeBolt2d(bx, by) { const W = HOST.clientWidth, H = HOST.clientHeight, from = [bx - W * (0.07 + Math.random() * 0.06), -H * 0.06];
+  const main = frac2(from, [bx, by], 7, 0.34), br = [];
+  for (let k = 0; k < 5; k++) { const i = 10 + Math.floor(Math.random() * main.length * 0.65), a = main[i], dir = Math.random() < 0.5 ? -1 : 1, L = H * (0.06 + Math.random() * 0.14);
+    br.push({ pts: frac2(a, [a[0] + dir * L * (0.5 + Math.random()), a[1] + L], 5, 0.6), at: i / main.length, w: 0.55 }); }
+  bolt2d = { main, br }; }
+function drawBolt2d(t) { const dpr = Math.min(2, devicePixelRatio || 1), W = HOST.clientWidth, H = HOST.clientHeight;
+  if (boltCv.width !== Math.round(W * dpr)) { boltCv.width = Math.round(W * dpr); boltCv.height = Math.round(H * dpr); }
+  bctx.setTransform(dpr, 0, 0, dpr, 0, 0); bctx.clearRect(0, 0, W, H);
+  if (!bolt2d || t < 0 || t >= 0.8 || (t > 0.22 && t < 0.25) || (t > 0.4 && t < 0.43)) return;
+  const grow = clamp(t / 0.14), fade = 1 - ramp(t, 0.5, 0.8);
+  const path = (pts, k) => { const n = Math.max(2, Math.floor(pts.length * k)); bctx.beginPath(); bctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < n; i++) bctx.lineTo(pts[i][0], pts[i][1]); };
+  const strokeAll = (lw, col, blur, alpha) => { bctx.globalAlpha = alpha * fade; bctx.lineWidth = lw; bctx.strokeStyle = col; bctx.shadowColor = 'rgba(120,170,255,.9)'; bctx.shadowBlur = blur;
+    path(bolt2d.main, grow); bctx.stroke();
+    for (const b of bolt2d.br) { const k = clamp((grow - b.at) / Math.max(0.05, 1 - b.at)); if (k > 0) { bctx.lineWidth = lw * b.w; path(b.pts, k); bctx.stroke(); } } };
+  bctx.lineCap = 'round'; bctx.lineJoin = 'miter';
+  strokeAll(12, 'rgba(120,165,255,.35)', 28, 1); strokeAll(5, '#8fb8ff', 12, 0.9); strokeAll(2, '#ffffff', 6, 1); bctx.globalAlpha = 1; bctx.shadowBlur = 0; }
 function makeBolt(to) {
-  bolt.clear(); boltParts.length = 0; const from = to.clone().add(V(-0.9 + Math.random() * 0.6, 7.5, -1.6));
-  const add = (pts, r, delay) => { const c = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.0), n = pts.length * 3;
-    for (const [rr, mat] of [[r, boltMatCore], [r * 3.2, boltMatGlow], [r * 9, boltMatHaze]]) { const g = new THREE.TubeGeometry(c, n, rr, 6); const m = new THREE.Mesh(g, mat); m.frustumCulled = false; bolt.add(m); boltParts.push({ g, total: g.index.count, delay }); } };
-  const main = fractal(from, to.clone().add(V(0, 0.24, 0)), 6, 0.55); add(main, 0.02, 0);
+  bolt.clear(); boltParts.length = 0; const from = to.clone().add(V(-2.7 + Math.random() * 0.4, 2.3, -0.4));
+  const add = (pts, r, delay) => { const c = new THREE.CurvePath(); for (let i = 1; i < pts.length; i++) c.add(new THREE.LineCurve3(pts[i - 1], pts[i])); const n = pts.length * 2; // straight segments = sharp, jagged kinks
+    for (const [rr, mat, ro] of [[r, boltMatCore, 3], [r * 2.4, boltMatGlow, 2], [r * 5, boltMatHaze, 1]]) { const g = new THREE.TubeGeometry(c, n, rr, 6); const m = new THREE.Mesh(g, mat); m.renderOrder = 20 + ro; m.frustumCulled = false; bolt.add(m); boltParts.push({ g, total: g.index.count, delay }); } };
+  const main = fractal(from, to.clone().add(V(0, 0.24, 0)), 7, 0.5); add(main, 0.022, 0);
   for (let k = 0; k < 5; k++) { const i = 6 + Math.floor(Math.random() * (main.length * 0.6)), a = main[i], dir = Math.random() < 0.5 ? -1 : 1;
-    const end = a.clone().add(V(dir * (0.6 + Math.random() * 1.6), -(0.8 + Math.random() * 1.8), (Math.random() - 0.5) * 0.6));
-    add(fractal(a, end, 4, 0.6), 0.008 + Math.random() * 0.005, i / main.length); }
+    const end = a.clone().add(V(dir * (0.25 + Math.random() * 0.6), -(0.3 + Math.random() * 0.7), (Math.random() - 0.5) * 0.3));
+    add(fractal(a, end, 5, 0.7), 0.006 + Math.random() * 0.004, i / main.length); }
 }
 // the coin
 const coinSide = new THREE.MeshStandardMaterial({ color: 0xd9a032, roughness: 0.3, metalness: 0.6, emissive: 0x4a2c00, emissiveIntensity: 0.6 });
@@ -409,22 +431,24 @@ Z.onFrame((dt, now, realDt) => {
   holoBulbMat.uniforms.uAlpha.value = form * (1 - real) * (0.9 + 0.1 * Math.sin(now * 23));
   if (arBulb) arBulb.visible = holoBulbMat.uniforms.uAlpha.value > 0.01;
   for (const mm of [baseMat, insMat, wireMat, filMat]) mm.opacity = real;
-  if (!struck && P >= 0.72) { struck = true; strikeT = 0; makeBolt(bulbPos); glow = 1.8; }
+  if (!struck && P >= 0.72) { struck = true; strikeT = 0; const sp = bulbPos.clone().add(V(0, 0.2, 0)).project(camera); makeBolt2d((sp.x + 1) / 2 * HOST.clientWidth, (1 - sp.y) / 2 * HOST.clientHeight); }
   if (struck && P < 0.7) { struck = false; strikeT = -1; }
   if (strikeT >= 0) strikeT += realDt; if (window.__strikeHold != null && strikeT >= 0) strikeT = window.__strikeHold;
-  const gTarget = struck ? 1 : 0; glow += (gTarget - glow) * Math.min(1, realDt * (struck ? 1.6 : 6));
+  const gTarget = struck && strikeT > 0.14 ? 1 : 0; glow += (gTarget - glow) * Math.min(1, realDt * (struck ? 1.6 : 6));
   glassMat.emissiveIntensity = glow * 1.6; glassMat.opacity = (0.12 + glow * 0.22) * real; stemMat.opacity = 0.08 * real; glassMat.color.setRGB(0.93 + glow * 0.07, 0.96, 1.0 - glow * 0.25);
   filMat.color.setRGB(0.54 + glow * 0.8, 0.56 + glow * 0.6, 0.6 + glow * 0.2);
   haloMat.opacity = Math.min(1, glow) * (0.96 + 0.04 * Math.sin(now * 6)); halo.scale.setScalar(0.5 + Math.min(1.2, glow) * 1.5 + bloom * 3);
-  bulbLight.intensity = glow * 3.5 + (strikeT >= 0 && strikeT < 0.5 ? (1 - strikeT * 2) * 40 : 0);
+  bulbLight.intensity = glow * 1.6 + (strikeT >= 0.14 && strikeT < 0.6 ? (1 - (strikeT - 0.14) / 0.46) * 10 : 0);
   // bolt flickers for ~0.45s
   // the bolt races down from the sky in ~80 ms, holds, flickers twice and fades
-  bolt.visible = strikeT >= 0 && strikeT < 0.6 && !(strikeT > 0.16 && strikeT < 0.2) && !(strikeT > 0.3 && strikeT < 0.33);
-  if (bolt.visible) { const grow = clamp(strikeT / 0.08); for (const b of boltParts) b.g.setDrawRange(0, Math.floor(b.total * clamp((grow - b.delay * 0.8) / 0.4))); 
-    const fade = 1 - ramp(strikeT, 0.38, 0.6); boltMatCore.opacity = fade; boltMatGlow.opacity = 0.55 * fade; boltMatHaze.opacity = 0.16 * fade; }
+  drawBolt2d(strikeT);
+  bolt.visible = false && strikeT >= 0 && strikeT < 0.8 && !(strikeT > 0.22 && strikeT < 0.25) && !(strikeT > 0.4 && strikeT < 0.43);
+  if (bolt.visible) { const grow = clamp(strikeT / 0.14); for (const b of boltParts) b.g.setDrawRange(0, Math.floor(b.total * clamp((grow - b.delay * 0.8) / 0.4))); 
+    const fade = 1 - ramp(strikeT, 0.5, 0.8); boltMatCore.opacity = fade; boltMatGlow.opacity = 0.6 * fade; boltMatHaze.opacity = 0.22 * fade; }
   // the strike: a white-out centred on the bulb (with a second pulse), fading as the bulb settles to gold
-  if (strikeT >= 0 && strikeT < 0.9) { const t = strikeT, f = t < 0.09 ? 1 : t < 0.14 ? 0.55 : t < 0.2 ? 0.95 : Math.max(0, 0.95 - (t - 0.2) * 1.4);
-    flashEl.style.background = `radial-gradient(70% 70% at ${bx0}px ${by0}px, #ffffff 0%, #f2f8ff 30%, rgba(214,232,255,.92) 70%, rgba(190,215,255,.85) 100%)`;
+  // the bolt is seen first; the flash bursts from the bulb only when it lands (t=0.14), never a full white-out
+  if (strikeT >= 0 && strikeT < 1.1) { const t = strikeT, f = t < 0.14 ? 0.12 * Math.sin(t * 60) ** 2 : t < 0.2 ? 0.92 : t < 0.26 ? 0.5 : t < 0.32 ? 0.85 : Math.max(0, 0.85 - (t - 0.32) * 1.1);
+    flashEl.style.background = `radial-gradient(60% 65% at ${bx0}px ${by0}px, #ffffff 0%, rgba(246,250,255,.95) 22%, rgba(220,236,255,.55) 55%, rgba(200,222,255,0) 100%)`;
     flashEl.style.opacity = f.toFixed(3); } else flashEl.style.opacity = 0;
 
   // he looks up and reaches for the bulb in the hush; the hand lands on the glass at the strike, then comes back down
