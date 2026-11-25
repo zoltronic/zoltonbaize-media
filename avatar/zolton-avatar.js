@@ -685,10 +685,13 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
   window.__z={onFrame:(f)=>frameHooks.push(f),aimBoneAt,addWorldRot,setExpr,camFull,HOST,PRESETS,actions,mixer,setLook,inks,scene,camera,renderer,hand,state,bones,root,restPose,gear,yogaCloud,setCam,setLight,updateGear,setPalm:(v)=>{PALM_SIGN=v;}};
   document.getElementById('loader').hidden=true;
   buildFaceButtons(); updateGear(); setTest('Intro'); playIntro();
-  // About page: no scrolling until he's in place (flown in, turned around, settled on his cloud). The page embed adds
-  // html.zav-lock before anything loads (with its own failsafe); this lifts it the moment he's seated, or after 14 s.
+  // About page: only the fly-in plays on load, and the page can't scroll until he's landed (the page embed adds html.zav-lock
+  // before anything loads, with its own failsafe; this lifts it as soon as he's hovering, or after 14 s). The visitor's
+  // first scroll then starts his turnaround, which flows into the yoga pose on his cloud.
+  { const poke=e=>{ if(document.documentElement.classList.contains('zav-lock')) return; if(e.type==='keydown'&&!/^(ArrowDown|PageDown|End| )$/.test(e.key)) return; if(e.type==='wheel'&&e.deltaY<=0) return; state.scrollPoked=true; };
+    addEventListener('wheel',poke,{passive:true}); addEventListener('touchmove',poke,{passive:true}); addEventListener('keydown',poke); }
   if(document.documentElement.classList.contains('zav-lock')){ const t0=performance.now(); frameHooks.push(()=>{ const de=document.documentElement; if(!de.classList.contains('zav-lock')) return;
-    const placed=state.mode==='yoga'&&state.seated&&state.cloudRise<0&&!(state.cloudDelay>0)&&(!state.intro||state.introStep==='done');
+    const placed=state.mode==='hover'||state.mode==='yoga';   /* landed from the fly-in: the turnaround and yoga wait for the visitor's scroll */
     if(placed||performance.now()-t0>14000){ if(window.zavUnlock) window.zavUnlock(); else de.classList.remove('zav-lock'); } }); }
   { const syncMode=()=>{ const n=document.documentElement.classList.contains('zb-night'); setLight(n?'night':'day'); if(gear.goggles){ gear.goggles.userData.on=n; gear.scarfOn=n; updateGear(); } }; syncMode();
     new MutationObserver(syncMode).observe(document.documentElement,{attributes:true,attributeFilter:['class']}); }
@@ -871,7 +874,8 @@ function frame(){
       applyPose(POSE_SPINE,pw); applyPose(POSE_TOP,sm(pw*1.8)); applyPose(POSE_BOT,sm(pw*1.8-0.65)); const aw=Math.min(state.poseW,state.armW); applyPose(POSE_ARMS,aw); if(aw>0.01){ mudra('L',aw); mudra('R',aw);} }
 
     // intro sequencer
-    if(state.intro){ if(state.introStep==='fly'&&state.mode==='hover'){ state.introWait=(state.introWait??0.35)-cdt; if(state.introWait<=0){ state.introStep='turn'; state.turnT=0; setStatus('intro: turnaround'); } }
+    if(state.intro){ if(state.introStep==='fly'&&state.mode==='hover'){ state.introStep='await'; setStatus('intro: waiting for a scroll'); }
+      else if(state.introStep==='await'&&(state.scrollPoked||scrollY>8)){ state.introStep='turn'; state.turnT=0; setStatus('intro: turnaround'); }   /* only the fly-in plays on load; the first scroll starts the turnaround, which flows into the yoga pose */
       else if(state.introStep==='cloud'){ state.introWait-=cdt; if(state.introWait<=0){ state.introStep='done'; sitOnCloud(); } } }
     // turnaround: swing to the back (show the jet pack), hold, come back round
     let turnYaw=0;
