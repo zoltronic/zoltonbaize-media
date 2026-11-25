@@ -177,7 +177,7 @@
   H.onSend = function (text, say, setChips) {
     var t = text.toLowerCase(), wants = asking || /\b(take me|go to|bring me|show me|open|where is)\b/.test(t);
     asking = false;
-    if (!wants || /\b(message|contact|email|hire|role)\b/.test(t)) return false;
+    if (!wants || /\b(message|contact|email|hire|role)\b/.test(t) || /^show me the gold/.test(t)) return false;   // "show me the gold" is an Easter egg
     for (var k = 0; k < DEST.length; k++) {
       if (DEST[k][0].test(t)) {
         say(text, 'me', true); setChips([]);
