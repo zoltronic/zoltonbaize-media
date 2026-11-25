@@ -685,6 +685,11 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
   window.__z={onFrame:(f)=>frameHooks.push(f),aimBoneAt,addWorldRot,setExpr,camFull,HOST,PRESETS,actions,mixer,setLook,inks,scene,camera,renderer,hand,state,bones,root,restPose,gear,yogaCloud,setCam,setLight,updateGear,setPalm:(v)=>{PALM_SIGN=v;}};
   document.getElementById('loader').hidden=true;
   buildFaceButtons(); updateGear(); setTest('Intro'); playIntro();
+  // About page: no scrolling until he's in place (flown in, turned around, settled on his cloud). The page embed adds
+  // html.zav-lock before anything loads (with its own failsafe); this lifts it the moment he's seated, or after 14 s.
+  if(document.documentElement.classList.contains('zav-lock')){ const t0=performance.now(); frameHooks.push(()=>{ const de=document.documentElement; if(!de.classList.contains('zav-lock')) return;
+    const placed=state.mode==='yoga'&&state.seated&&state.cloudRise<0&&!(state.cloudDelay>0)&&(!state.intro||state.introStep==='done');
+    if(placed||performance.now()-t0>14000){ if(window.zavUnlock) window.zavUnlock(); else de.classList.remove('zav-lock'); } }); }
   { const syncMode=()=>{ const n=document.documentElement.classList.contains('zb-night'); setLight(n?'night':'day'); if(gear.goggles){ gear.goggles.userData.on=n; gear.scarfOn=n; updateGear(); } }; syncMode();
     new MutationObserver(syncMode).observe(document.documentElement,{attributes:true,attributeFilter:['class']}); }
 },(e)=>{ if(e.total){const p=Math.round(e.loaded/e.total*100);document.getElementById('loadtxt').textContent=`Loading Zolton… ${p}%`;document.getElementById('loadbar').style.width=p+'%';}},
