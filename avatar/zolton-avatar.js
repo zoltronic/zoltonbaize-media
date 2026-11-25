@@ -690,9 +690,12 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
   // first scroll then starts his turnaround, which flows into the yoga pose on his cloud.
   { const poke=e=>{ if(document.documentElement.classList.contains('zav-lock')) return; if(e.type==='keydown'&&!/^(ArrowDown|PageDown|End| )$/.test(e.key)) return; if(e.type==='wheel'&&e.deltaY<=0) return; state.scrollPoked=true; };
     addEventListener('wheel',poke,{passive:true}); addEventListener('touchmove',poke,{passive:true}); addEventListener('keydown',poke); }
-  if(document.documentElement.classList.contains('zav-lock')){ const t0=performance.now(); frameHooks.push(()=>{ const de=document.documentElement; if(!de.classList.contains('zav-lock')) return;
-    const placed=state.mode==='hover'||state.mode==='yoga';   /* landed from the fly-in: the turnaround and yoga wait for the visitor's scroll */
-    if(placed||performance.now()-t0>14000){ if(window.zavUnlock) window.zavUnlock(); else de.classList.remove('zav-lock'); } }); }
+  if(document.documentElement.classList.contains('zav-lock')){ state.lockHook=true; state.lockT0=performance.now(); frameHooks.push(()=>{ const de=document.documentElement; if(!de.classList.contains('zav-lock')) return;
+    /* locked during the fly-in; open while he waits for the first scroll; locked again from that scroll until he's
+       turned around, folded cross-legged and sitting on his cloud, so the page can't run ahead of him */
+    const settled=state.mode==='yoga'&&state.seated&&state.cloudRise<0&&!(state.cloudDelay>0);
+    const open=!state.intro||state.introStep==='await'||(state.introStep==='done'&&settled);
+    if(open||performance.now()-state.lockT0>9000){ if(window.zavUnlock) window.zavUnlock(); else de.classList.remove('zav-lock'); } }); }
   { const syncMode=()=>{ const n=document.documentElement.classList.contains('zb-night'); setLight(n?'night':'day'); if(gear.goggles){ gear.goggles.userData.on=n; gear.scarfOn=n; updateGear(); } }; syncMode();
     new MutationObserver(syncMode).observe(document.documentElement,{attributes:true,attributeFilter:['class']}); }
 },(e)=>{ if(e.total){const p=Math.round(e.loaded/e.total*100);document.getElementById('loadtxt').textContent=`Loading Zolton… ${p}%`;document.getElementById('loadbar').style.width=p+'%';}},
@@ -876,7 +879,7 @@ function frame(){
 
     // intro sequencer
     if(state.intro){ if(state.introStep==='fly'&&state.mode==='hover'){ state.introStep='await'; setStatus('intro: waiting for a scroll'); }
-      else if(state.introStep==='await'&&(state.scrollPoked||scrollY>8)){ state.introStep='turn'; state.turnT=0; setStatus('intro: turnaround'); }   /* only the fly-in plays on load; the first scroll starts the turnaround, which flows into the yoga pose */
+      else if(state.introStep==='await'&&(state.scrollPoked||scrollY>8)){ state.introStep='turn'; state.turnT=0; setStatus('intro: turnaround'); if(state.lockHook){ document.documentElement.classList.add('zav-lock'); state.lockT0=performance.now(); } }   /* only the fly-in plays on load; the first scroll starts the turnaround, which flows into the yoga pose */
       else if(state.introStep==='cloud'){ state.introWait-=cdt; if(state.introWait<=0){ state.introStep='done'; sitOnCloud(); } } }
     // turnaround: swing to the back (show the jet pack), hold, come back round
     let turnYaw=0;
