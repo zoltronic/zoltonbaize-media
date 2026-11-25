@@ -830,7 +830,7 @@ function frame(){
     root.position.sub(EXITOFF);
     // flight path
     if(state.mode==='flying'||state.mode==='braking'){
-      state.t=(now-state.flyT0)*FLY_SPEED; const T=2.8;   // wall clock: page-load hitches can't stretch the flight const u=Math.min(state.t/T,1); const e=ease(u);
+      state.t=(now-state.flyT0)*FLY_SPEED; /* wall clock: page-load hitches can not stretch the flight */ const T=2.8; const u=Math.min(state.t/T,1); const e=ease(u);
       root.position.lerpVectors(START,HOME,e); root.position.y+=Math.sin(u*Math.PI)*0.6;
       root.rotation.set(0,0,Math.sin(u*Math.PI)*-0.12);
       if(state.mode==='flying'&&state.t>1.75){ state.mode='braking'; startHover(); setExpr('surprised'); setStatus('braking'); }
