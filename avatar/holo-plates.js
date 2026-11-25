@@ -41,15 +41,16 @@ function gaugeTicks(g, W, H, t) {
   g.fillStyle = CY; g.font = `300 44px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(Math.round(300 + p * 482), cx, cy - 4);
   g.font = `500 12px ${FONT}`; g.fillStyle = CY2 + '.7)'; g.fillText('300', cx - R + 8, cy + 34); g.fillText('850', cx + R - 8, cy + 34);
 }
-// confirmation checkmark: outline loops in, fills, check draws, pops, resets (his loop-to-fill / spiral explorations)
+// confirmation checkmark, animated like his V3 · Phosphor: the filled disc pops in with overshoot,
+// then a bold rounded tick strokes in left to right, settles with a small bump, holds and fades
+const backOut = (x) => 1 + 2.70158 * Math.pow(x - 1, 3) + 1.70158 * Math.pow(x - 1, 2);
 function checkmark(g, W, H, t) {
-  const u = loop(t, 3.2), cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.32;
-  const ring = seg(u, 0.02, 0.32), fill = seg(u, 0.3, 0.45), chk = seg(u, 0.42, 0.6), out = seg(u, 0.88, 1), pop = 1 + 0.08 * Math.sin(Math.PI * seg(u, 0.58, 0.72));
-  g.save(); g.translate(cx, cy); g.scale(pop * (1 - out * 0.3), pop * (1 - out * 0.3)); g.globalAlpha = 1 - out;
-  g.strokeStyle = GR; g.lineWidth = 8; g.lineCap = 'round'; g.beginPath(); g.arc(0, 0, R, -Math.PI / 2, -Math.PI / 2 + ring * Math.PI * 2); g.stroke();
-  if (fill > 0) { g.fillStyle = `rgba(40,200,120,${0.75 * fill})`; g.beginPath(); g.arc(0, 0, R * fill, 0, 7); g.fill(); }
-  if (chk > 0) { const P = [[-R * 0.42, R * 0.02], [-R * 0.1, R * 0.33], [R * 0.45, -R * 0.3]]; const L1 = Math.hypot(P[1][0] - P[0][0], P[1][1] - P[0][1]), L2 = Math.hypot(P[2][0] - P[1][0], P[2][1] - P[1][1]), d = chk * (L1 + L2);
-    g.strokeStyle = '#eafff6'; g.lineWidth = 12; g.shadowColor = GR; g.shadowBlur = 16; g.beginPath(); g.moveTo(...P[0]);
+  const u = loop(t, 2.8), cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.38;
+  const disc = backOut(Math.min(1, Math.max(0, (u - 0.02) / 0.22))), chk = ease(seg(u, 0.2, 0.42)), bump = 1 + 0.05 * Math.sin(Math.PI * seg(u, 0.42, 0.56)), out = seg(u, 0.86, 1);
+  g.save(); g.translate(cx, cy); g.globalAlpha = 1 - out; const sc = disc * bump; g.scale(sc, sc);
+  g.fillStyle = 'rgba(0,140,80,.92)'; g.shadowColor = GR; g.shadowBlur = 22; g.beginPath(); g.arc(0, 0, R, 0, 7); g.fill(); g.shadowBlur = 0;
+  if (chk > 0) { const P = [[-R * 0.36, R * 0.04], [-R * 0.12, R * 0.28], [R * 0.36, -R * 0.2]]; const L1 = Math.hypot(P[1][0] - P[0][0], P[1][1] - P[0][1]), L2 = Math.hypot(P[2][0] - P[1][0], P[2][1] - P[1][1]), d = chk * (L1 + L2);
+    g.strokeStyle = '#ffffff'; g.lineWidth = R * 0.17; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(...P[0]);
     if (d <= L1) g.lineTo(P[0][0] + (P[1][0] - P[0][0]) * d / L1, P[0][1] + (P[1][1] - P[0][1]) * d / L1);
     else { g.lineTo(...P[1]); const k = (d - L1) / L2; g.lineTo(P[1][0] + (P[2][0] - P[1][0]) * k, P[1][1] + (P[2][1] - P[1][1]) * k); } g.stroke(); }
   g.restore();
@@ -186,19 +187,22 @@ function iconSet(g, W, H, t) {
     g.beginPath(); g.arc(cx, cy, 18, 0, 7); g.stroke();
     g.save(); g.translate(cx, cy); g.strokeStyle = CY; g.lineWidth = 3; g.lineCap = 'round'; g.lineJoin = 'round'; g.setLineDash([140 * k, 200]); g.beginPath(); ic(g); g.stroke(); g.restore(); });
 }
-// globe (Wires cross-border): his globe art, a spinning meridian sweep and a payment arcing between two cities
+// globe (Wires cross-border): spins west like his Wires globe GIF — white land on pale blue, thin outline
+let LAND = null;
+function landData(img) { if (LAND || !img || !img.complete || !img.naturalWidth) return LAND;
+  const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  LAND = { w: c.width, h: c.height, d: g.getImageData(0, 0, c.width, c.height).data }; return LAND; }
+let globeBuf = null;
 function globe(g, W, H, t, img) {
-  frame(g, W, H); caption(g, W, H, 'Cross-border wires'); const cx = W / 2, cy = H / 2 - 8, R = 70;
-  if (img && img.complete && img.naturalWidth) g.drawImage(img, cx - R, cy - R, R * 2, R * 2);
-  g.strokeStyle = CY2 + '.55)'; g.lineWidth = 1.5;
-  for (let i = 0; i < 4; i++) { const k = Math.cos(t * 0.8 + i * Math.PI / 4); g.beginPath(); g.ellipse(cx, cy, Math.abs(k) * R, R, 0, 0, 7); g.stroke(); }
-  for (const y of [-0.5, 0, 0.5]) { g.beginPath(); g.ellipse(cx, cy + y * R, R * Math.sqrt(1 - y * y), R * 0.12, 0, 0, 7); g.stroke(); }
-  const A = [cx - 40, cy - 16], B = [cx + 46, cy + 10], C = [cx + 4, cy - 92], u = loop(t, 2.6), k = seg(u, 0.05, 0.75);
-  g.strokeStyle = 'rgba(255,226,120,.9)'; g.lineWidth = 2.5; g.setLineDash([5, 5]); g.beginPath(); g.moveTo(...A); g.quadraticCurveTo(...C, ...B); g.stroke(); g.setLineDash([]);
-  const q = (a, b, c, k) => (1 - k) * (1 - k) * a + 2 * (1 - k) * k * b + k * k * c, px = q(A[0], C[0], B[0], k), py = q(A[1], C[1], B[1], k);
-  g.fillStyle = '#fff'; g.beginPath(); g.arc(px, py, 5, 0, 7); g.fill();
-  for (const P of [A, B]) { g.fillStyle = 'rgba(255,226,120,.95)'; g.beginPath(); g.arc(P[0], P[1], 4, 0, 7); g.fill(); }
-  const land = seg(u, 0.75, 0.85) * (1 - seg(u, 0.95, 1)); if (land > 0) { g.strokeStyle = `rgba(255,226,120,${land})`; g.lineWidth = 2; g.beginPath(); g.arc(B[0], B[1], 6 + land * 14, 0, 7); g.stroke(); }
+  frame(g, W, H); caption(g, W, H, 'Cross-border wires'); const L = landData(img), R = 84, cx = W / 2, cy = H / 2 - 8, S = R * 2;
+  if (L) { if (!globeBuf) globeBuf = g.createImageData(S, S); const o = globeBuf.data, lon0 = -75 - t * 30, tilt = 0.26, ct = Math.cos(tilt), st = Math.sin(tilt);
+    for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) { const x = (i - R + 0.5) / R, y = (R - j - 0.5) / R, r2 = x * x + y * y, k = (j * S + i) * 4;
+      if (r2 > 1) { o[k + 3] = 0; continue; } const z = Math.sqrt(1 - r2), y2 = y * ct + z * st, z2 = -y * st + z * ct;
+      const lat = Math.asin(y2), lon = lon0 * Math.PI / 180 + Math.atan2(x, z2);
+      let u = ((lon / (2 * Math.PI) + 0.5) % 1 + 1) % 1, v = 0.5 - lat / Math.PI; const land = L.d[(Math.floor(v * (L.h - 1)) * L.w + Math.floor(u * L.w)) * 4] / 255;
+      const shade = 0.75 + 0.25 * z; o[k] = (120 + 120 * land) * shade; o[k + 1] = (200 + 50 * land) * shade; o[k + 2] = 255 * shade; o[k + 3] = (95 + 160 * land) * (r2 > 0.97 ? (1 - r2) / 0.03 : 1); }
+    g.putImageData(globeBuf, cx - R, cy - R); }
+  g.strokeStyle = '#9fb8ff'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.stroke();
 }
 // easing library: his curve cards, a dot riding each curve and a ghost following on a track
 const EZ = {
@@ -249,8 +253,8 @@ const imgPlate = (mode) => (g, W, H, t, img) => {
 export const PLATES = [
   ['gauge', 1.3, gaugeRainbow], ['ticks', 1.3, gaugeTicks], ['check', 1, checkmark], ['grid', 1, iconGrid, 'grid.webp'],
   ['research', 1.3, research], ['systems', 1.3, systems], ['3d', 1.3, cube3d], ['ux', 1.3, uxFlow], ['ui', 0.8, uiPhone],
-  ['terminal', 1.3, terminal], ['vector', 1.3, vectorPen], ['bot', 1.3, bot], ['haptics', 1.3, haptics], ['travel', 1.3, travel],
-  ['dti', 1, dtiPie], ['globe', 1, globe, 'globe.webp'], ['easing', 1.3, easing], ['spec', 1.3, motionSpec],
+  ['terminal', 1.3, terminal], ['vector', 1.3, vectorPen], ['bot', 1.3, bot], ['haptics', 1.3, haptics],
+  ['dti', 1, dtiPie], ['globe', 1, globe, 'land.png'], ['easing', 1.3, easing], ['spec', 1.3, motionSpec],
   ['motion', 1.3, motionCurve], ['icons', 1.3, iconSet],
 ];
 
