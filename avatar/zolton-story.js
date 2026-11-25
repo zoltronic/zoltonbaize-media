@@ -358,6 +358,8 @@ const setE = (n) => { if (exprNow !== n) { exprNow = n; Z.setExpr(n, 9999); } };
 Z.onFrame((dt, now, realDt) => {
   // scroll progress through the hero track (0..1), eased so it glides
   const r = hero.getBoundingClientRect(); const raw = clamp(-r.top / Math.max(1, r.height - innerHeight));
+  // as the story hands over to the About text, the 3D stage fades so the coin never floats over the copy
+  embed.style.opacity = clamp((r.bottom - innerHeight * 0.35) / (innerHeight * 0.5)).toFixed(3);
   if (!storyReady) storyReady = state.mode === 'yoga' && state.seated && state.cloudRise < 0 && !(state.cloudDelay > 0) && (!state.intro || state.introStep === 'done');
   const ready = storyReady;
   const target = ready ? raw : 0;
@@ -590,7 +592,7 @@ css2.textContent = `
 body.zs-on .page_root{position:relative}
 body.zs-on .about_section{position:relative;z-index:1;background:transparent!important}
 body.zs-on .about_section > .page_wrap{max-width:none!important;width:100%!important;padding-left:6vw!important;padding-right:6vw!important;box-sizing:border-box}
-body.zs-on .about_panel{min-height:86vh;display:grid!important;grid-template-columns:minmax(240px,.75fr) 1.5fr;column-gap:5vw;row-gap:2.2em;align-content:center;padding:6vw!important;box-sizing:border-box}
+body.zs-on .about_panel{max-width:none!important;width:100%!important;min-height:86vh;display:grid!important;grid-template-columns:minmax(240px,.75fr) 1.5fr;column-gap:5vw;row-gap:2.2em;align-content:center;padding:6vw!important;box-sizing:border-box}
 body.zs-on .about_panel > *:not(.zs-photo){grid-column:2}
 body.zs-on .about_panel > .text-body:first-of-type{font:500 clamp(22px,2.1vw,32px)/1.32 'League Spartan',system-ui,sans-serif;letter-spacing:-.005em}
 body.zs-on .zs-photo{grid-column:1;grid-row:1 / span 3;align-self:center;aspect-ratio:4/5;border-radius:28px;border:2px dashed rgba(120,140,170,.55);background:rgba(255,255,255,.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5em;font:600 13px/1.3 'League Spartan',system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(40,60,90,.7);text-align:center;padding:1em}
