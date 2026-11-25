@@ -616,6 +616,8 @@ body.zs-on .about_panel > *:not(.zs-photo){grid-column:2}
 body.zs-on .about_panel > .text-body:first-of-type{font:500 clamp(22px,2.1vw,32px)/1.32 'League Spartan',system-ui,sans-serif;letter-spacing:-.005em}
 body.zs-on .zs-photo{grid-column:1;grid-row:1 / span 3;align-self:center;aspect-ratio:4/5;border-radius:28px;border:2px dashed rgba(120,140,170,.55);background:rgba(255,255,255,.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5em;font:600 13px/1.3 'League Spartan',system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(40,60,90,.7);text-align:center;padding:1em}
 body.zs-on .zs-photo i{font-size:34px;opacity:.6;font-style:normal}
+body.zs-on .zs-photo.has-img{border:0;padding:0;margin:0;overflow:hidden;background:none;box-shadow:0 18px 50px rgba(20,40,70,.18)}
+body.zs-on .zs-photo.has-img img{width:100%;height:100%;object-fit:cover;object-position:50% 20%;display:block}
 @media (max-width:899px){body.zs-on .about_panel{grid-template-columns:1fr;padding:8vw!important}body.zs-on .about_panel > *{grid-column:1!important}body.zs-on .zs-photo{grid-row:auto;max-width:320px;width:70%;justify-self:center}}
 #zs-earth{position:absolute;left:0;right:0;z-index:0;pointer-events:none}
 body.zs-on .page_root > :last-child, body.zs-on footer, body.zs-on .footer{position:relative;z-index:1;background:transparent!important}
@@ -623,7 +625,7 @@ body.zs-on .page_root > :last-child, body.zs-on footer, body.zs-on .footer{posit
 `;
 document.head.appendChild(css2);
 const panel = document.querySelector('.about_panel');
-if (panel && !panel.querySelector('.zs-photo')) { const ph = document.createElement('div'); ph.className = 'zs-photo'; ph.innerHTML = '<i>◎</i>Your photo here<br><span style="letter-spacing:.04em;text-transform:none;font-weight:500">real-world you, after the avatar</span>'; panel.prepend(ph); }
+if (panel && !panel.querySelector('.zs-photo')) { const ph = document.createElement('figure'); ph.className = 'zs-photo has-img'; const im = document.createElement('img'); im.src = new URL('./about/zolton-ggb.webp', import.meta.url).href; im.alt = 'Zolton at the Golden Gate Bridge'; im.loading = 'lazy'; im.decoding = 'async'; ph.appendChild(im); panel.prepend(ph); }
 const earthWrap = document.createElement('div'); earthWrap.id = 'zs-earth'; const earthCv = document.createElement('canvas'); earthWrap.appendChild(earthCv);
 const root = document.querySelector('.page_root') || document.body; root.prepend(earthWrap);
 const firstSec = document.querySelector('.about_section'), foot = [...document.querySelectorAll('.about_section')].pop();
