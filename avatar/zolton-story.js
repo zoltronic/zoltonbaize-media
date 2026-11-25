@@ -133,10 +133,10 @@ const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new
 const rainMat = new THREE.LineBasicMaterial({ color: 0xbfd6ff, transparent: true, opacity: 0, depthWrite: false });
 const rain = new THREE.LineSegments(rainGeo, rainMat); rain.frustumCulled = false; rain.renderOrder = 4; scene.add(rain);
 // hologram look: scanlines, a slow bright sweep, colour fringing, edge glow, flicker and the odd glitch
-function holoCardMat(tex, seed) { return new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-  uniforms: { map: { value: tex }, uAlpha: { value: 0 }, uTime: { value: 0 }, uSeed: { value: seed } },
+function holoCardMat(tex, seed, img) { return new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  uniforms: { map: { value: tex }, uAlpha: { value: 0 }, uTime: { value: 0 }, uSeed: { value: seed }, uImg: { value: img ? 1 : 0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `uniform sampler2D map; uniform float uAlpha, uTime, uSeed; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D map; uniform float uAlpha, uTime, uSeed, uImg; varying vec2 vUv;
     float h(float n){ return fract(sin(n) * 43758.5453); }
     void main(){ float t = uTime; float gl = step(0.975, h(floor(t * 10.0) + uSeed * 91.0));
       vec2 uv = vUv; uv.x += gl * (h(floor(uv.y * 18.0) + floor(t * 30.0)) - 0.5) * 0.05;
@@ -147,13 +147,18 @@ function holoCardMat(tex, seed) { return new THREE.ShaderMaterial({ transparent:
       vec2 e = min(vUv, 1.0 - vUv); float edge = 1.0 - smoothstep(0.0, 0.05, min(e.x, e.y));
       float flick = 0.82 + 0.18 * sin(t * 41.0 + uSeed * 17.0) * sin(t * 13.0 + uSeed * 5.0);
       vec3 col = vec3(0.35 * r + 0.1, 0.86 * g + 0.12, 1.0 * b + 0.18);
+      if (uImg > 0.5) { vec3 tc = texture2D(map, uv).rgb; col = vec3(tc.r * r + 0.06, tc.g * g + 0.1, tc.b * b + 0.16) * 0.95 + vec3(0.0, 0.05, 0.1); }
       float a = (line * scan * 0.95 + edge * 0.4 + 0.07 + band * 0.18) * flick * uAlpha;
       gl_FragColor = vec4(col * 1.25, a); }` }); }
 const holos = []; const LABELS = ['Product', 'Motion', '3D', 'AI agents'];
+// Zolton's own UI (FICO gauges, Credit Close-Up, DTI card) from his Wells Fargo Figma, prepped as glowing hologram plates
+const WORK = [[1.304], [1.3], [1.304], [1.304], [1.3], [1.12], [1.12], [1.12], [1.12], [1.12], [1.036], [1.036], [1.036], [1.036], [1.036], [1.036], [1.036], [1.076], [1.076], [0.787], [0.764], [1.14]]
+  .map(([ar], i) => { const t = new THREE.TextureLoader().load(new URL(`./holo/h${String(i).padStart(2, '0')}.webp`, import.meta.url).href); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return { t, ar }; });
+const WORK_ORDER = [19, 0, 12, 5, 21, 14, 3, 17, 8, 10, 20, 1, 15, 6, 18, 11, 4, 13, 9, 2, 16, 7];
 for (let i = 0; i < 26; i++) {
-  const label = i < 4 ? LABELS[i] : null; const tex = holoTex(i % 6, label);
-  const mat = holoCardMat(tex, rnd());
-  const w = label ? 0.62 : 0.42 + Math.random() * 0.18; const geo = new THREE.PlaneGeometry(w, w * (label ? 96 / 256 : 168 / 256));
+  const label = i < 4 ? LABELS[i] : null; const work = label ? null : WORK[WORK_ORDER[i - 4]]; const tex = label ? holoTex(0, label) : work.t;
+  const mat = holoCardMat(tex, rnd(), !label);
+  const w = label ? 0.62 : (work.ar < 0.9 ? 0.4 : 0.5) + Math.random() * 0.16; const geo = new THREE.PlaneGeometry(w, label ? w * 96 / 256 : w / work.ar);
   const h = new THREE.Mesh(geo, mat); h.renderOrder = 5;
   h.userData = { ang: (i / 26) * Math.PI * 2 + rnd() * 0.4, w: 0.6 + rnd() * 0.9, tumX: (rnd() - 0.5) * 1.2, tumY: (rnd() - 0.5) * 2.4, tx: 0, ty: 0, a: 0, r: 0.95 + Math.random() * 0.9, y: -0.55 + Math.random() * 1.35, ph: Math.random() * 6,
     on: label ? 0.40 + i * 0.012 : 0.21 + (i - 4) * 0.0055, label: !!label };
