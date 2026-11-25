@@ -328,6 +328,7 @@
     function anchor() {
       const s = dock.offsetWidth || 320, r = card.getBoundingClientRect(), mobile = innerWidth < 820;
       const chatUp = bus.chatOpen && chat && !chat.el.classList.contains('zb-peek');
+      if (bus.anchor) { const a = bus.anchor(s, chatUp); if (a) return a; }
       // chat open: he flies to the chat window and perches on its top edge, riding along with it (it's fixed, so it stays put on scroll)
       if (chatUp) { const p = chat.el.getBoundingClientRect(), k = chatScale(mobile); return [p.left + p.width / 2 - s / 2, p.top - s * k * 0.22 - s / 2]; }
       if (HERO && !bus.arrived) return heroSpot(s, mobile);
@@ -452,7 +453,10 @@
   }
 
   // ---------- Shared state between the bot and the chat ----------
-  const bus = window.__zbBus = { vx: 0, vy: 0, ax: 0, ay: 0, mdx: 0, mdy: 0, busy: false, scanning: false, unlocked: false, checkUntil: 0, hopReq: false, mood: 'idle', moodUntil: 0, talkUntil: 0, chatOpen: false, poke: -1, shakeReq: false, thinking: false, chatKey: -9, chatInput: null, chatLog: null };
+  const bus = window.__zbBus = { vx: 0, vy: 0, ax: 0, ay: 0, mdx: 0, mdy: 0, busy: false, scanning: false, unlocked: false, checkUntil: 0, hopReq: false, mood: 'idle', moodUntil: 0, talkUntil: 0, chatOpen: false, poke: -1, shakeReq: false, thinking: false, chatKey: -9, chatInput: null, chatLog: null, egg: null, fastUntil: 0, pixelUntil: 0 };
+  // Page hooks (the 404 page): window.__zbHooks set before this script runs can supply anchor(s, chatUp) -> [x, y] or null,
+  // face(g, W, H, c, t) -> true when it drew the visor, faceCol [r, g, b], greet(say, setChips) and onSend(text, say, setChips) -> true when handled.
+  if (window.__zbHooks) Object.assign(bus, window.__zbHooks);
   // ---------- Late arrival: stay at the footer ZB_BOT_LATE ms and he flies up out of the clouds ----------
   if (LATE) {
     dock.classList.add('zb-late');
@@ -600,6 +604,216 @@
   })();
 
   // ---------- Chat UI ----------
+  // ---------- Easter eggs: type a trigger in the chat ----------
+  // Each egg: re (matched against the trimmed, lower-case message), dur (s the face/motion run), col (LED colour while it runs),
+  // face(g, W, H, c, t, u) draws his visor (512x320 canvas, u = seconds since it started), move(bot, head, u, m) adds head
+  // motion on top of his idle, run(x) does the chat side: x.say, x.later(ms, fn), x.chips, x.link, x.embed, x.undo.
+  // No hands: every reaction is his face, his head and the chat. "rickroll" is handled separately (above, in send).
+  const FONT = "'Schibsted Grotesk', system-ui, sans-serif", MONO = "'JetBrains Mono', ui-monospace, monospace";
+  const txt = (g, s, size, y, font, x) => { g.font = '900 ' + size + 'px ' + (font || FONT); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(s, x == null ? 256 : x, y); };
+  const clamp01 = v => Math.max(0, Math.min(1, v)), easeIO = v => v < 0.5 ? 2 * v * v : 1 - Math.pow(-2 * v + 2, 2) / 2;
+  const MAIL = () => window.ZB_MAILTO || 'hello@zoltonbaize.com';
+  const SECRETS = window.ZB_SECRETS || [
+    'The gold cube in the Gold case study isn’t a video. It’s a real Blender model, exported frame by frame and spun live in your browser.',
+    'My face is a 512 × 320 drawing, pushed through a dot-matrix mask every frame. That’s why I look like an LED sign.',
+    'The clouds on the About page aren’t pictures. They’re raymarched live, and every cloud has its own random shape.',
+    'The case studies are behind passwords on purpose: Zolton likes to walk people through them himself.'];
+  const CASES_LIST = [['Bringing Gold to Wells Fargo', '/gold'], ['A Teaching Machine (ATM)', '/atm'], ['Drawing One Cohesive System (Icons)', '/iconography']];
+  let redPill = 0;
+  function pageBounce() {
+    if (reduce) return;
+    const els = Array.from(document.querySelectorAll('h1, h2, h3, p, img, a.btn, .btn, button, .work_card, .nf_btn')).filter(n => !n.closest('.zb-chat, .zb-pw-dock')).slice(0, 160);
+    els.forEach((n, i) => { try { n.animate([{ transform: 'none' }, { transform: 'translateY(-18px) scale(1.04)' }, { transform: 'none' }, { transform: 'translateY(-7px)' }, { transform: 'none' }], { duration: 900, delay: (i % 12) * 40, easing: 'cubic-bezier(.3,.7,.4,1)' }); } catch (e) {} });
+  }
+  function pageSpin() { if (!reduce) try { document.body.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 1200, easing: 'cubic-bezier(.65,0,.35,1)' }); } catch (e) {} }
+  function burst(n, colors) {
+    if (reduce) return;
+    const r = dock.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    for (let i = 0; i < n; i++) {
+      const p = document.createElement('i'), a = Math.random() * 6.283, d = 80 + Math.random() * 180, c = colors[i % colors.length];
+      p.className = 'zb-bit'; p.style.cssText = 'left:' + x + 'px;top:' + y + 'px;background:' + c + ';--dx:' + (Math.cos(a) * d | 0) + 'px;--dy:' + ((Math.sin(a) * d - 60) | 0) + 'px;--r:' + ((Math.random() * 720 - 360) | 0) + 'deg';
+      document.body.appendChild(p); setTimeout(() => p.remove(), 1500);
+    }
+  }
+  function embers(sec) {
+    if (reduce) return;
+    const end = performance.now() + sec * 1000;
+    (function one() {
+      if (performance.now() > end) return;
+      const r = dock.getBoundingClientRect(), p = document.createElement('i');
+      p.className = 'zb-ember'; p.style.left = (r.left + r.width * (0.3 + Math.random() * 0.4)) + 'px'; p.style.top = (r.top + r.height * 0.35) + 'px';
+      p.style.setProperty('--dx', ((Math.random() - 0.5) * 60 | 0) + 'px');
+      document.body.appendChild(p); setTimeout(() => p.remove(), 1600); setTimeout(one, 90 + Math.random() * 120);
+    })();
+  }
+  function flyAvatar() {   // "beam me up": the jet-pack avatar crosses the screen (window.ZB_AVATAR_IMG: a transparent PNG of him)
+    if (reduce) return false;
+    const src = window.ZB_AVATAR_IMG; if (!src) return false;
+    const im = document.createElement('img'); im.src = src; im.alt = ''; im.className = 'zb-flyby';
+    document.body.appendChild(im); setTimeout(() => im.remove(), 3400); return true;
+  }
+  const pong = (g, u) => {
+    const bx = 256 + 170 * Math.sin(u * 3.1), by = 160 + 95 * Math.sin(u * 4.7);
+    g.fillRect(70, by - 34 + Math.sin(u * 2) * 10, 16, 68); g.fillRect(426, 160 + 95 * Math.sin(u * 4.7 - 0.3) - 34, 16, 68);
+    for (let y = 40; y < 290; y += 28) g.fillRect(253, y, 6, 14);
+    g.fillRect(bx - 11, by - 11, 22, 22);
+  };
+  const EGGS = [
+    { id: 'hire', re: /^sudo\s+hire\s+zolton$/, dur: 3.4, col: [80, 255, 120],
+      face: (g, W, H, c, t, u) => { txt(g, 'ACCESS', 70, 116, MONO); if (u > 0.5) txt(g, 'GRANTED', 70, 206, MONO); if (Math.sin(t * 10) > 0) g.fillRect(420, 236, 30, 8); },
+      move: (b, h, u) => { h.rotation.x += Math.sin(clamp01(u / 1.2) * Math.PI * 2) * 0.22; },
+      run: x => { x.say('ACCESS GRANTED. Here’s how to reach Zolton:'); x.link('Email Zolton', 'mailto:' + MAIL()); x.say('Senior product designer, Bay Area.'); x.chips(['Send Zolton a message', 'Tell Zolton about the role']); } },
+    { id: 'rmrf', re: /\brm\s+-rf\b/, dur: 2.6,
+      face: (g, W, H, c, t, u) => {
+        if (u < 1.4) { for (let i = 0; i < 90; i++) { g.globalAlpha = Math.random(); g.fillRect(40 + Math.random() * 432, 30 + Math.random() * 260, 6 + Math.random() * 40, 4 + Math.random() * 10); } g.globalAlpha = 1; return; }
+        g.lineWidth = 20; g.beginPath(); g.arc(144, 150, 50, Math.PI * 1.15, Math.PI * 1.85); g.stroke();   // ;)
+        g.beginPath(); g.arc(368, 140, 46, 0, 6.283); g.fill();
+        g.beginPath(); g.moveTo(200, 240); g.quadraticCurveTo(256, 290, 312, 240); g.stroke(); },
+      move: (b, h, u) => { if (u < 1.4) { h.rotation.y += Math.sin(u * 60) * 0.12; h.rotation.z += Math.sin(u * 47) * 0.08; } },
+      run: x => x.later(1500, () => x.say('Just kidding.')) },
+    { id: 'undo', re: /^(ctrl|cmd|command|⌘)\s*[-+]?\s*z$|^undo$/, dur: 1.5,
+      face: (g) => { [[150, 0], [256, 0]].forEach(([x0]) => { g.beginPath(); g.moveTo(x0 + 90, 90); g.lineTo(x0, 160); g.lineTo(x0 + 90, 230); g.closePath(); g.fill(); }); g.fillRect(118, 90, 18, 140); },
+      move: (b, h, u) => { h.rotation.y -= easeIO(clamp01(u / 1.2)) * Math.PI * 2; },
+      run: x => { const gone = x.undo(); x.say(gone ? 'Undone.' : 'Nothing to undo yet.'); } },
+    { id: 'ping', re: /^ping$/, dur: 4, face: (g, W, H, c, t, u) => pong(g, u), run: x => x.later(500, () => x.say('Pong')) },
+    { id: 'hello', re: /^hello,?\s*world$/, dur: 4.4,
+      face: (g, W, H, c, t, u) => { const L = ['Hello', 'Hola', 'Bonjour', 'Hallo', 'Ciao', 'Olá', 'Hej', 'Moi', 'Ahoj', 'Salut', 'Aloha', 'Hi!']; txt(g, L[Math.min(L.length - 1, Math.floor(u / 0.36))], 96, 160); } },
+    { id: 'bsod', re: /\b(blue\s*screen|bsod)\b/, dur: 4.2, col: [60, 130, 255],
+      face: (g, W, H, c, t, u) => {
+        if (u < 2.6) { g.fillRect(40, 30, 432, 260); g.globalCompositeOperation = 'destination-out'; txt(g, ':(', 150, 150); g.fillRect(90, 236, 330 * clamp01(u / 2.4), 14); g.globalCompositeOperation = 'source-over'; return; }
+        const sx = 256 + Math.sin(t * 6) * 150; g.globalAlpha = 0.3; g.fillRect(70, 155, 372, 10); g.globalAlpha = 1; g.fillRect(sx - 55, 145, 110, 30); },
+      run: x => { x.say(':( Your Zoltbot ran into a problem and needs to restart.'); x.later(4000, () => x.say('Rebooted. Where were we?')); } },
+    { id: 'loading', re: /^loading$/, dur: 4.8,
+      face: (g, W, H, c, t) => { g.lineWidth = 22; g.beginPath(); g.arc(256, 160, 80, t * 6, t * 6 + 4.2); g.stroke(); },
+      run: x => x.later(4900, () => x.say('Just kidding.')) },
+    { id: 'matrix', re: /^(the\s+)?matrix$/, dur: 5, col: [70, 255, 120],
+      face: (g, W, H, c, t, u) => { g.font = '700 30px ' + MONO; g.textAlign = 'center'; for (let cx = 56; cx < 470; cx += 34) { const sp = 90 + (cx * 37 % 70), off = (u * sp + cx * 13) % 330; for (let k = 0; k < 6; k++) { g.globalAlpha = 1 - k / 6; g.fillText('01ZB7'[(cx + k + Math.floor(u * 8)) % 5], cx, 30 + off - k * 30); } } g.globalAlpha = 1; },
+      run: x => { redPill = performance.now() + 120000; x.say('Wake up… Type “red pill” if you dare.'); x.chips(['red pill', 'blue pill']); } },
+    { id: 'redpill', re: /^red\s*pill$/, when: () => performance.now() < redPill || document.documentElement.classList.contains('zb-matrix'), dur: 1.5, col: [70, 255, 120],
+      face: (g, W, H, c, t, u) => { g.beginPath(); g.ellipse(256, 160, 70, 40, -0.5, 0, 6.283); g.fill(); },
+      run: x => { document.documentElement.classList.add('zb-matrix'); x.say('Welcome to the real world.'); x.chips(['blue pill']); } },
+    { id: 'bluepill', re: /^blue\s*pill$/, when: () => performance.now() < redPill || document.documentElement.classList.contains('zb-matrix'),
+      run: x => { document.documentElement.classList.remove('zb-matrix'); redPill = 0; x.say('The story ends. Everything’s back to normal.'); } },
+    { id: 'fine', re: /^this\s+is\s+fine$/, dur: 6,
+      face: (g, W, H, c, t) => {
+        for (let i = 0; i < 9; i++) { const fx = 70 + i * 47, fh = 60 + 34 * Math.abs(Math.sin(t * 7 + i * 1.7)); g.fillStyle = i % 2 ? '#ff8a1e' : '#ffd23c'; g.beginPath(); g.moveTo(fx - 22, 292); g.quadraticCurveTo(fx - 18, 292 - fh * 0.6, fx, 292 - fh); g.quadraticCurveTo(fx + 18, 292 - fh * 0.6, fx + 22, 292); g.fill(); }
+        g.fillStyle = '#ffffff'; g.fillRect(206, 96, 84, 100); g.lineWidth = 14; g.strokeStyle = '#ffffff'; g.beginPath(); g.arc(296, 140, 26, -1.3, 1.3); g.stroke();
+        g.lineWidth = 6; for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(222 + k * 26, 82); g.quadraticCurveTo(232 + k * 26 + Math.sin(t * 4 + k) * 8, 62, 222 + k * 26, 44); g.stroke(); } },
+      move: (b, h, u) => { h.rotation.z += Math.sin(u * 1.6) * 0.06; },
+      run: x => { embers(5); x.say('This is fine.'); x.embed('https://giphy.com/embed/QMHoU66sBXqqLqYvGO', '“This is fine” on GIPHY (comic by KC Green)', 200); } },
+    { id: 'pop', re: /^make\s+it\s+pop$/, dur: 2.6,
+      face: (g, W, H, c, t, u) => { [-1, 1].forEach(s => { const ex = 256 + s * 112; g.lineWidth = 12; g.beginPath(); g.arc(ex, 140, 62, 0, 6.283); g.stroke(); const a = -Math.PI / 2 + u * 7; g.beginPath(); g.arc(ex + Math.cos(a) * 30, 140 + Math.sin(a) * 30, 22, 0, 6.283); g.fill(); }); g.lineWidth = 12; g.beginPath(); g.moveTo(210, 262); g.lineTo(302, 262); g.stroke(); },
+      move: (b, h, u) => { if (u > 0.9) b.position.y += Math.abs(Math.sin((u - 0.9) * 9)) * 0.2 * Math.max(0, 1 - (u - 0.9) / 1.7); },
+      run: x => x.later(900, () => { pageBounce(); x.say('Popping. Happy now?'); }) },
+    { id: 'life', re: /meaning\s+of\s+life/, dur: 3, face: (g) => txt(g, '42', 170, 165), run: x => x.say('42, but good design is a close second.') },
+    { id: 'dark', re: /^(dark\s*mode|night\s*mode|lights?\s*off)$/, dur: 3, col: [190, 215, 255],
+      face: (g) => { [-1, 1].forEach(s => { const ex = 256 + s * 112; g.beginPath(); g.arc(ex, 150, 62, 0, 6.283); g.fill(); g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.arc(ex + 30, 132, 56, 0, 6.283); g.fill(); g.globalCompositeOperation = 'source-over'; }); },
+      move: (b, h, u) => { h.rotation.x += 0.12 * clamp01(u / 0.6); },
+      run: x => { if (window.zbTheme) window.zbTheme.set(true); x.say('Lights off. Welcome to the night sky.'); x.chips(['light mode']); } },
+    { id: 'light', re: /^(light\s*mode|day\s*mode|lights?\s*on)$/, dur: 2.5, col: [255, 226, 84],
+      face: (g, W, H, c, t) => { [-1, 1].forEach(s => { const ex = 256 + s * 112; g.beginPath(); g.arc(ex, 150, 36, 0, 6.283); g.fill(); g.lineWidth = 10; for (let k = 0; k < 8; k++) { const a = k * 0.785 + t; g.beginPath(); g.moveTo(ex + Math.cos(a) * 50, 150 + Math.sin(a) * 50); g.lineTo(ex + Math.cos(a) * 70, 150 + Math.sin(a) * 70); g.stroke(); } }); },
+      run: x => { if (window.zbTheme) window.zbTheme.set(false); x.say('Good morning, sunshine.'); } },
+    { id: 'gold', re: /^show\s+me\s+the\s+gold$/, dur: 3.6, col: [255, 196, 60],
+      face: (g, W, H, c, t, u) => { [-1, 1].forEach((s, i) => { const ex = 256 + s * 112, sp = u < 2.4 ? 14 - u * 4 : 0, ph = u < 2.4 ? u * sp + i : 0, rx = 62 * Math.max(0.12, Math.abs(Math.cos(ph))); g.beginPath(); g.ellipse(ex, 150, rx, 62, 0, 0, 6.283); g.fill(); g.globalCompositeOperation = 'destination-out'; g.lineWidth = 7; g.beginPath(); g.ellipse(ex, 150, rx * 0.72, 44, 0, 0, 6.283); g.stroke(); if (rx > 30) txt(g, 'Z', 54, 152, FONT, ex); g.globalCompositeOperation = 'source-over'; }); },
+      run: x => x.later(2500, () => { x.say('Jackpot! The real gold is in the Gold case study.'); x.link('See the Gold case study', '/gold'); }) },
+    { id: 'beam', re: /^beam\s+me\s+up(,?\s*scotty)?$/, dur: 3,
+      face: (g, W, H, c, t) => { for (let i = 0; i < 40; i++) { const x0 = 60 + ((i * 97) % 392), y0 = (t * 260 + i * 53) % 280 + 20; g.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(t * 9 + i)); g.fillRect(x0, y0, 8, 22); } g.globalAlpha = 1; },
+      move: (b, h, u) => { b.position.y += Math.sin(clamp01(u / 3) * Math.PI) * 0.12; },
+      run: x => { const flew = flyAvatar(); x.say(flew ? 'Energizing!' : 'Energizing… (Zolton’s still in the hangar. Try again soon.)'); } },
+    { id: 'finnish', re: /^(finnish|finland|suomi|moi)$/, dur: 4.2,
+      face: (g, W, H, c, t, u) => {
+        if (u < 2.2) { g.fillStyle = '#ffffff'; g.fillRect(50, 46, 412, 228); g.fillStyle = '#2f6cff'; g.fillRect(170, 46, 64, 228); g.fillRect(50, 128, 412, 64); return; }
+        g.fillStyle = '#ffffff'; for (let k = 0; k < 5; k++) { const v = (u - 2.2) * 50 + k * 40, r = 26 + k * 6; g.globalAlpha = Math.max(0, 1 - k / 5); g.beginPath(); g.arc(256 + Math.sin(u * 2 + k) * 50, 250 - v % 220, r, 0, 6.283); g.fill(); } g.globalAlpha = 1; },
+      run: x => { x.say('Moi! 🇫🇮'); x.later(2300, () => x.say('Sauna’s warm. Löyly time.')); } },
+    { id: 'cat', re: /^(cat|cats|kitty|meow)$/, dur: 3.6,
+      face: (g, W, H, c, t, u) => {
+        const y = 230 - Math.abs(Math.sin(u * Math.PI / 1.2)) * 150, P = 14, M = ['1000001', '1100011', '1111111', '1101011', '1111111', '0111110', '0111110', '0110110'];
+        M.forEach((row, j) => row.split('').forEach((v, i) => { if (v === '1') g.fillRect(256 - 3.5 * P + i * P, y - 4 * P + j * P, P - 2, P - 2); }));
+        g.fillRect(60, 292, 392, 6); },
+      run: x => x.say('That one’s for Zolton’s cat, a champion high jumper.') },
+    { id: 'burn', re: /^burning\s*man$/, dur: 5.5,
+      face: (g, W, H, c, t) => { for (let i = 0; i < 16; i++) for (let j = 0; j < 10; j++) { const v = Math.sin(i * 0.5 + t * 3) + Math.sin(j * 0.6 - t * 2) + Math.sin((i + j) * 0.3 + t); g.fillStyle = 'hsl(' + ((v * 60 + t * 120) % 360) + ',100%,60%)'; g.fillRect(40 + i * 27, 30 + j * 26, 25, 24); } },
+      run: x => x.say('See you on the playa. ✨') },
+    { id: 'beat', re: /^drop\s+(a|the)\s+beat$/, dur: 6,
+      face: (g, W, H, c, t) => { for (let i = 0; i < 12; i++) { const hgt = 30 + 190 * Math.abs(Math.sin(t * (4 + i * 0.7) + i)) * (0.5 + 0.5 * Math.abs(Math.sin(t * 2.1))); g.fillRect(64 + i * 33, 280 - hgt, 24, hgt); } },
+      move: (b, h, u) => { const bt = u * Math.PI * 2 * 1.6; b.position.y += Math.abs(Math.sin(bt)) * 0.08; h.rotation.x += Math.sin(bt) * 0.08; },
+      run: x => { const clip = window.ZB_BEAT_CLIP; if (clip) x.embed(clip, 'A track from Zolton’s hip hop group', 152); else x.say('♪ boom-tss, boom-boom-tss ♪'); } },
+    { id: 'secret', re: /tell\s+me\s+a\s+secret/, dur: 2.6,
+      face: (g, W, H, c, t, u) => { const lk = Math.sin(u * 6) > 0 ? 1 : -1; [-1, 1].forEach(s => { const ex = 256 + s * 112; g.fillRect(ex - 66, 128, 132, 44); g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.arc(ex + lk * 30, 150, 18, 0, 6.283); g.fill(); g.globalCompositeOperation = 'source-over'; }); },
+      move: (b, h, u) => { h.rotation.y += Math.sin(u * 6) > 0 ? 0.25 : -0.25; },
+      run: x => x.later(900, () => x.say('Psst… ' + SECRETS[Math.floor(Math.random() * SECRETS.length)])) },
+    { id: 'human', re: /^are\s+you\s+(a\s+)?(human|real|alive|a\s+person)$/, run: x => x.say('No, but my creator mostly is.') },
+    { id: 'love', re: /^(i\s+)?(love|luv)\s+(you|u)$|^ily$/, dur: 3.6, col: [255, 110, 170],
+      face: (g, W, H, c, t) => { const k = 1 + 0.12 * Math.abs(Math.sin(t * 6)); [-1, 1].forEach(s => { const ex = 256 + s * 112; g.save(); g.translate(ex, 150); g.scale(k, k); g.beginPath(); g.moveTo(0, 40); g.bezierCurveTo(-80, -10, -40, -70, 0, -30); g.bezierCurveTo(40, -70, 80, -10, 0, 40); g.fill(); g.restore(); g.globalAlpha = 0.45; g.beginPath(); g.ellipse(ex + s * 40, 250, 34, 16, 0, 0, 6.283); g.fill(); g.globalAlpha = 1; }); },
+      run: x => x.say('Aww. ♥ Beep boop.') },
+    { id: 'konami', re: /^(konami(\s+code)?|up\s*up\s*down\s*down\s*left\s*right\s*left\s*right\s*b\s*a)$/, dur: 5, col: [255, 226, 84],
+      face: (g, W, H, c, t) => { const P = 16; const F1 = ['01110110010111', '10000101010101', '10000101010111', '10000101010100', '01110111010100']; F1.forEach((row, j) => row.split('').forEach((v, i) => { if (v === '1' && Math.sin(t * 8) > -0.6) g.fillRect(256 - 7 * P + i * P, 120 + j * P, P - 3, P - 3); })); },
+      run: x => { bus.pixelUntil = performance.now() / 1000 + 5; x.say('30 LIVES'); } },
+    { id: 'coffee', re: /^(coffee|espresso|latte|cappuccino)$/, dur: 3.8,
+      face: (g, W, H, c, t, u) => { const lv = clamp01(u / 3); g.lineWidth = 14; g.strokeRect(186, 90, 120, 160); g.beginPath(); g.arc(316, 160, 34, -1.3, 1.3); g.stroke(); g.fillRect(193, 243 - 146 * lv, 106, 146 * lv); if (lv >= 1) { g.lineWidth = 6; for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(212 + k * 34, 80); g.quadraticCurveTo(222 + k * 34 + Math.sin(t * 5 + k) * 8, 58, 212 + k * 34, 36); g.stroke(); } } },
+      run: x => x.later(3200, () => { bus.fastUntil = performance.now() / 1000 + 120; x.say('Ahh. Okay. Ready. Ask me anything, I’m fast now.'); }) },
+    { id: 'sleep', re: /^(sleep|go to sleep|nap|take a nap|good\s*night)$/, dur: 600, wake: true,
+      face: (g, W, H, c, t, u) => { g.lineWidth = 18; [-1, 1].forEach(s => { g.beginPath(); g.moveTo(256 + s * 112 - 50, 160); g.lineTo(256 + s * 112 + 50, 160); g.stroke(); }); for (let k = 0; k < 3; k++) { const ph = (u * 0.6 + k / 3) % 1; g.globalAlpha = Math.sin(ph * Math.PI); txt(g, k % 2 ? 'z' : 'Z', 40 + 30 * ph, 250 - ph * 200, FONT, 330 + ph * 90); } g.globalAlpha = 1; },
+      move: (b, h, u) => { b.position.y -= 0.22 * clamp01(u / 1.5); h.rotation.x += 0.18 * clamp01(u / 1.5); },
+      run: x => x.say('Zzz… (type anything to wake me)') },
+    { id: 'roll', re: /^(do\s+a\s+)?barrel\s*roll$/, dur: 1.4,
+      move: (b, h, u) => { b.rotation.z = u >= 1.2 ? 0 : easeIO(clamp01(u / 1.2)) * Math.PI * 2; },
+      run: x => { pageSpin(); x.later(1300, () => x.say('Wheee!')); } },
+    { id: '42', re: /^42$/, dur: 3, face: (g) => txt(g, '42', 170, 165), run: x => x.say('Don’t panic.') },
+    { id: 'hack', re: /^hack\s+the\s+planet$/, dur: 4.2, col: [255, 70, 220],
+      face: (g, W, H, c, t, u) => { g.font = '700 26px ' + MONO; g.textAlign = 'left'; for (let r = 0; r < 8; r++) { g.fillStyle = r % 2 ? '#3ef0ff' : '#ff4adf'; let s = ''; for (let k = 0; k < 24; k++) s += '0123456789ABCDEF<>/{}'[(k * 7 + r * 13 + Math.floor(u * 12)) % 21]; g.fillText(s, 60 - ((u * 140 * (r % 3 + 1)) % 60), 52 + r * 31); } },
+      run: x => x.later(1800, () => x.say('Access denied. Nice try.')) },
+    { id: 'figma', re: /^figma$/, dur: 4,
+      face: (g, W, H, c, t, u) => {
+        const p = clamp01(u / 2.4), A = [90, 230], B = [422, 110], C1 = [170, 40], C2 = [330, 300];
+        g.lineWidth = 12; g.beginPath(); g.moveTo(A[0], A[1]);
+        for (let s = 0; s <= 1.0001; s += 0.02) { if (s > p) break; const q = 1 - s, x0 = q * q * q * A[0] + 3 * q * q * s * C1[0] + 3 * q * s * s * C2[0] + s * s * s * B[0], y0 = q * q * q * A[1] + 3 * q * q * s * C1[1] + 3 * q * s * s * C2[1] + s * s * s * B[1]; g.lineTo(x0, y0); }
+        g.stroke(); g.lineWidth = 4; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(C1[0], C1[1]); g.stroke(); g.fillRect(A[0] - 12, A[1] - 12, 24, 24); g.beginPath(); g.arc(C1[0], C1[1], 9, 0, 6.283); g.fill();
+        if (p >= 1) { g.beginPath(); g.moveTo(B[0], B[1]); g.lineTo(C2[0], C2[1]); g.stroke(); g.fillRect(B[0] - 12, B[1] - 12, 24, 24); g.beginPath(); g.arc(C2[0], C2[1], 9, 0, 6.283); g.fill(); } },
+      run: x => x.later(2600, () => x.say('Perfect curve. First try.')) },
+    { id: '404', re: /^404$/, dur: 3.6,
+      face: (g) => { txt(g, '4', 172, 150, FONT, 128); txt(g, '4', 172, 150, FONT, 384); g.lineWidth = 20; g.beginPath(); g.ellipse(256, 212, 26, 44, 0, 0, 6.283); g.stroke(); },
+      move: (b, h, u) => { h.rotation.y += Math.sin(u * 3.2) * 0.6; h.rotation.x += 0.08; },
+      run: x => x.later(1200, () => x.say('Page not found… wait. Is it me? Am I lost?')) },
+    { id: 'weather', re: /^(weather|storm|what'?s\s+the\s+weather)$/, dur: 4.2,
+      face: (g, W, H, c, t, u) => { [[200, 130, 56], [262, 108, 66], [322, 132, 52], [262, 150, 60]].forEach(([x0, y0, r]) => { g.beginPath(); g.arc(x0, y0, r, 0, 6.283); g.fill(); }); if (Math.sin(u * 9) > 0.55) { g.fillStyle = '#fff6a0'; g.beginPath(); g.moveTo(268, 190); g.lineTo(234, 250); g.lineTo(262, 250); g.lineTo(240, 300); g.lineTo(300, 230); g.lineTo(270, 230); g.lineTo(292, 190); g.closePath(); g.fill(); } },
+      run: x => x.say('Stormy, with a chance of great design. There’s a storm on the About page too.') },
+    { id: 'boom', re: /^self[\s-]*destruct$/, dur: 6.4,
+      face: (g, W, H, c, t, u) => { if (u < 5) txt(g, String(5 - Math.floor(u)), 190, 165); else { g.lineWidth = 14; for (let k = 0; k < 12; k++) { const a = k * 0.5236, r0 = 30 + (u - 5) * 120; g.beginPath(); g.moveTo(256 + Math.cos(a) * r0, 160 + Math.sin(a) * r0); g.lineTo(256 + Math.cos(a) * (r0 + 40), 160 + Math.sin(a) * (r0 + 40)); g.stroke(); } } },
+      move: (b, h, u) => { const k = u < 5 ? u / 5 : 0; h.rotation.y += Math.sin(u * 50) * 0.1 * k; h.rotation.z += Math.sin(u * 43) * 0.08 * k; },
+      run: x => { x.say('Self-destruct in 5…'); x.later(5100, () => { burst(48, ['#5ff4ff', '#ff5cd6', '#ffe254', '#60ff96', '#ff9640']); bus.hopReq = true; }); x.later(5900, () => x.say('Just kidding. You can’t get rid of me that easily.')); } },
+    { id: 'bored', re: /^(i'?m\s+|i\s+am\s+)?(so\s+)?bored$/,
+      run: x => { const c = CASES_LIST[Math.floor(Math.random() * CASES_LIST.length)]; x.say('Try this one:'); x.link(c[0], c[1]); } }
+  ];
+  const eggFor = text => { const t = text.toLowerCase().replace(/[’']/g, "'").replace(/[.!?…]+$/, '').trim(); return EGGS.find(e => e.re.test(t) && (!e.when || e.when())); };
+  function playEgg(egg, x) {
+    bus.egg = egg.dur ? { def: egg, t0: performance.now() / 1000, x } : null;
+    if (egg.dur) bus.talkUntil = 0;
+    try { if (egg.run) egg.run(x); } catch (e) { console.warn('[zb] egg ' + egg.id, e); }
+    track('zoltbot_egg', { egg: egg.id });
+  }
+  // the Konami code typed anywhere on the page (outside text fields)
+  (function konamiKeys() {
+    const K = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a']; let i = 0;
+    addEventListener('keydown', e => {
+      if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+      i = (e.key === K[i] || e.key.toLowerCase() === K[i]) ? i + 1 : (e.key === K[0] ? 1 : 0);
+      if (i === K.length) { i = 0; if (chat) { chat.open(); setTimeout(() => chat.egg('konami code'), 400); } }
+    });
+  })();
+  const eggCss = document.createElement('style');
+  eggCss.textContent = `
+  .zb-bit { position: fixed; z-index: 30; width: 9px; height: 9px; margin: -4px 0 0 -4px; border-radius: 2px; pointer-events: none; animation: zb-bit 1.2s cubic-bezier(.2,.8,.3,1) forwards; }
+  @keyframes zb-bit { to { transform: translate(var(--dx), calc(var(--dy) + 140px)) rotate(var(--r)); opacity: 0; } }
+  .zb-ember { position: fixed; z-index: 30; width: 5px; height: 5px; border-radius: 50%; pointer-events: none; background: #ffb13a; box-shadow: 0 0 8px 2px rgba(255,140,30,.8); animation: zb-ember 1.5s ease-out forwards; }
+  @keyframes zb-ember { to { transform: translate(var(--dx), -140px); opacity: 0; } }
+  .zb-flyby { position: fixed; z-index: 30; left: 0; top: 30vh; width: 220px; pointer-events: none; animation: zb-flyby 3.2s cubic-bezier(.45,.05,.55,.95) forwards; }
+  @keyframes zb-flyby { from { transform: translate(-260px, 30vh) rotate(-12deg); } to { transform: translate(calc(100vw + 40px), -40vh) rotate(-24deg); } }
+  html.zb-matrix { filter: sepia(1) hue-rotate(65deg) saturate(3.2) brightness(.92); }
+  .zb-msg.zb-embed { padding: 0; overflow: hidden; }
+  .zb-msg.zb-embed iframe { display: block; width: 100%; border: 0; }`;
+  document.head.appendChild(eggCss);
+
   let chat = null;
   if (CHAT) chat = buildChat();
   function buildChat() {
@@ -656,7 +870,8 @@
         setTimeout(() => inp.focus(), 320);
         return;
       }
-      if (!greeted && CONTACT) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. Got a role for Zolton, a question, or a message? I can pass it on, or tell you about him and his work.', 'bot'); setChips(['Tell Zolton about the role', 'Send Zolton a message', 'What does he work on?']); }, 250); }
+      if (!greeted && CONTACT && bus.greet) { greeted = true; setTimeout(() => bus.greet(say, setChips), 250); }
+      else if (!greeted && CONTACT) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. Got a role for Zolton, a question, or a message? I can pass it on, or tell you about him and his work.', 'bot'); setChips(['Tell Zolton about the role', 'Send Zolton a message', 'What does he work on?']); }, 250); }
       if (!greeted) { greeted = true; setTimeout(() => { say('Hi! I’m Zoltbot, Zolton’s sidekick robot. ' + (PAGE ? PAGE + ' is a password-protected page.' : 'This part of the site is password-protected.') + ' Need access? Have a question? I can tell you about Zolton’s work, or help you ask him for access.', 'bot'); setChips(['Request access', 'What’s behind the password?', 'Who is Zolton?']); }, 250); }
       setTimeout(() => inp.focus(), 320);
     }
@@ -683,13 +898,16 @@
       setChips(['Stop the music']); log.scrollTop = log.scrollHeight;
     }
     async function send(text) {
+      if (bus.onSend && bus.onSend(text, say, setChips)) return;
       if (/^I’ll try again$/.test(text) && el.classList.contains('zb-peek')) { close(); if (input) input.focus(); return; }
       if (/\brick\s*-?\s*roll(ed|ing)?\b/i.test(text)) { el.classList.remove('zb-peek'); say(text, 'me', true); setChips([]); rickroll(); return; }
+      const egg = eggFor(text);
+      if (egg) { el.classList.remove('zb-peek'); say(text, 'me', true); setChips([]); playEgg(egg, eggCtx); return; }
       if (text === 'Stop the music' && rrMsg) { say(text, 'me', true); stopRickroll(); say('Okay, okay. Back to business. What would you like to know about Zolton?', 'bot', true); setChips(CONTACT ? ['Tell Zolton about the role', 'Send Zolton a message'] : ['Who is Zolton?']); return; }
       el.classList.remove('zb-peek');
       say(text, 'me'); if (astep < 0) history.push({ role: 'user', content: text }); setChips([]);
       setTimeout(showTyping, 200);
-      await wait(900 + Math.min(900, text.length * 12));
+      await wait((900 + Math.min(900, text.length * 12)) * (performance.now() / 1000 < bus.fastUntil ? 0.25 : 1));   // after "coffee" he answers fast
       if (!(await treeReply(text))) await offTrack();
       hideTyping();
     }
@@ -758,6 +976,12 @@
       const a = document.createElement('a'); a.className = 'zb-msg-link'; a.href = href; a.textContent = text;
       if (onClick) a.addEventListener('click', onClick);
       log.appendChild(a); log.scrollTop = log.scrollHeight; return a;
+    };
+    // what an Easter egg can do in the chat
+    const eggCtx = {
+      say: m => say(m, 'bot', true), later: (ms, fn) => setTimeout(fn, ms), chips: setChips, link: (t, h) => sayLink(t, h),
+      embed: (src, title, h) => { const m = document.createElement('div'); m.className = 'zb-msg bot zb-embed'; const fr = document.createElement('iframe'); fr.src = src; fr.title = title; fr.height = h || 200; fr.loading = 'lazy'; fr.allow = 'autoplay; encrypted-media'; m.appendChild(fr); log.appendChild(m); log.scrollTop = log.scrollHeight; },
+      undo: () => { const bots = Array.from(log.querySelectorAll('.zb-msg.bot:not(.typing), .zb-msg-link')); const last = bots[bots.length - 1]; if (!last) return false; last.remove(); for (let i = history.length - 1; i >= 0; i--) if (history[i].role === 'assistant') { history.splice(i, 1); break; } return true; }
     };
     function accessEmail(r) {
       const lines = AL.map((l, i) => '• ' + l + ': ' + (aa[i] || '—'));
@@ -956,7 +1180,7 @@
       if (/^(hi|hello|hey|yo|sup)\b/.test(t)) { say(CONTACT ? 'Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to send Zolton a message, or know more about him?' : 'Hi! I’m Zoltbot, Zolton’s sidekick robot. Want to know about Zolton, or get access?', 'bot'); setChips([ASK, 'Who is Zolton?']); return true; }
       return false;
     }
-    return { open, close, el, request: () => open('request') };
+    return { open, close, el, request: () => open('request'), egg: t => { const e = eggFor(t); if (e) { say(t, 'me', true); setChips([]); playEgg(e, eggCtx); } } };
   }
   window.zbChat = { open: () => chat && chat.open(), close: () => chat && chat.close() };   // e.g. a "Chat with Zoltbot" button
   const toggleChat = () => { if (!chat) { bus.poke = 0; return; } bus.chatOpen ? chat.close() : chat.open(); };
@@ -1259,6 +1483,8 @@
       sctx.clearRect(0, 0, W, H); holes.length = 0;
       const c = `rgb(${col.r|0},${col.g|0},${col.b|0})`;
       sctx.strokeStyle = c; sctx.fillStyle = c; sctx.lineCap = 'round'; sctx.lineJoin = 'round';
+      if (bus.face && bus.face(sctx, W, H, c, t)) { compose(); return; }
+      if (bus.egg && bus.egg.def.face) { sctx.save(); bus.egg.def.face(sctx, W, H, c, t, performance.now() / 1000 - bus.egg.t0); sctx.restore(); compose(); return; }
       if (bus.scanning) {          // checking: a scanner bar sweeps across the visor
         const sx = cx + Math.sin(t * 6) * 150;
         sctx.globalAlpha = 0.3; sctx.lineWidth = 10; sctx.beginPath(); sctx.moveTo(70, 160); sctx.lineTo(W - 70, 160); sctx.stroke(); sctx.globalAlpha = 1;
@@ -1322,7 +1548,7 @@
 
     // ---------- Input wiring ----------
     const look = new THREE.Vector2(), lookT = new THREE.Vector2();
-    let focused = false, typing = 0, hop = -1, shake = -1;
+    let focused = false, typing = 0, hop = -1, shake = -1, pixel8 = false;
     const towards = (el) => { const a = dock.getBoundingClientRect(), b = el.getBoundingClientRect(); return new THREE.Vector2(Math.max(-1, Math.min(1, ((b.left + b.width * 0.45) - (a.left + a.width / 2)) / (innerWidth / 2.2))), Math.max(-1, Math.min(1, -((b.top + b.height / 2) - (a.top + a.height / 2)) / (innerHeight / 2.2)))); };
     // wrong password: look at the field, shake the head while the field shakes
 
@@ -1406,10 +1632,17 @@
       else if (bus.chatOpen && now < bus.talkUntil) mood = 'talk';
       else if (bus.chatOpen && now - bus.chatKey < 1.3) mood = 'attentive';
       else if (bus.chatOpen) mood = 'listen';
+      if (bus.egg) {   // Easter egg running: ends on time, or (sleep) when someone types
+        const e = bus.egg;
+        if (e.def.wake && bus.chatKey > e.t0 + 0.3) { bus.egg = null; bus.hopReq = true; e.x.say('Huh? I’m up! I’m up.'); }
+        else if (now - e.t0 > e.def.dur) bus.egg = null;
+      }
       const T = MOODS[mood], k = 1 - Math.pow(0.0005, dt);
       for (const p in T) F[p] += (T[p] - F[p]) * k;
       const sadCol = mood === 'sad', okCol = bus.unlocked;
       target.r = sadCol ? 255 : okCol ? 40 : 95; target.g = sadCol ? 176 : okCol ? 240 : 244; target.b = sadCol ? 139 : okCol ? 200 : 255;
+      const eggCol = bus.egg && bus.egg.def.col, fc = bus.faceCol || eggCol;
+      if (fc) { target.r = fc[0]; target.g = fc[1]; target.b = fc[2]; }
       col.r += (target.r - col.r) * k; col.g += (target.g - col.g) * k; col.b += (target.b - col.b) * k;
 
       // where to look: cursor, the password field when focused, the chat panel when open
@@ -1446,6 +1679,9 @@
         head.rotation.y += Math.sin(b / 4) * 0.45 * m;
         head.rotation.z += Math.sin(b) * 0.12 * m;
       } else bot.rotation.z *= 0.85;
+      if (bus.egg && bus.egg.def.move) bus.egg.def.move(bot, head, now - bus.egg.t0, m);
+      const px8 = now < bus.pixelUntil;   // Konami code: 8-bit for a few seconds
+      if (px8 !== pixel8) { pixel8 = px8; renderer.setPixelRatio(px8 ? 0.14 : Math.min(devicePixelRatio || 1, touch ? 1.5 : 1.75)); resize(); renderer.domElement.style.imageRendering = px8 ? 'pixelated' : ''; }
       hands.forEach(({ h }) => { h.visible = false; });
       head.rotation.y += c * 0.35; head.rotation.x -= c * 0.32;   // eyes shut, chin up, politely looking away
       rotors.forEach((r, i) => r.rotation.y += dt * (i ? -38 : 38));
