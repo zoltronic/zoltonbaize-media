@@ -186,6 +186,50 @@ function iconSet(g, W, H, t) {
     g.beginPath(); g.arc(cx, cy, 18, 0, 7); g.stroke();
     g.save(); g.translate(cx, cy); g.strokeStyle = CY; g.lineWidth = 3; g.lineCap = 'round'; g.lineJoin = 'round'; g.setLineDash([140 * k, 200]); g.beginPath(); ic(g); g.stroke(); g.restore(); });
 }
+// globe (Wires cross-border): his globe art, a spinning meridian sweep and a payment arcing between two cities
+function globe(g, W, H, t, img) {
+  frame(g, W, H); caption(g, W, H, 'Cross-border wires'); const cx = W / 2, cy = H / 2 - 8, R = 70;
+  if (img && img.complete && img.naturalWidth) g.drawImage(img, cx - R, cy - R, R * 2, R * 2);
+  g.strokeStyle = CY2 + '.55)'; g.lineWidth = 1.5;
+  for (let i = 0; i < 4; i++) { const k = Math.cos(t * 0.8 + i * Math.PI / 4); g.beginPath(); g.ellipse(cx, cy, Math.abs(k) * R, R, 0, 0, 7); g.stroke(); }
+  for (const y of [-0.5, 0, 0.5]) { g.beginPath(); g.ellipse(cx, cy + y * R, R * Math.sqrt(1 - y * y), R * 0.12, 0, 0, 7); g.stroke(); }
+  const A = [cx - 40, cy - 16], B = [cx + 46, cy + 10], C = [cx + 4, cy - 92], u = loop(t, 2.6), k = seg(u, 0.05, 0.75);
+  g.strokeStyle = 'rgba(255,226,120,.9)'; g.lineWidth = 2.5; g.setLineDash([5, 5]); g.beginPath(); g.moveTo(...A); g.quadraticCurveTo(...C, ...B); g.stroke(); g.setLineDash([]);
+  const q = (a, b, c, k) => (1 - k) * (1 - k) * a + 2 * (1 - k) * k * b + k * k * c, px = q(A[0], C[0], B[0], k), py = q(A[1], C[1], B[1], k);
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(px, py, 5, 0, 7); g.fill();
+  for (const P of [A, B]) { g.fillStyle = 'rgba(255,226,120,.95)'; g.beginPath(); g.arc(P[0], P[1], 4, 0, 7); g.fill(); }
+  const land = seg(u, 0.75, 0.85) * (1 - seg(u, 0.95, 1)); if (land > 0) { g.strokeStyle = `rgba(255,226,120,${land})`; g.lineWidth = 2; g.beginPath(); g.arc(B[0], B[1], 6 + land * 14, 0, 7); g.stroke(); }
+}
+// easing library: his curve cards, a dot riding each curve and a ghost following on a track
+const EZ = {
+  easeInSine: (x) => 1 - Math.cos(x * Math.PI / 2), easeOutCubic: (x) => 1 - Math.pow(1 - x, 3), easeInOutQuint: (x) => x < 0.5 ? 16 * x ** 5 : 1 - Math.pow(-2 * x + 2, 5) / 2,
+  easeOutBack: (x) => 1 + 2.70158 * Math.pow(x - 1, 3) + 1.70158 * Math.pow(x - 1, 2),
+  easeOutElastic: (x) => x === 0 ? 0 : x === 1 ? 1 : Math.pow(2, -10 * x) * Math.sin((x * 10 - 0.75) * (2 * Math.PI) / 3) + 1,
+  easeOutBounce: (x) => { const n = 7.5625, d = 2.75; if (x < 1 / d) return n * x * x; if (x < 2 / d) return n * (x -= 1.5 / d) * x + 0.75; if (x < 2.5 / d) return n * (x -= 2.25 / d) * x + 0.9375; return n * (x -= 2.625 / d) * x + 0.984375; },
+};
+function easing(g, W, H, t) {
+  frame(g, W, H); const names = Object.keys(EZ), u = Math.min(1, loop(t, 2.2) / 0.75);
+  names.forEach((n, i) => { const cw = 74, ch = 56, x = 16 + (i % 3) * (cw + 8), y = 16 + Math.floor(i / 3) * (ch + 24), f = EZ[n];
+    g.fillStyle = CY2 + '.08)'; g.fillRect(x, y, cw, ch); g.strokeStyle = CY2 + '.3)'; g.lineWidth = 1; g.strokeRect(x, y, cw, ch);
+    g.strokeStyle = i % 2 ? '#8fb8ff' : CY; g.lineWidth = 2; g.beginPath(); for (let j = 0; j <= 30; j++) { const q = j / 30; g.lineTo(x + 6 + q * (cw - 12), y + ch - 8 - f(q) * (ch - 20)); } g.stroke();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 6 + u * (cw - 12), y + ch - 8 - f(u) * (ch - 20), 3.5, 0, 7); g.fill();
+    g.fillStyle = CY2 + '.8)'; g.font = `500 9px ${FONT}`; g.textAlign = 'center'; g.fillText(n, x + cw / 2, y + ch + 11); });
+}
+// motion spec: his timeline legend (position, scale, rotation, opacity, haptic) with a playhead sweeping the ms ruler
+const TRACKS = [['POSITION', '#d6246e', 0, 200], ['SCALE', '#1188e6', 60, 260], ['ROTATION', '#159a86', 120, 320], ['OPACITY', '#f26b3a', 0, 160], ['HAPTIC', '#3fbf62', 260, 300]];
+function motionSpec(g, W, H, t) {
+  frame(g, W, H); const x0 = 82, x1 = W - 14, ms = (v) => x0 + (v / 400) * (x1 - x0), u = loop(t, 2.8), play = u * 440;
+  g.font = `600 9px ${FONT}`; g.textAlign = 'center'; g.fillStyle = CY2 + '.7)';
+  for (let v = 0; v <= 400; v += 100) { g.fillText(v, ms(v), 22); g.strokeStyle = CY2 + '.15)'; g.beginPath(); g.moveTo(ms(v), 28); g.lineTo(ms(v), H - 12); g.stroke(); }
+  TRACKS.forEach(([n, c, a, b], i) => { const y = 40 + i * 26, on = play >= a && play <= b + 20;
+    g.fillStyle = c; g.beginPath(); g.moveTo(10, y); g.lineTo(64, y); g.lineTo(72, y + 8); g.lineTo(64, y + 16); g.lineTo(10, y + 16); g.closePath(); g.globalAlpha = on ? 1 : 0.6; g.fill();
+    g.fillStyle = '#fff'; g.textAlign = 'left'; g.fillText(n, 14, y + 11);
+    g.strokeStyle = c; g.lineWidth = 2; g.beginPath(); g.moveTo(ms(a), y + 8); g.lineTo(ms(b), y + 8); g.stroke();
+    if (n === 'HAPTIC') { g.fillStyle = c; g.fillRect(ms(a) + 6, y + 1, 5, 14); g.fillRect(ms(a) + 16, y + 3, 5, 10); }
+    else { g.fillStyle = c; rr(g, ms(a) + (ms(b) - ms(a)) / 2 - 18, y + 1, 36, 14, 7); g.fill(); g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText((b - a) + 'ms', ms(a) + (ms(b) - ms(a)) / 2, y + 11); }
+    g.globalAlpha = 1; });
+  if (play <= 400) { g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(ms(play), 28); g.lineTo(ms(play), H - 12); g.stroke(); }
+}
 // image plates from his Figma, each given a looping move
 const imgPlate = (mode) => (g, W, H, t, img) => {
   if (!img || !img.complete || !img.naturalWidth) return; const u = loop(t, 3.4);
@@ -206,8 +250,8 @@ export const PLATES = [
   ['gauge', 1.3, gaugeRainbow], ['ticks', 1.3, gaugeTicks], ['check', 1, checkmark], ['grid', 1, iconGrid, 'grid.webp'],
   ['research', 1.3, research], ['systems', 1.3, systems], ['3d', 1.3, cube3d], ['ux', 1.3, uxFlow], ['ui', 0.8, uiPhone],
   ['terminal', 1.3, terminal], ['vector', 1.3, vectorPen], ['bot', 1.3, bot], ['haptics', 1.3, haptics], ['travel', 1.3, travel],
-  ['dti', 1, dtiPie], ['check3d', 1, imgPlate('pop'), 'check3d.webp'], ['checkph', 1.1, imgPlate('wipe'), 'checkph.webp'], ['shield', 1.18, imgPlate('scan'), 'shield.webp'],
-  ['suitcase', 1, imgPlate('float'), 'suitcase.webp'], ['motion', 1.3, motionCurve], ['icons', 1.3, iconSet], ['check2', 1, checkmark],
+  ['dti', 1, dtiPie], ['globe', 1, globe, 'globe.webp'], ['easing', 1.3, easing], ['spec', 1.3, motionSpec],
+  ['motion', 1.3, motionCurve], ['icons', 1.3, iconSet],
 ];
 
 export function makePlate(THREE, spec, base, phase) {

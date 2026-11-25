@@ -155,12 +155,12 @@ const holos = []; const LABELS = ['Product', 'Motion', '3D', 'AI agents'];
 // animated plates: a couple of gauges, checkmarks, icon grid, research, systems, 3D, UX, UI, terminal, vector, bot, haptics, travel loader
 // (stills pulled from Zolton's Wells Fargo Figma live in ./holo/, the rest are drawn live and loop)
 const plates = PLATES.map((spec, i) => makePlate(THREE, spec, import.meta.url, i * 0.73));
-for (let i = 0; i < 26; i++) {
+const NH = 4 + plates.length; for (let i = 0; i < NH; i++) {
   const label = i < 4 ? LABELS[i] : null; const work = label ? null : plates[i - 4]; const tex = label ? holoTex(0, label) : work.tex;
   const mat = holoCardMat(tex, rnd(), !label);
   const w = label ? 0.62 : (work.ar < 0.9 ? 0.44 : work.ar < 1.2 ? 0.54 : 0.64) + Math.random() * 0.1; const geo = new THREE.PlaneGeometry(w, label ? w * 96 / 256 : w / work.ar);
   const h = new THREE.Mesh(geo, mat); h.renderOrder = 5;
-  h.userData = { ang: (i / 26) * Math.PI * 2 + rnd() * 0.4, w: 0.6 + rnd() * 0.9, tumX: (rnd() - 0.5) * 1.2, tumY: (rnd() - 0.5) * 2.4, tx: 0, ty: 0, a: 0, r: 0.95 + Math.random() * 0.9, y: -0.55 + Math.random() * 1.35, ph: Math.random() * 6,
+  h.userData = { ang: (i / NH) * Math.PI * 2 + rnd() * 0.4, w: 0.6 + rnd() * 0.9, tumX: (rnd() - 0.5) * 1.2, tumY: (rnd() - 0.5) * 2.4, tx: 0, ty: 0, a: 0, r: 0.95 + Math.random() * 0.9, y: -0.55 + Math.random() * 1.35, ph: Math.random() * 6,
     on: label ? 0.40 + i * 0.012 : 0.21 + (i - 4) * 0.0055, label: !!label, plate: work };
   storm.add(h); holos.push(h);
 }
