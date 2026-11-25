@@ -21,6 +21,7 @@ const band = (p, a, b, c, d) => ramp(p, a, b) * (1 - ramp(p, c, d)); // up a→b
 
 // ---------- page layout: hero becomes a long track, the 3D stage sticks to the screen ----------
 hero.classList.add('zstory');
+if (!document.getElementById('zs-fonts')) { const l = document.createElement('link'); l.id = 'zs-fonts'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=League+Spartan:wght@500;600;700&display=swap'; document.head.appendChild(l); }
 const css = document.createElement('style');
 css.textContent = `
 .about_hero.zstory{display:block!important;min-height:0!important;height:${100 + TRACK}vh;padding-top:0!important;padding-bottom:0!important}
@@ -35,40 +36,45 @@ css.textContent = `
 #zs-brain{position:fixed;left:16px;bottom:56px;z-index:9999;font:600 12px/1 system-ui;padding:8px 12px;border-radius:999px;border:0;background:rgba(10,20,40,.78);color:#bfefff;cursor:pointer}
 #zs-flash{background:#f4fbff}
 #zs-caps{position:absolute;inset:0;pointer-events:none;z-index:3}
-#zs-caps .zc{position:absolute;max-width:min(34vw,440px);opacity:0;transform:translateY(12px);transition:none;color:#fff;text-shadow:0 2px 18px rgba(0,10,30,.55)}
+#zs-caps .zc{position:absolute;left:50%;bottom:5vh;width:min(780px,88vw);margin-left:calc(min(780px,88vw) / -2);text-align:center;opacity:0;transition:none;color:#fff;font:600 clamp(22px,2.5vw,36px)/1.18 'League Spartan',system-ui,sans-serif;letter-spacing:-.01em;text-shadow:0 2px 22px rgba(0,10,30,.7)}
+#zs-caps .zc b{display:block;font-weight:700;font-size:.62em;letter-spacing:.18em;text-transform:uppercase;color:#9fe9ff;margin-bottom:.35em}
 #zs-caps .zc.light{color:#0b1b33;text-shadow:0 1px 14px rgba(255,255,255,.6)}
+#zs-coach{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;overflow:visible}
 #zs-cta{position:absolute;pointer-events:auto;opacity:0;display:inline-flex;align-items:center;gap:.5em;padding:.85em 1.4em;border-radius:999px;
   background:linear-gradient(180deg,#ffe08a,#f1b53b);color:#3a2300;font-weight:600;text-decoration:none;box-shadow:0 8px 30px rgba(240,170,40,.45);z-index:4}
-@media (max-width:899px){#zs-caps .zc{max-width:80vw}}
+@media (max-width:899px){#zs-caps .zc{bottom:4vh;font-size:22px}#zs-brain{bottom:auto;top:76px}}
+@media (max-width:699px){.about_hero.zstory > .page_wrap{padding-bottom:4vh!important}.about_hero.zstory .heading-h1{font-size:15vw!important;line-height:.95!important}.about_hero.zstory .text-subhead{font-size:16px!important}}
 `;
 document.head.appendChild(css);
 
 const canvas = HOST.querySelector('canvas');
 const mk = (id, before) => { const d = document.createElement('div'); d.id = id; before ? HOST.insertBefore(d, canvas) : HOST.appendChild(d); return d; };
 const boltCv = document.createElement('canvas'); boltCv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; HOST.appendChild(boltCv); const bctx = boltCv.getContext('2d');
+const bgCv = document.createElement('canvas'); bgCv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none'; const bgx = bgCv.getContext('2d');
 const dimEl = mk('zs-dim', true), raysEl = mk('zs-rays', true), flashEl = mk('zs-flash'), flareEl = mk('zs-flare'), bloomEl = mk('zs-bloom'), capsEl = mk('zs-caps');
 // lens flare: soft ghosts along the line from the light through the centre of the screen, plus a horizontal streak
 const FLARE = [[0, 90, 'rgba(255,240,210,.55)'], [0.35, 26, 'rgba(255,200,140,.35)'], [0.6, 60, 'rgba(160,210,255,.18)'], [0.85, 16, 'rgba(255,230,180,.45)'], [1.25, 110, 'rgba(255,190,120,.12)'], [1.55, 34, 'rgba(170,230,255,.25)']];
 const flareGhosts = FLARE.map(([k, sz, c]) => { const i = document.createElement('i'); i.style.width = i.style.height = sz + 'px'; i.style.background = `radial-gradient(circle, ${c} 0%, rgba(0,0,0,0) 70%)`; flareEl.appendChild(i); return { i, k }; });
 const streak = document.createElement('b'); flareEl.appendChild(streak);
-canvas.style.position = 'absolute';
+canvas.style.position = 'absolute'; HOST.insertBefore(bgCv, canvas);
 
 // captions sit where the hero title sits (left third), in the site's own type styles
 const CAPS = [
-  [0.07, 0.10, 0.19, 0.22, 'text-subhead', 'I’m Zolton. I’ve been designing since 2004, at Apple, Google and Wells Fargo.'],
-  [0.22, 0.25, 0.33, 0.36, 'text-subhead', 'I go deep in several disciplines and connect them.'],
-  [0.37, 0.40, 0.52, 0.55, 'text-subhead', 'What I do: product design, motion and 3D, prototyping in code, and AI agents.'],
-  [0.78, 0.80, 0.86, 0.88, 'heading-h2 light', 'That’s the process.'],
+  [0.07, 0.10, 0.19, 0.22, '', 'I’m Zolton. I’ve been designing since 2004, at Apple, Google and Wells Fargo.'],
+  [0.23, 0.26, 0.36, 0.39, '', '<b>Diverge</b>Go wide first. Every idea, every angle, all at once.'],
+  [0.40, 0.43, 0.52, 0.55, '', 'Product design, motion and 3D, prototyping in code, and AI agents.'],
 ];
-const capEls = CAPS.map(c => { const d = document.createElement('div'); d.className = 'zc ' + c[4]; d.textContent = c[5]; capsEl.appendChild(d); return d; });
+const capEls = CAPS.map(c => { const d = document.createElement('div'); d.className = 'zc ' + c[4]; d.innerHTML = c[5]; capsEl.appendChild(d); return d; });
 const cta = document.createElement('a'); cta.id = 'zs-cta'; cta.href = '/'; cta.textContent = 'See the work →'; capsEl.appendChild(cta);
 function placeCaps() {
   const h1 = hero.querySelector('h1'); const r = h1 ? h1.getBoundingClientRect() : { left: 32 };
   const left = Math.max(20, r.left) + 'px';
-  for (const d of capEls) { d.style.left = left; d.style.top = innerWidth < 900 ? '14vh' : '42vh'; }
-  cta.style.left = left; cta.style.top = innerWidth < 900 ? '22vh' : '50vh';
+  cta.style.left = innerWidth < 900 ? '24px' : 'calc(50% - min(380px,44vw))'; cta.style.top = innerWidth < 900 ? '68vh' : '58vh';
 }
 placeCaps(); addEventListener('resize', placeCaps);
+const coach = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); coach.id = 'zs-coach'; capsEl.appendChild(coach);
+coach.innerHTML = '<defs><marker id="zs-arw" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f1b53b"/></marker></defs><path id="zs-coach-p" fill="none" stroke="#f1b53b" stroke-width="2.5" stroke-dasharray="7 7" stroke-linecap="round" marker-end="url(#zs-arw)"/><circle id="zs-coach-c" r="34" fill="none" stroke="#ffd56a" stroke-width="2" opacity=".8"/>';
+const coachP = coach.querySelector('#zs-coach-p'), coachC = coach.querySelector('#zs-coach-c');
 
 // seeded randomness: every cloud, hologram and raindrop gets its own speed, tilt and phase, the same on every visit
 let _seed = 20261124; const rnd = () => ((_seed = (_seed * 16807) % 2147483647) / 2147483647);
@@ -126,7 +132,7 @@ for (let i = 0; i < 44; i++) {
 }
 // lightning inside the clouds: a cold light that flickers on random timers during the storm
 const cloudFlash = new THREE.PointLight(0xa9d4ff, 0, 40, 1); storm.add(cloudFlash);
-let flick = 0, flickT = -1, flickNext = 1.5;
+let flick = 0, flickT = -1, flickNext = 1.5, bgBolt = null;
 // rain: cheap falling streaks, all in one draw
 const RN = 1400, rainPos = new Float32Array(RN * 6), rainD = [];
 for (let i = 0; i < RN; i++) rainD.push({ r: 0.7 + Math.pow(rnd(), 0.8) * 6.5, a: rnd() * 6.283, y: -3 + rnd() * 10, l: 0.18 + rnd() * 0.22, v: 7 + rnd() * 5, w: 0.7 + rnd() * 0.6 });
@@ -184,7 +190,13 @@ const bulb = new THREE.Group(); bulb.name = 'StoryBulb'; scene.add(bulb);
 const glassMat = new THREE.MeshStandardMaterial({ color: 0xeef6ff, roughness: 0.05, metalness: 0.0, transparent: true, opacity: 0.12, emissive: 0xffb43a, emissiveIntensity: 0, depthWrite: false });
 const glass = new THREE.Mesh(new THREE.SphereGeometry(0.15, 40, 28), glassMat); glass.position.y = 0.07; glass.renderOrder = 6;
 const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.06, 0.1, 32, 1, true), glassMat); neck.position.y = -0.06;
-const baseMat = new THREE.MeshStandardMaterial({ color: 0xd8dde6, roughness: 0.3, metalness: 0.6, transparent: true, opacity: 1 });
+const baseMat = new THREE.MeshStandardMaterial({ color: 0xeef1f5, roughness: 0.14, metalness: 1, envMapIntensity: 1.6, transparent: true, opacity: 1 });
+// glass edges: fresnel rim + a soft window highlight, so the clear bulb still reads as polished glass
+const glassRim = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uA: { value: 0 } },
+  vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - w.xyz); gl_Position = projectionMatrix * viewMatrix * w; }',
+  fragmentShader: 'uniform float uA; varying vec3 vN; varying vec3 vV; void main(){ vec3 n = normalize(vN); float f = pow(1.0 - abs(dot(n, vV)), 3.0); vec3 L = normalize(vec3(-0.5, 0.7, 0.6)); vec3 H = normalize(L + vV); float spec = pow(max(dot(n, H), 0.0), 90.0); float a = (f * 0.55 + spec * 1.2) * uA; gl_FragColor = vec4(vec3(0.92, 0.97, 1.0) * a, a); }' });
+// real glass: physically transmissive with clearcoat, so it shows the scene through it and catches reflections
+const glassPhys = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, roughness: 0.02, transmission: 1, thickness: 0.012, ior: 1.5, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 0.9, specularIntensity: 1, transparent: true, opacity: 1, emissive: 0xffb43a, emissiveIntensity: 0, depthWrite: false });
 const screw = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.055, 0.09, 24), baseMat); screw.position.y = -0.15;
 const tip = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 8), baseMat); tip.position.y = -0.2;
 const filMat = new THREE.MeshBasicMaterial({ color: 0x8a909a, transparent: true, opacity: 1 });
@@ -210,14 +222,16 @@ if (Z.renderer) Z.renderer.localClippingEnabled = true;
 const stemMat = glassMat.clone(); stemMat.opacity = 0.08;
 const insMat = new THREE.MeshStandardMaterial({ color: 0x9aa2ae, roughness: 0.5, metalness: 0.1, transparent: true, opacity: 1 });
 for (const mm of [glassMat, baseMat, filMat]) mm.clippingPlanes = [realClip];
-const wireMat = new THREE.MeshStandardMaterial({ color: 0xc9ced6, roughness: 0.3, metalness: 0.7, transparent: true, opacity: 1 });
+const wireMat = new THREE.MeshStandardMaterial({ color: 0xd9dde3, roughness: 0.2, metalness: 1, envMapIntensity: 1.4, transparent: true, opacity: 1 });
 for (const mm of [stemMat, insMat, wireMat]) mm.clippingPlanes = [realClip];
 new GLTFLoader().load(new URL('./bulb.glb', import.meta.url).href, (g) => {
-  const m = g.scene; const box = new THREE.Box3().setFromObject(m); const h = box.max.y - box.min.y; const k = 0.44 / h;
-  m.scale.setScalar(k); m.position.set(-(box.min.x + box.max.x) / 2 * k, -0.22 - box.min.y * k, -(box.min.z + box.max.z) / 2 * k);
-  const MAT = { Glass: glassMat, Stem: stemMat, Screw: baseMat, Insulator: insMat, Wire: wireMat, Filament: filMat };
+  const m = g.scene; const box = new THREE.Box3().setFromObject(m); const h = box.max.y - box.min.y; const k = 0.24 / h;
+  m.scale.setScalar(k); m.position.set(-(box.min.x + box.max.x) / 2 * k, -0.12 - box.min.y * k, -(box.min.z + box.max.z) / 2 * k);
+  const MAT = { Glass: glassPhys, Stem: stemMat, Screw: baseMat, Insulator: insMat, Wire: wireMat, Filament: filMat };
   m.traverse(o => { if (!o.isMesh) return; const key = Object.keys(MAT).find(n => (o.name + ' ' + (o.parent && o.parent.name)).includes(n)); o.material = MAT[key] || baseMat;
-    o.geometry.computeVertexNormals(); if (key === 'Glass' || key === 'Stem') o.renderOrder = 6; });
+    o.geometry.computeVertexNormals(); if (key === 'Glass' || key === 'Stem') o.renderOrder = 6;
+    if (key === 'Glass') { const rim = new THREE.Mesh(o.geometry, glassRim); rim.renderOrder = 7; o.add(rim); }
+    if (key === 'Filament') { o.geometry.computeBoundingBox(); const c = o.geometry.boundingBox.getCenter(V()); o.geometry.translate(-c.x, -c.y, -c.z); o.geometry.scale(0.45, 0.45, 0.45); o.geometry.translate(c.x, c.y, c.z); } });
   for (const o of [glass, neck, screw, tip, fil]) o.visible = false;
   bulb.add(m);
   // the AR version: same shape as a cyan hologram (rim glow + scanlines), shown first, then 'printed' into the real bulb
@@ -240,9 +254,9 @@ let bolt2d = null;
 function frac2(a, b, depth, rough) { let pts = [a, b];
   for (let d = 0; d < depth; d++) { const nx = [pts[0]]; for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], q = pts[i], dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy), o = (Math.random() - 0.5) * L * rough;
       nx.push([(p[0] + q[0]) / 2 - dy / L * o, (p[1] + q[1]) / 2 + dx / L * o], q); } pts = nx; } return pts; }
-function makeBolt2d(bx, by) { const W = HOST.clientWidth, H = HOST.clientHeight, from = [bx - W * (0.07 + Math.random() * 0.06), -H * 0.06];
-  const main = frac2(from, [bx, by], 7, 0.34), br = [];
-  for (let k = 0; k < 5; k++) { const i = 10 + Math.floor(Math.random() * main.length * 0.65), a = main[i], dir = Math.random() < 0.5 ? -1 : 1, L = H * (0.06 + Math.random() * 0.14);
+function makeBolt2d(bx, by) { const W = HOST.clientWidth, H = HOST.clientHeight, from = [bx - W * (0.12 + Math.random() * 0.08), -H * 0.08];
+  const main = frac2(from, [bx, by], 7, 0.36), br = [];
+  for (let k = 0; k < 8; k++) { const i = 10 + Math.floor(Math.random() * main.length * 0.65), a = main[i], dir = Math.random() < 0.5 ? -1 : 1, L = H * (0.06 + Math.random() * 0.14);
     br.push({ pts: frac2(a, [a[0] + dir * L * (0.5 + Math.random()), a[1] + L], 5, 0.6), at: i / main.length, w: 0.55 }); }
   bolt2d = { main, br }; }
 function drawBolt2d(t) { const dpr = Math.min(2, devicePixelRatio || 1), W = HOST.clientWidth, H = HOST.clientHeight;
@@ -255,7 +269,7 @@ function drawBolt2d(t) { const dpr = Math.min(2, devicePixelRatio || 1), W = HOS
     path(bolt2d.main, grow); bctx.stroke();
     for (const b of bolt2d.br) { const k = clamp((grow - b.at) / Math.max(0.05, 1 - b.at)); if (k > 0) { bctx.lineWidth = lw * b.w; path(b.pts, k); bctx.stroke(); } } };
   bctx.lineCap = 'round'; bctx.lineJoin = 'miter';
-  strokeAll(12, 'rgba(120,165,255,.35)', 28, 1); strokeAll(5, '#8fb8ff', 12, 0.9); strokeAll(2, '#ffffff', 6, 1); bctx.globalAlpha = 1; bctx.shadowBlur = 0; }
+  strokeAll(22, 'rgba(120,165,255,.35)', 40, 1); strokeAll(8, '#8fb8ff', 18, 0.95); strokeAll(3.2, '#ffffff', 8, 1); bctx.globalAlpha = 1; bctx.shadowBlur = 0; }
 function makeBolt(to) {
   bolt.clear(); boltParts.length = 0; const from = to.clone().add(V(-2.7 + Math.random() * 0.4, 2.3, -0.4));
   const add = (pts, r, delay) => { const c = new THREE.CurvePath(); for (let i = 1; i < pts.length; i++) c.add(new THREE.LineCurve3(pts[i - 1], pts[i])); const n = pts.length * 2; // straight segments = sharp, jagged kinks
@@ -293,19 +307,38 @@ function goldMat(name, env) { name = (name || '').replace(/^gc_/, '').replace(/_
       vec3 ramp = t <= uS1.x ? mix(uS0.yzw, uS1.yzw, clamp((t - uS0.x) / max(uS1.x - uS0.x, 1e-5), 0.0, 1.0)) : mix(uS1.yzw, uS2.yzw, clamp((t - uS1.x) / max(uS2.x - uS1.x, 1e-5), 0.0, 1.0));
       diffuseColor.rgb = ramp;`); };
   m.customProgramCacheKey = () => 'goldcoin'; return m; }
-let realCoin = null;
+let realCoin = null, sharedEnv = null;
+// Zolton's Z mark (Z_logo_2.0.svg, 333×284): two rounded wedges, converted to shapes centred on 0 and `w` wide
+function zShapes(w) { const s = w / 333, P = (x, y) => [(x - 166.5) * s, (142 - y) * s];
+  const a = new THREE.Shape(); a.moveTo(...P(11.5208, 284)); a.lineTo(...P(302.675, 284)); a.bezierCurveTo(...P(314.298, 284), ...P(318.947, 267.856), ...P(309.068, 261.025));
+  a.lineTo(...P(113.803, 122.556)); a.lineTo(...P(2.80362, 263.509)); a.bezierCurveTo(...P(-3.58899, 271.581), ...P(1.64133, 284), ...P(11.5208, 284));
+  const b = new THREE.Shape(); b.moveTo(...P(321.479, 0)); b.lineTo(...P(30.3246, 0)); b.bezierCurveTo(...P(18.7017, 0), ...P(14.0525, 16.1444), ...P(23.932, 22.9747));
+  b.lineTo(...P(219.197, 161.444)); b.lineTo(...P(330.196, 20.4909)); b.bezierCurveTo(...P(336.589, 12.4187), ...P(331.359, 0), ...P(321.479, 0));
+  return [a, b]; }
 new RGBELoader().load(new URL('../gold/3d/hdr/env_coin_d1_256.hdr', import.meta.url).href, (hdr) => {
   hdr.mapping = THREE.EquirectangularReflectionMapping; const pm = new THREE.PMREMGenerator(Z.renderer); const env = pm.fromEquirectangular(hdr).texture; hdr.dispose(); pm.dispose();
   new GLTFLoader().load(new URL('../gold/3d/coin/coin_d1.glb', import.meta.url).href, (g) => {
     const m = g.scene; m.traverse(o => { if (o.isMesh) o.material = goldMat(o.material && o.material.name, env); });
-    const box = new THREE.Box3().setFromObject(m), size = box.getSize(V()), k = 0.34 / Math.max(size.x, size.y);
+    sharedEnv = env; for (const mm of [glassPhys, baseMat, wireMat]) { mm.envMap = env; mm.needsUpdate = true; }
+    // the Wells Fargo C comes off; Zolton's Z logo is embossed on both faces instead (polished top, gold walls)
+    m.traverse(o => { if (o.isMesh && /Curve/.test(o.name + (o.parent ? o.parent.name : ''))) o.visible = false; });
+    const zTop = new THREE.MeshPhysicalMaterial({ color: lin(1.0, 0.74, 0.36), metalness: 1, roughness: 0.1, envMap: env, envMapIntensity: 2.0, clearcoat: 0.6, clearcoatRoughness: 0.08 });
+    const zGeo = new THREE.ExtrudeGeometry(zShapes(1.08), { depth: 0.02, bevelEnabled: true, bevelThickness: 0.007, bevelSize: 0.009, bevelSegments: 2, curveSegments: 14 });
+    for (const side of [1, -1]) { const zm = new THREE.Mesh(zGeo, [zTop, goldMat('coin_C_side', env)]); zm.position.z = side * 0.1; if (side < 0) zm.rotation.y = Math.PI; m.add(zm); }
+    for (const o of [m]) o.traverse(q => { if (q.isMesh && q.material && q.material.envMapIntensity != null) q.material.envMapIntensity *= 1.5; });
+    const box = new THREE.Box3().setFromObject(m), size = box.getSize(V()), k = 0.2 / Math.max(size.x, size.y);
     const c = box.getCenter(V()); m.position.sub(c); const wrap = new THREE.Group(); wrap.add(m); wrap.scale.setScalar(k);
     realCoin = new THREE.Group(); realCoin.add(wrap); realCoin.visible = false; scene.add(realCoin); console.log('[zolton] gold coin loaded');
   }, undefined, e => console.warn('[zolton] coin model failed, keeping stand-in', e));
 }, undefined, e => console.warn('[zolton] coin env failed', e));
 const sparkMat = new THREE.SpriteMaterial({ map: canvasTex(64, 64, (g) => { g.translate(32, 32); g.fillStyle = '#fff6cf'; for (let k = 0; k < 4; k++) { g.rotate(Math.PI / 4); g.beginPath(); g.moveTo(0, -30); g.lineTo(3, 0); g.lineTo(0, 30); g.lineTo(-3, 0); g.fill(); } }),
   transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-const sparks = []; for (let i = 0; i < 16; i++) { const s = new THREE.Sprite(sparkMat.clone()); s.userData = { a: Math.random() * 6.28, r: 0.18 + Math.random() * 0.25, y: (Math.random() - 0.5) * 0.4, ph: Math.random() * 6, sp: 0.6 + Math.random() }; s.visible = false; scene.add(s); sparks.push(s); }
+const glintMat = new THREE.SpriteMaterial({ map: canvasTex(128, 128, (g) => { const c = 64;
+    const gr = g.createRadialGradient(c, c, 0, c, c, 22); gr.addColorStop(0, 'rgba(255,255,245,1)'); gr.addColorStop(0.4, 'rgba(255,236,180,.55)'); gr.addColorStop(1, 'rgba(255,220,140,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    for (const [a, l, w] of [[0, 62, 2.2], [Math.PI / 2, 62, 2.2], [Math.PI / 4, 30, 1.4], [-Math.PI / 4, 30, 1.4]]) { g.save(); g.translate(c, c); g.rotate(a); const lg = g.createLinearGradient(-l, 0, l, 0); lg.addColorStop(0, 'rgba(255,240,200,0)'); lg.addColorStop(0.5, 'rgba(255,255,250,1)'); lg.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = lg; g.beginPath(); g.moveTo(-l, 0); g.lineTo(0, -w); g.lineTo(l, 0); g.lineTo(0, w); g.fill(); g.restore(); } }),
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
+const glints = [0, 1, 2].map(() => { const s = new THREE.Sprite(glintMat.clone()); s.renderOrder = 30; s.visible = false; scene.add(s); return s; });
+const sparks = []; for (let i = 0; i < 0; i++) { const s = new THREE.Sprite(sparkMat.clone()); s.userData = { a: Math.random() * 6.28, r: 0.18 + Math.random() * 0.25, y: (Math.random() - 0.5) * 0.4, ph: Math.random() * 6, sp: 0.6 + Math.random() }; s.visible = false; scene.add(s); sparks.push(s); }
 
 // ---------- lights: dim and cool in the storm, warm in the sun ----------
 const lights = []; scene.traverse(o => { if (o.isLight && o !== bulbLight) lights.push({ l: o, i: o.intensity, c: o.color.clone() }); });
@@ -313,16 +346,17 @@ const COOL = new THREE.Color(0x8fb2ff), WARM = new THREE.Color(0xffd08a);
 
 // ---------- run ----------
 let gestT = -1, gestTo = false; const gogClip = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 1e6);
-let frameN = 0, Ps = 0, spinA = 0, struck = false, strikeT = -1, glow = 0, gogglesWas = null, exprNow = '', last = 0;
+let storyReady = false, ringA = 0, frameN = 0, Ps = 0, spinA = 0, struck = false, strikeT = -1, glow = 0, gogglesWas = null, exprNow = '', last = 0;
 const headW = V(), handL = V(), handR = V(), tmp = V(), bulbPos = V();
-let camBase = null;
+let camBase = null; const camOff = V();
 state.story = true;
 const setE = (n) => { if (exprNow !== n) { exprNow = n; Z.setExpr(n, 9999); } };
 
 Z.onFrame((dt, now, realDt) => {
   // scroll progress through the hero track (0..1), eased so it glides
   const r = hero.getBoundingClientRect(); const raw = clamp(-r.top / Math.max(1, r.height - innerHeight));
-  const ready = state.mode === 'yoga' && state.seated && state.cloudRise < 0 && !(state.cloudDelay > 0) && (!state.intro || state.introStep === 'done');
+  if (!storyReady) storyReady = state.mode === 'yoga' && state.seated && state.cloudRise < 0 && !(state.cloudDelay > 0) && (!state.intro || state.introStep === 'done');
+  const ready = storyReady;
   const target = ready ? raw : 0;
   Ps += (target - Ps) * Math.min(1, realDt * 3.2);
   const P = Ps;
@@ -330,7 +364,7 @@ Z.onFrame((dt, now, realDt) => {
 
   bones.mixamorigHead.getWorldPosition(headW);
   const center = V(headW.x, headW.y - 0.25, headW.z);
-  bulbPos.set(headW.x + 0.02, headW.y + 0.52, headW.z + 0.04);
+  bulbPos.set(headW.x + 0.02, headW.y + 0.36, headW.z + 0.04);
 
   // phases
   const gather = ramp(P, 0.05, 0.3), stormK = ramp(P, 0.24, 0.5), pull = ramp(P, 0.55, 0.64), hush = ramp(P, 0.63, 0.7);
@@ -356,13 +390,25 @@ Z.onFrame((dt, now, realDt) => {
   // in-cloud lightning: random flickers through the storm (stops for the hush and the sun)
   const flickOn = ramp(P, 0.22, 0.34) * (1 - ramp(P, 0.6, 0.64)) * (1 - sun);
   flickNext -= realDt; if (flickOn > 0.05 && flickNext <= 0 && flickT < 0) { flickT = 0; flickNext = 1.2 + Math.random() * 3.2;
-    cloudFlash.position.set(center.x + (Math.random() - 0.5) * 8, center.y + 1 + Math.random() * 3, center.z - 2.5 - Math.random() * 2.5); }
+    cloudFlash.position.set(center.x + (Math.random() - 0.5) * 8, center.y + 1 + Math.random() * 3, center.z - 2.5 - Math.random() * 2.5);
+    // a visible bolt in the sky behind him, off to one side so it never crosses his body
+    const W = HOST.clientWidth, Hh = HOST.clientHeight, side = Math.random() < 0.5 ? 0.06 + Math.random() * 0.24 : 0.7 + Math.random() * 0.24, x0 = side * W;
+    const main = frac2([x0, -Hh * 0.05], [x0 + (Math.random() - 0.5) * W * 0.12, Hh * (0.32 + Math.random() * 0.3)], 7, 0.4), br = [];
+    for (let k = 0; k < 4; k++) { const i = 8 + Math.floor(Math.random() * main.length * 0.6), a = main[i], L = Hh * (0.04 + Math.random() * 0.1), dir = Math.random() < 0.5 ? -1 : 1; br.push({ pts: frac2(a, [a[0] + dir * L, a[1] + L], 5, 0.6), at: i / main.length, w: 0.5 }); }
+    bgBolt = { main, br }; }
   if (flickT >= 0) { flickT += realDt; const t = flickT; flick = (t < 0.06 ? 1 : t < 0.12 ? 0.25 : t < 0.18 ? 0.85 : Math.max(0, 0.7 - (t - 0.18) * 3)) * flickOn; if (t > 0.45) { flickT = -1; flick = 0; } }
   cloudFlash.intensity = flick * 60;
+  { const dpr = Math.min(2, devicePixelRatio || 1), W = HOST.clientWidth, Hh = HOST.clientHeight; if (bgCv.width !== Math.round(W * dpr)) { bgCv.width = Math.round(W * dpr); bgCv.height = Math.round(Hh * dpr); }
+    bgx.setTransform(dpr, 0, 0, dpr, 0, 0); bgx.clearRect(0, 0, W, Hh);
+    if (bgBolt && flickT >= 0 && flick > 0.05) { const grow = clamp(flickT / 0.07); bgx.lineCap = 'round';
+      const path = (pts, k) => { const n = Math.max(2, Math.floor(pts.length * k)); bgx.beginPath(); bgx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < n; i++) bgx.lineTo(pts[i][0], pts[i][1]); };
+      for (const [lw, col, blur, al] of [[9, 'rgba(120,165,255,.3)', 22, 1], [3.5, '#a9c8ff', 10, 0.9], [1.4, '#ffffff', 4, 1]]) { bgx.globalAlpha = al * flick; bgx.lineWidth = lw; bgx.strokeStyle = col; bgx.shadowColor = 'rgba(140,180,255,.9)'; bgx.shadowBlur = blur;
+        path(bgBolt.main, grow); bgx.stroke(); for (const b of bgBolt.br) { const k = clamp((grow - b.at) / Math.max(0.05, 1 - b.at)); if (k > 0) { bgx.lineWidth = lw * b.w; path(b.pts, k); bgx.stroke(); } } }
+      bgx.globalAlpha = 1; bgx.shadowBlur = 0; } }
 
   // rain: starts as the clouds gather, freezes mid-air in the hush, stops when the sun breaks through
   const rainK = ramp(P, 0.16, 0.32) * (1 - ramp(P, 0.72, 0.77)) * (1 - bloom);
-  rain.visible = rainK > 0.01; rainMat.opacity = rainK * 0.42; rain.position.set(center.x, center.y, center.z);
+  rain.visible = rainK > 0.01; rainMat.opacity = rainK * 0.18; rain.position.set(center.x, center.y, center.z);
   if (rain.visible) { const fall = (1 - hush * 0.985); let k = 0;
     for (const d of rainD) { const om = speed * d.w * 3.2 / d.r;    // rain spirals round him with the storm
       d.a += om * realDt; d.y -= d.v * realDt * fall; if (d.y < -3) { d.y += 10; d.a = rnd() * 6.283; }
@@ -372,12 +418,15 @@ Z.onFrame((dt, now, realDt) => {
     rainGeo.attributes.position.needsUpdate = true; }
 
   // holograms: appear once the glasses are on, orbit with the storm, then get pulled into the bulb
+  const uni = ramp(P, 0.44, 0.56); ringA += speed * 1.9 * realDt;
   for (const h of holos) { const u = h.userData; const on = ramp(P, u.on, u.on + 0.03) * (1 - pull);
     u.ang += speed * u.w * 1.9 * (1.3 / u.r) * realDt; u.tx += u.tumX * speed * realDt; u.ty += u.tumY * speed * realDt;
-    const a = u.ang, rr = u.r * (1 + stormK * 0.25);
-    const orbit = V(center.x + Math.cos(a) * rr * 1.25, center.y + u.y + Math.sin(now * 1.3 + u.ph) * 0.05, center.z + Math.sin(a) * rr * 0.55 - 0.2);
+    const slot = ringA + holos.indexOf(h) / holos.length * Math.PI * 2; let da = ((slot - u.ang) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+    const a = u.ang + da * uni, rr = (u.r + (1.35 - u.r) * uni) * (1 + stormK * 0.25), yy = u.y + (0.25 - u.y) * uni;
+    if (uni > 0.98) u.ang = a;
+    const orbit = V(center.x + Math.cos(a) * rr * 1.25, center.y + yy + Math.sin(now * 1.3 + u.ph) * 0.05 * (1 - uni), center.z + Math.sin(a) * rr * 0.55 - 0.2);
     const pk = Math.pow(pull, 1.6); h.position.lerpVectors(orbit, bulbPos, pk);
-    h.quaternion.copy(camera.quaternion); h.rotateY(Math.sin(a) * 0.35 + Math.sin(u.ty) * 0.5); h.rotateX(Math.sin(u.tx) * 0.35);
+    h.quaternion.copy(camera.quaternion); h.rotateY(Math.sin(a) * 0.35 + Math.sin(u.ty) * 0.5 * (1 - uni)); h.rotateX(Math.sin(u.tx) * 0.35 * (1 - uni));
     h.scale.setScalar(Math.max(0.001, (1 - pk * 0.9) * (0.8 + 0.2 * on)));
     const ho = (on + pull * (1 - pk) * 0.8) * (1 - hush * 0.6); h.material.uniforms.uAlpha.value = ho; h.material.uniforms.uTime.value = now;
     h.visible = ho > 0.01 && P < 0.66;
@@ -442,9 +491,9 @@ Z.onFrame((dt, now, realDt) => {
   if (struck && P < 0.7) { struck = false; strikeT = -1; }
   if (strikeT >= 0) strikeT += realDt; if (window.__strikeHold != null && strikeT >= 0) strikeT = window.__strikeHold;
   const gTarget = struck && strikeT > 0.14 ? 1 : 0; glow += (gTarget - glow) * Math.min(1, realDt * (struck ? 1.6 : 6));
-  glassMat.emissiveIntensity = glow * 1.6; glassMat.opacity = (0.12 + glow * 0.22) * real; stemMat.opacity = 0.08 * real; glassMat.color.setRGB(0.93 + glow * 0.07, 0.96, 1.0 - glow * 0.25);
+  glassMat.emissiveIntensity = glow * 1.6; glassMat.opacity = (0.12 + glow * 0.22) * real; glassPhys.opacity = real; glassRim.uniforms.uA.value = real; glassPhys.emissiveIntensity = glow * 0.9; glassPhys.transmission = 1 - glow * 0.35; stemMat.opacity = 0.08 * real; glassMat.color.setRGB(0.93 + glow * 0.07, 0.96, 1.0 - glow * 0.25);
   filMat.color.setRGB(0.54 + glow * 0.8, 0.56 + glow * 0.6, 0.6 + glow * 0.2);
-  haloMat.opacity = Math.min(1, glow) * (0.96 + 0.04 * Math.sin(now * 6)); halo.scale.setScalar(0.5 + Math.min(1.2, glow) * 1.5 + bloom * 3);
+  haloMat.opacity = Math.min(1, glow) * (0.96 + 0.04 * Math.sin(now * 6)); halo.scale.setScalar(0.3 + Math.min(1.2, glow) * 0.9 + bloom * 3);
   bulbLight.intensity = glow * 1.6 + (strikeT >= 0.14 && strikeT < 0.6 ? (1 - (strikeT - 0.14) / 0.46) * 10 : 0);
   // bolt flickers for ~0.45s
   // the bolt races down from the sky in ~80 ms, holds, flickers twice and fades
@@ -468,22 +517,40 @@ Z.onFrame((dt, now, realDt) => {
   const lookUp = ramp(P, 0.6, 0.7) * (1 - ramp(P, 0.86, 0.95));
   if (lookUp > 0.01) { Z.addWorldRot(bones.mixamorigNeck, 0, -0.06 * lookUp); Z.addWorldRot(bones.mixamorigHead, 0, -0.1 * lookUp); state.exprLook = [0, 0.4 * lookUp]; }
 
-  // the coin: swapped in under the bloom, spins and floats down into his hands
+  // the coin: forms in the bloom, arcs down past the side of his head (never through it) into his hands;
+  // then he unfolds, takes it and jets up and away (the avatar's own exit, driven by the story)
   bones.mixamorigLeftHand.getWorldPosition(handL); bones.mixamorigRightHand.getWorldPosition(handR);
   const lap = handL.clone().add(handR).multiplyScalar(0.5).add(V(0, 0.1, 0.16));
-  coin.visible = P >= 0.9; if (realCoin) { realCoin.visible = coin.visible; } if (coin.visible) { coin.position.lerpVectors(bulbPos, lap, sm(ramp(P, 0.9, 0.975))); coin.position.y += Math.sin(now * 1.6) * 0.02;
-    coin.rotation.set(0.15, Math.sin(now * 1.3) * 0.9 + now * 0.6, 0); if (window.__coinFreeze != null) coin.rotation.set(0, window.__coinFreeze, 0); coin.scale.setScalar(0.6 + 0.4 * ramp(P, 0.9, 0.93)); if (realCoin) { realCoin.position.copy(coin.position); realCoin.rotation.set(0.12, now * 0.9, Math.sin(now * 0.7) * 0.06); realCoin.scale.copy(coin.scale); coin.visible = false; } }
-  for (const s of sparks) s.visible = false;
-
+  const exitK = ramp(P, 0.955, 1.0); state.storyExit = exitK;
+  coin.visible = P >= 0.9;
+  if (coin.visible) { const k = sm(ramp(P, 0.9, 0.94)), ctl = V(headW.x + 0.42, headW.y + 0.1, headW.z + 0.38);
+    const q0 = V().lerpVectors(bulbPos, ctl, k), q1 = V().lerpVectors(ctl, lap, k); coin.position.lerpVectors(q0, q1, k);
+    const grab = ramp(exitK, 0.04, 0.16); if (grab > 0) coin.position.lerp(tmp.copy(handR).add(V(0.02, 0.07, 0.08)), grab);
+    coin.position.y += Math.sin(now * 1.6) * 0.015 * (1 - grab);
+    coin.scale.setScalar(0.6 + 0.4 * ramp(P, 0.9, 0.93));
+    if (realCoin) { realCoin.position.copy(coin.position); realCoin.rotation.set(0.12, now * 0.9 * (1 - grab * 0.6), Math.sin(now * 0.7) * 0.06); realCoin.scale.copy(coin.scale); realCoin.visible = true; coin.visible = false; }
+  } else if (realCoin) realCoin.visible = false;
+  // glints: a star flares where the rim or face actually catches the light as it turns
+  const cObj = realCoin && realCoin.visible ? realCoin : null;
+  for (const g of glints) g.visible = false;
+  if (cObj) { cObj.updateMatrixWorld(); const e = cObj.matrixWorld.elements, ex = V(e[0], e[1], e[2]).normalize(), ey = V(e[4], e[5], e[6]).normalize(), ez = V(e[8], e[9], e[10]).normalize();
+    const cp = cObj.position, Lp = V(bulbPos.x - 0.6, bulbPos.y + 0.8, bulbPos.z + 1.2), H = Lp.sub(cp).normalize().add(tmp.copy(camera.position).sub(cp).normalize()).normalize();
+    const R = 0.1 * cObj.scale.x, hx = H.dot(ex), hy = H.dot(ey), inPlane = Math.hypot(hx, hy), th = Math.atan2(hy, hx);
+    const rimI = Math.pow(inPlane, 18), faceI = Math.pow(Math.abs(H.dot(ez)), 40);
+    const g0 = glints[0]; g0.visible = rimI > 0.02; g0.position.copy(cp).addScaledVector(ex, Math.cos(th) * R).addScaledVector(ey, Math.sin(th) * R); g0.material.opacity = rimI; g0.scale.setScalar(0.05 + rimI * 0.09); g0.material.rotation = now * 0.6;
+    const g1 = glints[1]; g1.visible = faceI > 0.02; g1.position.copy(cp).addScaledVector(ex, -R * 0.35).addScaledVector(ey, R * 0.4).addScaledVector(ez, 0.02); g1.material.opacity = faceI; g1.scale.setScalar(0.06 + faceI * 0.12); g1.material.rotation = -now * 0.4;
+    const tw = Math.max(0, Math.sin(now * 2.3 + 1)) ** 12, g2 = glints[2]; g2.visible = tw > 0.02; g2.position.copy(cp).addScaledVector(ex, R * 0.55).addScaledVector(ey, -R * 0.62); g2.material.opacity = tw * 0.9; g2.scale.setScalar(0.04 + tw * 0.05); }
   // lights
   for (const L of lights) { L.l.intensity = L.i * (1 - dark * 0.45) * (1 + sun * (1 - reveal) * 0.25);
     L.l.color.copy(L.c).lerp(COOL, dark * 0.55).lerp(WARM, sun * (1 - reveal * 0.7) * 0.45); }
 
   // camera: pushes in on him for the hush and strike, pulls back out for the reveal
-  if (!camBase || P < 0.004) camBase = { pos: Z.camFull.pos.clone(), target: Z.camFull.target.clone() };
+  if (!camBase || P < 0.004) camBase = { pos: Z.camFull.pos.clone().sub(camOff), target: Z.camFull.target.clone().sub(camOff) };
   const push = ramp(P, 0.6, 0.7) * (1 - ramp(P, 0.88, 0.98));
+  // phones: lift him in the frame so the 'No limits' title sits underneath him rather than across him
+  camOff.set(0, innerWidth < 700 ? -0.42 * (1 - push) : 0, 0);
   const pTarget = V(headW.x - 0.05, headW.y + 0.12, headW.z), pPos = V(headW.x + 0.25, headW.y + 0.05, headW.z + 3.1);
-  Z.camFull.target.lerpVectors(camBase.target, pTarget, push * 0.85); Z.camFull.pos.lerpVectors(camBase.pos, pPos, push * 0.85);
+  Z.camFull.target.lerpVectors(camBase.target, pTarget, push * 0.85).add(camOff); Z.camFull.pos.lerpVectors(camBase.pos, pPos, push * 0.85).add(camOff);
 
   // expressions per beat
   // he keeps the same calm, concentrating face throughout (no expression changes)
@@ -501,8 +568,59 @@ Z.onFrame((dt, now, realDt) => {
   bloomEl.style.background = `radial-gradient(90% 90% at ${bx}px ${by}px, rgba(255,252,238,1) 0%, rgba(255,240,205,.97) 35%, rgba(255,226,170,.9) 100%)`;
   bloomEl.style.opacity = (bloom * 0.98).toFixed(3);
   CAPS.forEach((c, i) => { const o = band(P, c[0], c[1], c[2], c[3]); capEls[i].style.opacity = o.toFixed(3); capEls[i].style.transform = `translateY(${((1 - o) * 12).toFixed(1)}px)`; });
-  const co = ramp(P, 0.95, 0.985); cta.style.opacity = co.toFixed(3); cta.style.pointerEvents = co > 0.5 ? 'auto' : 'none';
+  const co = ramp(P, 0.93, 0.955); cta.style.opacity = co.toFixed(3); cta.style.pointerEvents = co > 0.5 ? 'auto' : 'none';
+  const cm = co * (1 - ramp(exitK, 0.3, 0.55)); coach.style.opacity = cm.toFixed(3);
+  if (cm > 0.01 && realCoin) { const cs = realCoin.position.clone().project(camera), cx2 = (cs.x + 1) / 2 * cw, cy2 = (1 - cs.y) / 2 * ch, hr = HOST.getBoundingClientRect(), br = cta.getBoundingClientRect();
+    const x1 = br.right - hr.left + 10, y1 = br.top - hr.top + br.height / 2, ang = Math.atan2(cy2 - y1, cx2 - x1), x2 = cx2 - Math.cos(ang) * 42, y2 = cy2 - Math.sin(ang) * 42;
+    coachP.setAttribute('d', `M${x1.toFixed(0)},${y1.toFixed(0)} Q${((x1 + x2) / 2).toFixed(0)},${(Math.min(y1, y2) - 70).toFixed(0)} ${x2.toFixed(0)},${y2.toFixed(0)}`);
+    coachP.setAttribute('stroke-dashoffset', (-now * 18).toFixed(1)); coachC.setAttribute('cx', cx2.toFixed(0)); coachC.setAttribute('cy', cy2.toFixed(0)); coachC.setAttribute('r', (30 + 4 * Math.sin(now * 3)).toFixed(1)); }
   if (window.__storyDebug) { window.__storyDebug.P = P; window.__storyDebug.strikeT = strikeT; window.__storyDebug.flick = flick; window.__storyDebug.gestT = gestT; }
 });
+
+// ---------- below the story: About text goes full-screen with a photo slot, over a descent to Earth ----------
+document.body.classList.add('zs-on');
+const css2 = document.createElement('style');
+css2.textContent = `
+body.zs-on .page_root{position:relative}
+body.zs-on .about_section{position:relative;z-index:1;background:transparent!important}
+body.zs-on .about_section > .page_wrap{max-width:none!important;width:100%!important;padding-left:6vw!important;padding-right:6vw!important;box-sizing:border-box}
+body.zs-on .about_panel{min-height:86vh;display:grid!important;grid-template-columns:minmax(240px,.75fr) 1.5fr;column-gap:5vw;row-gap:2.2em;align-content:center;padding:6vw!important;box-sizing:border-box}
+body.zs-on .about_panel > *:not(.zs-photo){grid-column:2}
+body.zs-on .about_panel > .text-body:first-of-type{font:500 clamp(22px,2.1vw,32px)/1.32 'League Spartan',system-ui,sans-serif;letter-spacing:-.005em}
+body.zs-on .zs-photo{grid-column:1;grid-row:1 / span 3;align-self:center;aspect-ratio:4/5;border-radius:28px;border:2px dashed rgba(120,140,170,.55);background:rgba(255,255,255,.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5em;font:600 13px/1.3 'League Spartan',system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(40,60,90,.7);text-align:center;padding:1em}
+body.zs-on .zs-photo i{font-size:34px;opacity:.6;font-style:normal}
+@media (max-width:899px){body.zs-on .about_panel{grid-template-columns:1fr;padding:8vw!important}body.zs-on .about_panel > *{grid-column:1!important}body.zs-on .zs-photo{grid-row:auto;max-width:320px;width:70%;justify-self:center}}
+#zs-earth{position:absolute;left:0;right:0;z-index:0;pointer-events:none}
+#zs-earth canvas{position:sticky;top:0;width:100%;height:100vh;display:block}
+`;
+document.head.appendChild(css2);
+const panel = document.querySelector('.about_panel');
+if (panel && !panel.querySelector('.zs-photo')) { const ph = document.createElement('div'); ph.className = 'zs-photo'; ph.innerHTML = '<i>◎</i>Your photo here<br><span style="letter-spacing:.04em;text-transform:none;font-weight:500">real-world you, after the avatar</span>'; panel.prepend(ph); }
+const earthWrap = document.createElement('div'); earthWrap.id = 'zs-earth'; const earthCv = document.createElement('canvas'); earthWrap.appendChild(earthCv);
+const root = document.querySelector('.page_root') || document.body; root.prepend(earthWrap);
+const firstSec = document.querySelector('.about_section'), foot = [...document.querySelectorAll('.about_section')].pop();
+function placeEarth() { if (!firstSec) return; const rr = root.getBoundingClientRect(), a = firstSec.getBoundingClientRect(), b = foot.getBoundingClientRect();
+  earthWrap.style.top = (a.top - rr.top) + 'px'; earthWrap.style.height = (b.bottom - a.top) + 'px'; }
+addEventListener('resize', placeEarth); setTimeout(placeEarth, 300); setInterval(placeEarth, 2000);
+const ex = earthCv.getContext('2d');
+const hill = (seed, n) => { let r = seed; const rn = () => (r = (r * 16807) % 2147483647) / 2147483647; return Array.from({ length: n }, () => rn()); };
+const HILLS = [hill(7, 9), hill(99, 11), hill(4242, 13)];
+function drawEarth() {
+  if (!firstSec) return; const W = earthCv.clientWidth, H = earthCv.clientHeight; if (!W || !H) return;
+  const dpr = Math.min(2, devicePixelRatio || 1); if (earthCv.width !== Math.round(W * dpr)) { earthCv.width = Math.round(W * dpr); earthCv.height = Math.round(H * dpr); }
+  const wr = earthWrap.getBoundingClientRect(), q = clamp(-wr.top / Math.max(1, wr.height - innerHeight)), g = ex; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // sky: from the story's pale blue down to warm haze near the ground
+  const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, `rgb(${170 - q * 40},${210 - q * 20},${244})`); sky.addColorStop(0.7, '#e7eef6'); sky.addColorStop(1, '#f6e6cf'); g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  // the planet: a wide curved horizon that flattens as we come down
+  const R = W * (0.9 + Math.pow(q, 1.6) * 9), top = H * (0.62 - 0.2 * q), cx = W / 2, cy = top + R;
+  const atm = g.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.06); atm.addColorStop(0, 'rgba(180,220,255,.9)'); atm.addColorStop(1, 'rgba(180,220,255,0)'); g.fillStyle = atm; g.beginPath(); g.arc(cx, cy, R * 1.06, 0, 7); g.fill();
+  const ground = g.createLinearGradient(0, top, 0, H); ground.addColorStop(0, '#8fb3d9'); ground.addColorStop(0.25, '#6f9a9c'); ground.addColorStop(1, '#55806a'); g.fillStyle = ground; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fill();
+  // hills rise into view as we land (Bay Area-ish ridgelines), nearest last
+  HILLS.forEach((hs, i) => { const k = clamp((q - 0.25 - i * 0.12) / 0.4); if (k <= 0) return; const base = top + (H - top) * (0.15 + i * 0.22) + (1 - k) * 80, amp = H * (0.07 + i * 0.03);
+    g.globalAlpha = k; g.fillStyle = ['#7a9db4', '#5f8a87', '#4c7258'][i]; g.beginPath(); g.moveTo(0, H);
+    for (let x = 0; x <= W; x += 8) { const u = x / W * (hs.length - 1), j = Math.floor(u), f = u - j, a = hs[j], b = hs[Math.min(hs.length - 1, j + 1)], v = a + (b - a) * (f * f * (3 - 2 * f)); g.lineTo(x, base - v * amp); }
+    g.lineTo(W, H); g.closePath(); g.fill(); g.globalAlpha = 1; });
+}
+(function earthLoop() { const r = earthWrap.getBoundingClientRect(); if (r.bottom > 0 && r.top < innerHeight) drawEarth(); requestAnimationFrame(earthLoop); })();
 window.__storyDebug = { P: 0 };
 console.log('[zolton] scroll story ready');

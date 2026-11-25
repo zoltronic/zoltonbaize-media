@@ -842,10 +842,10 @@ function frame(){
     state.poseW+=(seatTarget-state.poseW)*Math.min(1,dt*2.4); state.armW+=(armTarget-state.armW)*Math.min(1,dt*2.4);
     root.position.y += YOGA_DROP*state.poseW;
     // scroll exit: cloud drifts away, he unfolds out of yoga, then jets up and away (scrubbed both ways)
-    if(state.story){ state.exitP=0; } else { const r=HOST.getBoundingClientRect(); const P=Math.max(0,Math.min(1,-r.top/Math.max(1,r.height*0.75)));
+    if(state.story && state.storyExit==null){ state.exitP=0; } else { const r=HOST.getBoundingClientRect(); const P=Math.max(0,Math.min(1,-r.top/Math.max(1,r.height*0.75)));
       state.scrollP+=(P-state.scrollP)*Math.min(1,dt*6);
       const armed = state.yoga && state.mode==='yoga' && state.cloudRise<0 && !(state.cloudDelay>0);
-      const sp = armed? state.scrollP : 0; state.exitP=sp;
+      const sp = state.story ? state.storyExit : (armed? state.scrollP : 0); state.exitP=sp;
       if(armed) state.seated = sp<0.16;
       const fly=Math.max(0,Math.min(1,(sp-0.38)/0.62)), f2=fly*fly;
       EXITOFF.set(f2*1.2,f2*7.5,-f2*9); root.position.add(EXITOFF);
