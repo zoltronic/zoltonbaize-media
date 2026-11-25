@@ -37,12 +37,13 @@ css.textContent = `
 #zs-flash{background:#f4fbff}
 #zs-caps{position:absolute;inset:0;pointer-events:none;z-index:3}
 #zs-caps .zc{position:absolute;left:50%;bottom:5vh;width:min(780px,88vw);margin-left:calc(min(780px,88vw) / -2);text-align:center;opacity:0;transition:none;color:#fff;font:600 clamp(22px,2.5vw,36px)/1.18 'League Spartan',system-ui,sans-serif;letter-spacing:-.01em;text-shadow:0 2px 22px rgba(0,10,30,.7)}
+#zs-caps .zc.side{left:auto;right:6vw;bottom:auto;top:38vh;width:min(380px,34vw);margin-left:0;text-align:left}
 #zs-caps .zc b{display:block;font-weight:700;font-size:.62em;letter-spacing:.18em;text-transform:uppercase;color:#9fe9ff;margin-bottom:.35em}
 #zs-caps .zc.light{color:#0b1b33;text-shadow:0 1px 14px rgba(255,255,255,.6)}
 #zs-coach{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;overflow:visible}
-#zs-cta{position:absolute;pointer-events:auto;opacity:0;display:inline-flex;align-items:center;gap:.5em;padding:.85em 1.4em;border-radius:999px;
+#zs-cta{position:absolute;pointer-events:auto;opacity:0;display:inline-flex;align-items:center;gap:.4em;padding:.55em 1em;font:600 14px/1 'League Spartan',system-ui,sans-serif;white-space:nowrap;border-radius:999px;
   background:linear-gradient(180deg,#ffe08a,#f1b53b);color:#3a2300;font-weight:600;text-decoration:none;box-shadow:0 8px 30px rgba(240,170,40,.45);z-index:4}
-@media (max-width:899px){#zs-caps .zc{bottom:4vh;font-size:22px}#zs-brain{bottom:auto;top:76px}}
+@media (max-width:899px){#zs-caps .zc{bottom:4vh;font-size:22px}#zs-caps .zc.side{left:50%;right:auto;top:auto;bottom:4vh;width:88vw;margin-left:-44vw;text-align:center}#zs-brain{bottom:auto;top:76px}}
 @media (max-width:699px){.about_hero.zstory > .page_wrap{padding-bottom:4vh!important}.about_hero.zstory .heading-h1{font-size:15vw!important;line-height:.95!important}.about_hero.zstory .text-subhead{font-size:16px!important}}
 `;
 document.head.appendChild(css);
@@ -60,9 +61,9 @@ canvas.style.position = 'absolute'; HOST.insertBefore(bgCv, canvas);
 
 // captions sit where the hero title sits (left third), in the site's own type styles
 const CAPS = [
-  [0.07, 0.10, 0.19, 0.22, '', 'I’m Zolton. I’ve been designing since 2004, at Apple, Google and Wells Fargo.'],
-  [0.23, 0.26, 0.36, 0.39, '', '<b>Diverge</b>Go wide first. Every idea, every angle, all at once.'],
-  [0.40, 0.43, 0.52, 0.55, '', 'Product design, motion and 3D, prototyping in code, and AI agents.'],
+  [0.07, 0.10, 0.19, 0.22, '', 'I’m Zolton. I’ve been designing for over 20 years, with stops at Apple, Google and Wells Fargo.'],
+  [0.24, 0.27, 0.5, 0.54, '', '<b>Divergent stage</b>Explore widely, so the right connections can surface.'],
+  [0.715, 0.73, 0.8, 0.83, 'side', '<b>Convergent stage</b>Where it all connects, and ideas spark.'],
 ];
 const capEls = CAPS.map(c => { const d = document.createElement('div'); d.className = 'zc ' + c[4]; d.innerHTML = c[5]; capsEl.appendChild(d); return d; });
 const cta = document.createElement('a'); cta.id = 'zs-cta'; cta.href = '/'; cta.textContent = 'See the work →'; capsEl.appendChild(cta);
@@ -196,7 +197,7 @@ const glassRim = new THREE.ShaderMaterial({ transparent: true, depthWrite: false
   vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - w.xyz); gl_Position = projectionMatrix * viewMatrix * w; }',
   fragmentShader: 'uniform float uA; varying vec3 vN; varying vec3 vV; void main(){ vec3 n = normalize(vN); float f = pow(1.0 - abs(dot(n, vV)), 3.0); vec3 L = normalize(vec3(-0.5, 0.7, 0.6)); vec3 H = normalize(L + vV); float spec = pow(max(dot(n, H), 0.0), 90.0); float a = (f * 0.55 + spec * 1.2) * uA; gl_FragColor = vec4(vec3(0.92, 0.97, 1.0) * a, a); }' });
 // real glass: physically transmissive with clearcoat, so it shows the scene through it and catches reflections
-const glassPhys = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, roughness: 0.02, transmission: 1, thickness: 0.012, ior: 1.5, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 0.9, specularIntensity: 1, transparent: true, opacity: 1, emissive: 0xffb43a, emissiveIntensity: 0, depthWrite: false });
+const glassPhys = new THREE.MeshPhysicalMaterial({ color: 0xeef6ff, metalness: 0, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 0.55, specularIntensity: 1, transparent: true, opacity: 1, emissive: 0xffb43a, emissiveIntensity: 0, depthWrite: false });
 const screw = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.055, 0.09, 24), baseMat); screw.position.y = -0.15;
 const tip = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 8), baseMat); tip.position.y = -0.2;
 const filMat = new THREE.MeshBasicMaterial({ color: 0x8a909a, transparent: true, opacity: 1 });
@@ -262,8 +263,8 @@ function makeBolt2d(bx, by) { const W = HOST.clientWidth, H = HOST.clientHeight,
 function drawBolt2d(t) { const dpr = Math.min(2, devicePixelRatio || 1), W = HOST.clientWidth, H = HOST.clientHeight;
   if (boltCv.width !== Math.round(W * dpr)) { boltCv.width = Math.round(W * dpr); boltCv.height = Math.round(H * dpr); }
   bctx.setTransform(dpr, 0, 0, dpr, 0, 0); bctx.clearRect(0, 0, W, H);
-  if (!bolt2d || t < 0 || t >= 0.8 || (t > 0.22 && t < 0.25) || (t > 0.4 && t < 0.43)) return;
-  const grow = clamp(t / 0.14), fade = 1 - ramp(t, 0.5, 0.8);
+  if (!bolt2d || t < 0 || t >= 1.0) return;
+  const grow = clamp(t / 0.14), fade = 1 - ramp(t, 0.7, 1.0);
   const path = (pts, k) => { const n = Math.max(2, Math.floor(pts.length * k)); bctx.beginPath(); bctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < n; i++) bctx.lineTo(pts[i][0], pts[i][1]); };
   const strokeAll = (lw, col, blur, alpha) => { bctx.globalAlpha = alpha * fade; bctx.lineWidth = lw; bctx.strokeStyle = col; bctx.shadowColor = 'rgba(120,170,255,.9)'; bctx.shadowBlur = blur;
     path(bolt2d.main, grow); bctx.stroke();
@@ -337,6 +338,8 @@ const glintMat = new THREE.SpriteMaterial({ map: canvasTex(128, 128, (g) => { co
     const gr = g.createRadialGradient(c, c, 0, c, c, 22); gr.addColorStop(0, 'rgba(255,255,245,1)'); gr.addColorStop(0.4, 'rgba(255,236,180,.55)'); gr.addColorStop(1, 'rgba(255,220,140,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
     for (const [a, l, w] of [[0, 62, 2.2], [Math.PI / 2, 62, 2.2], [Math.PI / 4, 30, 1.4], [-Math.PI / 4, 30, 1.4]]) { g.save(); g.translate(c, c); g.rotate(a); const lg = g.createLinearGradient(-l, 0, l, 0); lg.addColorStop(0, 'rgba(255,240,200,0)'); lg.addColorStop(0.5, 'rgba(255,255,250,1)'); lg.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = lg; g.beginPath(); g.moveTo(-l, 0); g.lineTo(0, -w); g.lineTo(l, 0); g.lineTo(0, w); g.fill(); g.restore(); } }),
   transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
+const coinGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(128, 128, (g) => { const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,214,120,.75)'); gr.addColorStop(0.45, 'rgba(255,196,90,.25)'); gr.addColorStop(1, 'rgba(255,190,80,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); }),
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); coinGlow.visible = false; coinGlow.renderOrder = 4; scene.add(coinGlow);
 const glints = [0, 1, 2].map(() => { const s = new THREE.Sprite(glintMat.clone()); s.renderOrder = 30; s.visible = false; scene.add(s); return s; });
 const sparks = []; for (let i = 0; i < 0; i++) { const s = new THREE.Sprite(sparkMat.clone()); s.userData = { a: Math.random() * 6.28, r: 0.18 + Math.random() * 0.25, y: (Math.random() - 0.5) * 0.4, ph: Math.random() * 6, sp: 0.6 + Math.random() }; s.visible = false; scene.add(s); sparks.push(s); }
 
@@ -358,7 +361,7 @@ Z.onFrame((dt, now, realDt) => {
   if (!storyReady) storyReady = state.mode === 'yoga' && state.seated && state.cloudRise < 0 && !(state.cloudDelay > 0) && (!state.intro || state.introStep === 'done');
   const ready = storyReady;
   const target = ready ? raw : 0;
-  Ps += (target - Ps) * Math.min(1, realDt * 3.2);
+  Ps += (target - Ps) * Math.min(1, realDt * 9);
   const P = Ps;
   if (P < 0.004) { for (const L of lights) { L.i = L.l.intensity; L.c.copy(L.l.color); } }   // track day/night changes while idle
 
@@ -425,7 +428,7 @@ Z.onFrame((dt, now, realDt) => {
     const a = u.ang + da * uni, rr = (u.r + (1.35 - u.r) * uni) * (1 + stormK * 0.25), yy = u.y + (0.25 - u.y) * uni;
     if (uni > 0.98) u.ang = a;
     const orbit = V(center.x + Math.cos(a) * rr * 1.25, center.y + yy + Math.sin(now * 1.3 + u.ph) * 0.05 * (1 - uni), center.z + Math.sin(a) * rr * 0.55 - 0.2);
-    const pk = Math.pow(pull, 1.6); h.position.lerpVectors(orbit, bulbPos, pk);
+    const pk = Math.pow(pull, 1.6); h.position.lerpVectors(orbit, tmp.set(headW.x, headW.y + 0.06, headW.z), pk);
     h.quaternion.copy(camera.quaternion); h.rotateY(Math.sin(a) * 0.35 + Math.sin(u.ty) * 0.5 * (1 - uni)); h.rotateX(Math.sin(u.tx) * 0.35 * (1 - uni));
     h.scale.setScalar(Math.max(0.001, (1 - pk * 0.9) * (0.8 + 0.2 * on)));
     const ho = (on + pull * (1 - pk) * 0.8) * (1 - hush * 0.6); h.material.uniforms.uAlpha.value = ho; h.material.uniforms.uTime.value = now;
@@ -478,7 +481,7 @@ Z.onFrame((dt, now, realDt) => {
   const sp0 = bulbPos.clone().project(camera); const bx0 = ((sp0.x + 1) / 2 * HOST.clientWidth).toFixed(0), by0 = ((1 - sp0.y) / 2 * HOST.clientHeight).toFixed(0);
   // bulb forms from the holograms, waits dark in the hush, ignites on the strike
   const form = ramp(P, 0.57, 0.65);
-  bulb.visible = form > 0.01 && P < 0.905; bulb.position.copy(bulbPos); bulb.position.y += Math.sin(now * 1.4) * 0.015;
+  bulb.visible = form > 0.01 && P < 0.905; const rise = sm(ramp(P, 0.6, 0.68)); bulb.position.set(headW.x, headW.y + 0.08, headW.z).lerp(bulbPos, rise); bulb.position.y += Math.sin(now * 1.4) * 0.015 * rise;
   bulb.scale.setScalar(Math.max(0.001, form) * (1 + glow * 0.012 * Math.sin(now * 5)));
   // the AR bulb forms from the holograms, then simply fades into reality: a clear, barely-there glass bulb
   const real = arBulb ? ramp(P, 0.645, 0.695) : 1;
@@ -487,14 +490,15 @@ Z.onFrame((dt, now, realDt) => {
   holoBulbMat.uniforms.uAlpha.value = form * (1 - real) * (0.9 + 0.1 * Math.sin(now * 23));
   if (arBulb) arBulb.visible = holoBulbMat.uniforms.uAlpha.value > 0.01;
   for (const mm of [baseMat, insMat, wireMat, filMat]) mm.opacity = real;
-  if (!struck && P >= 0.72) { struck = true; strikeT = 0; const sp = bulbPos.clone().add(V(0, 0.2, 0)).project(camera); makeBolt2d((sp.x + 1) / 2 * HOST.clientWidth, (1 - sp.y) / 2 * HOST.clientHeight); }
-  if (struck && P < 0.7) { struck = false; strikeT = -1; }
-  if (strikeT >= 0) strikeT += realDt; if (window.__strikeHold != null && strikeT >= 0) strikeT = window.__strikeHold;
-  const gTarget = struck && strikeT > 0.14 ? 1 : 0; glow += (gTarget - glow) * Math.min(1, realDt * (struck ? 1.6 : 6));
-  glassMat.emissiveIntensity = glow * 1.6; glassMat.opacity = (0.12 + glow * 0.22) * real; glassPhys.opacity = real; glassRim.uniforms.uA.value = real; glassPhys.emissiveIntensity = glow * 0.9; glassPhys.transmission = 1 - glow * 0.35; stemMat.opacity = 0.08 * real; glassMat.color.setRGB(0.93 + glow * 0.07, 0.96, 1.0 - glow * 0.25);
+  // the strike is the convergence 'eureka': scrubbed by scroll, so you can stop on the frozen bolt
+  if (!struck && P >= 0.715) { struck = true; const sp = bulbPos.clone().add(V(0, 0.12, 0)).project(camera); makeBolt2d((sp.x + 1) / 2 * HOST.clientWidth, (1 - sp.y) / 2 * HOST.clientHeight); }
+  if (struck && P < 0.69) struck = false;
+  strikeT = P >= 0.715 ? clamp((P - 0.715) / 0.075) * 1.1 : -1; if (window.__strikeHold != null && strikeT >= 0) strikeT = window.__strikeHold;
+  glow = strikeT >= 0 ? ramp(strikeT, 0.14, 0.45) : glow * Math.max(0, 1 - realDt * 6);
+  glassMat.emissiveIntensity = glow * 1.6; glassMat.opacity = (0.12 + glow * 0.22) * real; glassPhys.opacity = real * (0.16 + glow * 0.2); glassRim.uniforms.uA.value = real; glassPhys.emissiveIntensity = glow * 0.9; stemMat.opacity = 0.08 * real; glassMat.color.setRGB(0.93 + glow * 0.07, 0.96, 1.0 - glow * 0.25);
   filMat.color.setRGB(0.54 + glow * 0.8, 0.56 + glow * 0.6, 0.6 + glow * 0.2);
-  haloMat.opacity = Math.min(1, glow) * (0.96 + 0.04 * Math.sin(now * 6)); halo.scale.setScalar(0.3 + Math.min(1.2, glow) * 0.9 + bloom * 3);
-  bulbLight.intensity = glow * 1.6 + (strikeT >= 0.14 && strikeT < 0.6 ? (1 - (strikeT - 0.14) / 0.46) * 10 : 0);
+  haloMat.opacity = Math.min(1, glow) * 0.6 * (0.96 + 0.04 * Math.sin(now * 6)); halo.scale.setScalar(0.3 + Math.min(1.2, glow) * 0.9 + bloom * 3);
+  bulbLight.intensity = glow * 1.2 + (strikeT >= 0.14 && strikeT < 0.6 ? (1 - (strikeT - 0.14) / 0.46) * 6 : 0);
   // bolt flickers for ~0.45s
   // the bolt races down from the sky in ~80 ms, holds, flickers twice and fades
   drawBolt2d(strikeT);
@@ -503,7 +507,7 @@ Z.onFrame((dt, now, realDt) => {
     const fade = 1 - ramp(strikeT, 0.5, 0.8); boltMatCore.opacity = fade; boltMatGlow.opacity = 0.6 * fade; boltMatHaze.opacity = 0.22 * fade; }
   // the strike: a white-out centred on the bulb (with a second pulse), fading as the bulb settles to gold
   // the bolt is seen first; the flash bursts from the bulb only when it lands (t=0.14), never a full white-out
-  if (strikeT >= 0 && strikeT < 1.1) { const t = strikeT, f = t < 0.14 ? 0.12 * Math.sin(t * 60) ** 2 : t < 0.2 ? 0.92 : t < 0.26 ? 0.5 : t < 0.32 ? 0.85 : Math.max(0, 0.85 - (t - 0.32) * 1.1);
+  if (strikeT >= 0 && strikeT < 1.1) { const t = strikeT, f = t < 0.14 ? 0.08 : t < 0.2 ? 0.62 : t < 0.26 ? 0.35 : t < 0.32 ? 0.55 : Math.max(0, 0.55 - (t - 0.32) * 0.9);
     flashEl.style.background = `radial-gradient(60% 65% at ${bx0}px ${by0}px, #ffffff 0%, rgba(246,250,255,.95) 22%, rgba(220,236,255,.55) 55%, rgba(200,222,255,0) 100%)`;
     flashEl.style.opacity = f.toFixed(3); } else flashEl.style.opacity = 0;
 
@@ -525,11 +529,13 @@ Z.onFrame((dt, now, realDt) => {
   coin.visible = P >= 0.9;
   if (coin.visible) { const k = sm(ramp(P, 0.9, 0.94)), ctl = V(headW.x + 0.42, headW.y + 0.1, headW.z + 0.38);
     const q0 = V().lerpVectors(bulbPos, ctl, k), q1 = V().lerpVectors(ctl, lap, k); coin.position.lerpVectors(q0, q1, k);
-    const grab = ramp(exitK, 0.04, 0.16); if (grab > 0) coin.position.lerp(tmp.copy(handR).add(V(0.02, 0.07, 0.08)), grab);
-    coin.position.y += Math.sin(now * 1.6) * 0.015 * (1 - grab);
-    coin.scale.setScalar(0.6 + 0.4 * ramp(P, 0.9, 0.93));
-    if (realCoin) { realCoin.position.copy(coin.position); realCoin.rotation.set(0.12, now * 0.9 * (1 - grab * 0.6), Math.sin(now * 0.7) * 0.06); realCoin.scale.copy(coin.scale); realCoin.visible = true; coin.visible = false; }
+    // he leaves it behind: once he has flown off, the coin rises a little and grows into the focus
+    const grow = sm(ramp(exitK, 0.35, 0.9)); coin.position.lerp(tmp.set(headW.x, headW.y - 0.05, headW.z + 0.5), grow * 0.7);
+    coin.position.y += Math.sin(now * 1.6) * 0.015;
+    coin.scale.setScalar((0.6 + 0.4 * ramp(P, 0.9, 0.93)) * (1 + grow * 1.4));
+    if (realCoin) { realCoin.position.copy(coin.position); realCoin.rotation.set(0.12, now * 0.9, Math.sin(now * 0.7) * 0.06); realCoin.scale.copy(coin.scale); realCoin.visible = true; coin.visible = false; }
   } else if (realCoin) realCoin.visible = false;
+  coinGlow.visible = !!(realCoin && realCoin.visible); if (coinGlow.visible) { coinGlow.position.copy(realCoin.position).add(V(0, 0, -0.05)); coinGlow.scale.setScalar(0.5 * realCoin.scale.x * (1 + 0.08 * Math.sin(now * 2.2))); coinGlow.material.opacity = 0.75; }
   // glints: a star flares where the rim or face actually catches the light as it turns
   const cObj = realCoin && realCoin.visible ? realCoin : null;
   for (const g of glints) g.visible = false;
@@ -561,19 +567,17 @@ Z.onFrame((dt, now, realDt) => {
   const bx = ((sp.x + 1) / 2 * cw).toFixed(0), by = ((1 - sp.y) / 2 * ch).toFixed(0);
   const rays = band(P, 0.74, 0.8, 0.88, 0.93);
   if (rays > 0.01) raysEl.style.background = `radial-gradient(circle at ${bx}px ${by}px, rgba(255,246,222,.95) 0px, rgba(255,226,170,.7) ${(ch * 0.06).toFixed(0)}px, rgba(255,206,130,.28) ${(ch * 0.22).toFixed(0)}px, rgba(255,200,120,0) ${(ch * 0.55).toFixed(0)}px)`;
-  raysEl.style.opacity = (rays * (0.92 + 0.08 * Math.sin(now * 2))).toFixed(3);
+  raysEl.style.opacity = (rays * 0.6 * (0.92 + 0.08 * Math.sin(now * 2))).toFixed(3);
   const fl = band(P, 0.73, 0.78, 0.88, 0.92); flareEl.style.opacity = fl.toFixed(3);
   if (fl > 0.01) { const cx = cw / 2, cy = ch / 2; for (const g of flareGhosts) { g.i.style.left = (+bx + (cx - bx) * g.k) + 'px'; g.i.style.top = (+by + (cy - by) * g.k) + 'px'; }
     streak.style.left = bx + 'px'; streak.style.top = by + 'px'; streak.style.width = (cw * 0.7) + 'px'; }
   bloomEl.style.background = `radial-gradient(90% 90% at ${bx}px ${by}px, rgba(255,252,238,1) 0%, rgba(255,240,205,.97) 35%, rgba(255,226,170,.9) 100%)`;
-  bloomEl.style.opacity = (bloom * 0.98).toFixed(3);
+  bloomEl.style.opacity = (bloom * 0.72).toFixed(3);
   CAPS.forEach((c, i) => { const o = band(P, c[0], c[1], c[2], c[3]); capEls[i].style.opacity = o.toFixed(3); capEls[i].style.transform = `translateY(${((1 - o) * 12).toFixed(1)}px)`; });
   const co = ramp(P, 0.93, 0.955); cta.style.opacity = co.toFixed(3); cta.style.pointerEvents = co > 0.5 ? 'auto' : 'none';
-  const cm = co * (1 - ramp(exitK, 0.3, 0.55)); coach.style.opacity = cm.toFixed(3);
-  if (cm > 0.01 && realCoin) { const cs = realCoin.position.clone().project(camera), cx2 = (cs.x + 1) / 2 * cw, cy2 = (1 - cs.y) / 2 * ch, hr = HOST.getBoundingClientRect(), br = cta.getBoundingClientRect();
-    const x1 = br.right - hr.left + 10, y1 = br.top - hr.top + br.height / 2, ang = Math.atan2(cy2 - y1, cx2 - x1), x2 = cx2 - Math.cos(ang) * 42, y2 = cy2 - Math.sin(ang) * 42;
-    coachP.setAttribute('d', `M${x1.toFixed(0)},${y1.toFixed(0)} Q${((x1 + x2) / 2).toFixed(0)},${(Math.min(y1, y2) - 70).toFixed(0)} ${x2.toFixed(0)},${y2.toFixed(0)}`);
-    coachP.setAttribute('stroke-dashoffset', (-now * 18).toFixed(1)); coachC.setAttribute('cx', cx2.toFixed(0)); coachC.setAttribute('cy', cy2.toFixed(0)); coachC.setAttribute('r', (30 + 4 * Math.sin(now * 3)).toFixed(1)); }
+  coach.style.opacity = 0;
+  if (co > 0.01 && realCoin) { const cs = realCoin.position.clone().project(camera), cx2 = (cs.x + 1) / 2 * cw, cy2 = (1 - cs.y) / 2 * ch, rpx = 0.12 * realCoin.scale.x / Math.max(0.01, realCoin.position.distanceTo(camera.position)) * ch * 1.9;
+    cta.style.left = (cx2 + rpx + 14).toFixed(0) + 'px'; cta.style.top = (cy2 - 20 + Math.sin(now * 1.6) * 4).toFixed(0) + 'px'; }
   if (window.__storyDebug) { window.__storyDebug.P = P; window.__storyDebug.strikeT = strikeT; window.__storyDebug.flick = flick; window.__storyDebug.gestT = gestT; }
 });
 
