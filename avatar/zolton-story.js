@@ -37,7 +37,7 @@ css.textContent = `
 #zs-flash{background:#f4fbff}
 #zs-caps{position:absolute;inset:0;pointer-events:none;z-index:3}
 #zs-caps .zc{position:absolute;left:50%;bottom:5vh;width:min(780px,88vw);margin-left:calc(min(780px,88vw) / -2);text-align:center;opacity:0;transition:none;color:#fff;font:600 clamp(22px,2.5vw,36px)/1.18 'League Spartan',system-ui,sans-serif;letter-spacing:-.01em;text-shadow:0 2px 22px rgba(0,10,30,.7)}
-#zs-caps .zc.side{left:auto;right:6vw;bottom:auto;top:38vh;width:min(380px,34vw);margin-left:0;text-align:left}
+#zs-caps .zc.side{left:6vw;bottom:auto;top:54vh;width:min(360px,28vw);margin-left:0;text-align:left}
 #zs-caps .zc b{display:block;font-weight:700;font-size:.62em;letter-spacing:.18em;text-transform:uppercase;color:#9fe9ff;margin-bottom:.35em}
 #zs-caps .zc.light{color:#0b1b33;text-shadow:0 1px 14px rgba(255,255,255,.6)}
 #zs-coach{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;overflow:visible}
@@ -351,7 +351,7 @@ const COOL = new THREE.Color(0x8fb2ff), WARM = new THREE.Color(0xffd08a);
 let gestT = -1, gestTo = false; const gogClip = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 1e6);
 let storyReady = false, ringA = 0, frameN = 0, Ps = 0, spinA = 0, struck = false, strikeT = -1, glow = 0, gogglesWas = null, exprNow = '', last = 0;
 const headW = V(), handL = V(), handR = V(), tmp = V(), bulbPos = V();
-let camBase = null; const camOff = V();
+let camBase = null, coinHome = null; const camOff = V();
 state.story = true;
 const setE = (n) => { if (exprNow !== n) { exprNow = n; Z.setExpr(n, 9999); } };
 
@@ -524,13 +524,15 @@ Z.onFrame((dt, now, realDt) => {
   // the coin: forms in the bloom, arcs down past the side of his head (never through it) into his hands;
   // then he unfolds, takes it and jets up and away (the avatar's own exit, driven by the story)
   bones.mixamorigLeftHand.getWorldPosition(handL); bones.mixamorigRightHand.getWorldPosition(handR);
-  const lap = handL.clone().add(handR).multiplyScalar(0.5).add(V(0, 0.1, 0.16));
+  // once he starts to leave, the coin's spot freezes where it was (it must not follow him off-screen)
+  if (!coinHome || P < 0.955) coinHome = { lap: handL.clone().add(handR).multiplyScalar(0.5).add(V(0, 0.1, 0.16)), head: headW.clone(), bulb: bulbPos.clone() };
+  const lap = coinHome.lap;
   const exitK = ramp(P, 0.955, 1.0); state.storyExit = exitK;
   coin.visible = P >= 0.9;
-  if (coin.visible) { const k = sm(ramp(P, 0.9, 0.94)), ctl = V(headW.x + 0.42, headW.y + 0.1, headW.z + 0.38);
-    const q0 = V().lerpVectors(bulbPos, ctl, k), q1 = V().lerpVectors(ctl, lap, k); coin.position.lerpVectors(q0, q1, k);
+  if (coin.visible) { const H0 = coinHome.head, k = sm(ramp(P, 0.9, 0.94)), ctl = V(H0.x + 0.42, H0.y + 0.1, H0.z + 0.38);
+    const q0 = V().lerpVectors(coinHome.bulb, ctl, k), q1 = V().lerpVectors(ctl, lap, k); coin.position.lerpVectors(q0, q1, k);
     // he leaves it behind: once he has flown off, the coin rises a little and grows into the focus
-    const grow = sm(ramp(exitK, 0.35, 0.9)); coin.position.lerp(tmp.set(headW.x, headW.y - 0.05, headW.z + 0.5), grow * 0.7);
+    const grow = sm(ramp(exitK, 0.35, 0.9)); coin.position.lerp(tmp.set(H0.x, H0.y - 0.05, H0.z + 0.5), grow * 0.7);
     coin.position.y += Math.sin(now * 1.6) * 0.015;
     coin.scale.setScalar((0.6 + 0.4 * ramp(P, 0.9, 0.93)) * (1 + grow * 1.4));
     if (realCoin) { realCoin.position.copy(coin.position); realCoin.rotation.set(0.12, now * 0.9, Math.sin(now * 0.7) * 0.06); realCoin.scale.copy(coin.scale); realCoin.visible = true; coin.visible = false; }
@@ -595,6 +597,7 @@ body.zs-on .zs-photo{grid-column:1;grid-row:1 / span 3;align-self:center;aspect-
 body.zs-on .zs-photo i{font-size:34px;opacity:.6;font-style:normal}
 @media (max-width:899px){body.zs-on .about_panel{grid-template-columns:1fr;padding:8vw!important}body.zs-on .about_panel > *{grid-column:1!important}body.zs-on .zs-photo{grid-row:auto;max-width:320px;width:70%;justify-self:center}}
 #zs-earth{position:absolute;left:0;right:0;z-index:0;pointer-events:none}
+body.zs-on .page_root > :last-child, body.zs-on footer, body.zs-on .footer{position:relative;z-index:1;background:transparent!important}
 #zs-earth canvas{position:sticky;top:0;width:100%;height:100vh;display:block}
 `;
 document.head.appendChild(css2);
@@ -603,27 +606,52 @@ if (panel && !panel.querySelector('.zs-photo')) { const ph = document.createElem
 const earthWrap = document.createElement('div'); earthWrap.id = 'zs-earth'; const earthCv = document.createElement('canvas'); earthWrap.appendChild(earthCv);
 const root = document.querySelector('.page_root') || document.body; root.prepend(earthWrap);
 const firstSec = document.querySelector('.about_section'), foot = [...document.querySelectorAll('.about_section')].pop();
-function placeEarth() { if (!firstSec) return; const rr = root.getBoundingClientRect(), a = firstSec.getBoundingClientRect(), b = foot.getBoundingClientRect();
-  earthWrap.style.top = (a.top - rr.top) + 'px'; earthWrap.style.height = (b.bottom - a.top) + 'px'; }
+function placeEarth() { if (!firstSec) return; const rr = root.getBoundingClientRect(), a = firstSec.getBoundingClientRect();
+  earthWrap.style.top = (a.top - rr.top) + 'px'; earthWrap.style.height = (rr.height - (a.top - rr.top)) + 'px'; }
 addEventListener('resize', placeEarth); setTimeout(placeEarth, 300); setInterval(placeEarth, 2000);
 const ex = earthCv.getContext('2d');
-const hill = (seed, n) => { let r = seed; const rn = () => (r = (r * 16807) % 2147483647) / 2147483647; return Array.from({ length: n }, () => rn()); };
-const HILLS = [hill(7, 9), hill(99, 11), hill(4242, 13)];
+// golden-hour farmland seen from the air, painted in perspective; the camera sinks as you scroll (coming down to reality)
+const PLOTS = (() => { let r = 8675309; const rn = () => (r = (r * 16807) % 2147483647) / 2147483647; const out = [];
+  const COLS = ['#5d7a3a', '#6f8c42', '#86a24f', '#9fb25e', '#7a5a3c', '#8e6c45', '#5b4632', '#b89a55', '#a88c4c', '#4f6b33'];
+  // rows of fields recede from the viewer; each row is split into fields of random widths, a few get a hedgerow and trees
+  let z = 0.15; while (z < 70) { const depth = (0.12 + rn() * 0.3) * (1 + z * 0.12); const span = 1.3 * z + 1.5; let x = -span - rn() * 0.5; const skew = (rn() - 0.5) * 0.25;
+    while (x < span) { const w = (0.18 + rn() * 0.6) * (1 + z * 0.1); out.push({ x0: x, x1: x + w, z0: z, z1: z + depth, sk: skew, c: COLS[Math.floor(rn() * COLS.length)], hedge: rn() < 0.55, trees: rn() < 0.35, rows: rn() < 0.4, sd: rn() * 1e5 }); x += w; }
+    z += depth; }
+  return out.sort((p, q) => q.z0 - p.z0); })();
+const hexRGB = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+let earthQ = -1;
 function drawEarth() {
   if (!firstSec) return; const W = earthCv.clientWidth, H = earthCv.clientHeight; if (!W || !H) return;
-  const dpr = Math.min(2, devicePixelRatio || 1); if (earthCv.width !== Math.round(W * dpr)) { earthCv.width = Math.round(W * dpr); earthCv.height = Math.round(H * dpr); }
-  const wr = earthWrap.getBoundingClientRect(), q = clamp(-wr.top / Math.max(1, wr.height - innerHeight)), g = ex; g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  // sky: from the story's pale blue down to warm haze near the ground
-  const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, `rgb(${170 - q * 40},${210 - q * 20},${244})`); sky.addColorStop(0.7, '#e7eef6'); sky.addColorStop(1, '#f6e6cf'); g.fillStyle = sky; g.fillRect(0, 0, W, H);
-  // the planet: a wide curved horizon that flattens as we come down
-  const R = W * (0.9 + Math.pow(q, 1.6) * 9), top = H * (0.62 - 0.2 * q), cx = W / 2, cy = top + R;
-  const atm = g.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.06); atm.addColorStop(0, 'rgba(180,220,255,.9)'); atm.addColorStop(1, 'rgba(180,220,255,0)'); g.fillStyle = atm; g.beginPath(); g.arc(cx, cy, R * 1.06, 0, 7); g.fill();
-  const ground = g.createLinearGradient(0, top, 0, H); ground.addColorStop(0, '#8fb3d9'); ground.addColorStop(0.25, '#6f9a9c'); ground.addColorStop(1, '#55806a'); g.fillStyle = ground; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fill();
-  // hills rise into view as we land (Bay Area-ish ridgelines), nearest last
-  HILLS.forEach((hs, i) => { const k = clamp((q - 0.25 - i * 0.12) / 0.4); if (k <= 0) return; const base = top + (H - top) * (0.15 + i * 0.22) + (1 - k) * 80, amp = H * (0.07 + i * 0.03);
-    g.globalAlpha = k; g.fillStyle = ['#7a9db4', '#5f8a87', '#4c7258'][i]; g.beginPath(); g.moveTo(0, H);
-    for (let x = 0; x <= W; x += 8) { const u = x / W * (hs.length - 1), j = Math.floor(u), f = u - j, a = hs[j], b = hs[Math.min(hs.length - 1, j + 1)], v = a + (b - a) * (f * f * (3 - 2 * f)); g.lineTo(x, base - v * amp); }
-    g.lineTo(W, H); g.closePath(); g.fill(); g.globalAlpha = 1; });
+  const dpr = Math.min(2, devicePixelRatio || 1), resized = earthCv.width !== Math.round(W * dpr); if (resized) { earthCv.width = Math.round(W * dpr); earthCv.height = Math.round(H * dpr); }
+  const wr = earthWrap.getBoundingClientRect(), q = clamp(-wr.top / Math.max(1, wr.height - innerHeight)); if (!resized && Math.abs(q - earthQ) < 0.0015) return; earthQ = q;
+  const g = ex; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const hz = H * (0.34 + 0.06 * q), alt = 1.25 - q * 0.9, f = H * 0.9, cx = W / 2, sunX = W * 0.32, sunY = hz - H * 0.025;
+  // sky: blue overhead, warm toward the low sun, a bright glow on the horizon
+  const sky = g.createLinearGradient(0, 0, 0, hz); sky.addColorStop(0, '#7fb6ea'); sky.addColorStop(0.6, '#bcd8ee'); sky.addColorStop(0.9, '#f6dcae'); sky.addColorStop(1, '#ffe2a8'); g.fillStyle = sky; g.fillRect(0, 0, W, hz + 2);
+  const sg = g.createRadialGradient(sunX, sunY, 0, sunX, sunY, H * 0.5); sg.addColorStop(0, 'rgba(255,250,225,1)'); sg.addColorStop(0.05, 'rgba(255,236,180,.95)'); sg.addColorStop(0.25, 'rgba(255,205,130,.35)'); sg.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = sg; g.fillRect(0, 0, W, H);
+  // a few soft clouds
+  g.fillStyle = 'rgba(255,255,255,.35)'; for (const [x, y, w] of [[0.62, 0.12, 0.22], [0.8, 0.2, 0.14], [0.18, 0.08, 0.18]]) { g.beginPath(); g.ellipse(W * x, H * y * (hz / H) / 0.34, W * w, H * 0.018, -0.05, 0, 7); g.fill(); }
+  // ground
+  const haze = [236, 214, 176], P2 = (X, Z) => [cx + f * X / Z, hz + f * alt / Z];
+  g.fillStyle = 'rgb(206,190,150)'; g.fillRect(0, hz, W, H - hz);
+  for (const pl of PLOTS) { const Z0 = pl.z0 + 0.2, Z1 = pl.z1 + 0.2; if (P2(0, Z0)[1] < hz - 2) continue;
+    const a = P2(pl.x0 + pl.sk * Z0, Z0), b = P2(pl.x1 + pl.sk * Z0, Z0), c = P2(pl.x1 + pl.sk * Z1, Z1), d = P2(pl.x0 + pl.sk * Z1, Z1);
+    if (Math.max(a[0], b[0], c[0], d[0]) < -50 || Math.min(a[0], b[0], c[0], d[0]) > W + 50) continue;
+    const zm = (Z0 + Z1) / 2, hk = 1 - Math.exp(-zm / (9 + q * 6)), [r0, g0, b0] = hexRGB(pl.c);
+    const toSun = clamp(1 - Math.abs(((a[0] + b[0]) / 2 - sunX) / W) * 1.6), warm = 0.18 + toSun * 0.25;
+    const col = [r0 + (255 - r0) * warm * 0.35, g0 + (210 - g0) * warm * 0.2, b0 * (1 - warm * 0.3)].map((v, i) => Math.round(v + (haze[i] - v) * hk));
+    g.fillStyle = `rgb(${col})`; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.lineTo(...c); g.lineTo(...d); g.closePath(); g.fill();
+    const lw = Math.max(0.4, f * 0.006 / zm);
+    if (pl.rows && zm < 12) { g.strokeStyle = `rgba(0,0,0,${0.08 * (1 - hk)})`; g.lineWidth = Math.max(0.3, lw * 0.3); g.beginPath(); for (let k = 1; k < 6; k++) { const t = k / 6, p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], qq = [d[0] + (c[0] - d[0]) * t, d[1] + (c[1] - d[1]) * t]; g.moveTo(...p); g.lineTo(...qq); } g.stroke(); }
+    if (pl.hedge) { const hc = [46, 62, 32].map((v, i) => Math.round(v + (haze[i] - v) * hk)); g.strokeStyle = `rgb(${hc})`; g.lineWidth = lw * 1.4; g.lineCap = 'round'; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); }
+    if (pl.trees && zm < 25) { let r = pl.sd; const rn = () => (r = (r * 16807) % 2147483647) / 2147483647; const n = 3 + Math.floor(rn() * 6);
+      for (let k = 0; k < n; k++) { const t = rn(), x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t, rad = f * (0.012 + rn() * 0.012) / zm;
+        g.fillStyle = `rgba(30,35,20,${0.35 * (1 - hk)})`; g.beginPath(); g.ellipse(x + rad * 1.6, y + rad * 0.15, rad * 1.8, rad * 0.35, 0, 0, 7); g.fill(); // long shadow away from the sun
+        const tc = [58, 78, 38].map((v, i) => Math.round(v + (haze[i] - v) * hk)), tl = [150, 140, 70].map((v, i) => Math.round(v + (haze[i] - v) * hk));
+        g.fillStyle = `rgb(${tc})`; g.beginPath(); g.arc(x, y - rad * 0.8, rad, 0, 7); g.fill(); g.fillStyle = `rgba(${tl},.8)`; g.beginPath(); g.arc(x - rad * 0.35, y - rad * 1.05, rad * 0.5, 0, 7); g.fill(); } } }
+  // atmosphere: horizon haze band and warm raking light from the sun
+  const hb = g.createLinearGradient(0, hz - H * 0.02, 0, hz + H * 0.16); hb.addColorStop(0, 'rgba(255,226,175,.85)'); hb.addColorStop(1, 'rgba(255,226,175,0)'); g.fillStyle = hb; g.fillRect(0, hz - H * 0.02, W, H * 0.18);
+  const lr = g.createRadialGradient(sunX, hz, 0, sunX, hz, W * 0.7); lr.addColorStop(0, 'rgba(255,214,140,.45)'); lr.addColorStop(1, 'rgba(255,214,140,0)'); g.fillStyle = lr; g.fillRect(0, hz, W, H - hz);
 }
 (function earthLoop() { const r = earthWrap.getBoundingClientRect(); if (r.bottom > 0 && r.top < innerHeight) drawEarth(); requestAnimationFrame(earthLoop); })();
 window.__storyDebug = { P: 0 };
