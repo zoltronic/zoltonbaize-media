@@ -631,7 +631,9 @@ const root = document.querySelector('.page_root') || document.body; root.prepend
 const firstSec = document.querySelector('.about_section'), foot = [...document.querySelectorAll('.about_section')].pop();
 function placeEarth() { if (!firstSec) return; const rr = root.getBoundingClientRect(), a = firstSec.getBoundingClientRect();
   earthWrap.style.top = (a.top - rr.top) + 'px'; earthWrap.style.height = (rr.height - (a.top - rr.top)) + 'px'; }
-addEventListener('resize', placeEarth); setTimeout(placeEarth, 300); setInterval(placeEarth, 2000);
+// place it now and whenever the page changes height (the story track, fonts, images), so the ground never sits in the wrong spot
+placeEarth(); addEventListener('resize', placeEarth); setTimeout(placeEarth, 300); setInterval(placeEarth, 2000);
+if (window.ResizeObserver) new ResizeObserver(placeEarth).observe(root);
 const ex = earthCv.getContext('2d');
 // golden-hour farmland seen from the air, painted in perspective; the camera sinks as you scroll (coming down to reality)
 const PLOTS = (() => { let r = 8675309; const rn = () => (r = (r * 16807) % 2147483647) / 2147483647; const out = [];
