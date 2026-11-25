@@ -7,7 +7,7 @@ window.ZB_CHAT_ENDPOINT='https://bot--zoltbot.netlify.app/api/zoltbot';   // the
 window.ZB_MAILTO='hello@zoltonbaize.com';
 window.ZB_BOT_STYLE='comic';   // comic Zoltbot (Spider-Verse look) for everyone; remove this line to go back to glossy
 (function(){
-  var SRC='https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@b5c7db737df6457b53dff290686f4abb3dd6f397/password/zb-password.min.js';   // jsDelivr, minified, pinned to a commit; live copy is Webflow registered script "Zoltbot" 1.10.1 (phones load him after the page finishes)
+  var SRC='https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@05390e0378dd3e69c7b46b616ab19b11b236409e/password/zb-password.min.js';   // jsDelivr, minified, pinned to a commit; live copy is Webflow registered script "Zoltbot" 1.10.2 (phones load him after the page finishes)
   function load(){ if(window.__zbBotLoad)return; window.__zbBotLoad=1; var s=document.createElement('script'); s.src=SRC; s.defer=true; document.body.appendChild(s); }
   function init(){
     var host=document.querySelector('[data-zb-bot]');
