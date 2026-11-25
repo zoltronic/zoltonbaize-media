@@ -5,6 +5,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/+esm';
 import {GLTFLoader} from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js/+esm';
 import {RGBELoader} from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/RGBELoader.js/+esm';
+import {PLATES, makePlate} from './holo-plates.js';
 
 const Z = await new Promise(res => { const t = setInterval(() => {
   const z = window.__z; if (z && z.onFrame && z.bones && z.bones.mixamorigHead && z.HOST) { clearInterval(t); res(z); } }, 100); });
@@ -151,17 +152,16 @@ function holoCardMat(tex, seed, img) { return new THREE.ShaderMaterial({ transpa
       float a = (line * scan * 0.95 + edge * 0.4 + 0.07 + band * 0.18) * flick * uAlpha;
       gl_FragColor = vec4(col * 1.25, a); }` }); }
 const holos = []; const LABELS = ['Product', 'Motion', '3D', 'AI agents'];
-// Zolton's own UI (FICO gauges, Credit Close-Up, DTI card) from his Wells Fargo Figma, prepped as glowing hologram plates
-const WORK = [[1.304], [1.3], [1.304], [1.304], [1.3], [1.12], [1.12], [1.12], [1.12], [1.12], [1.036], [1.036], [1.036], [1.036], [1.036], [1.036], [1.036], [1.076], [1.076], [0.787], [0.764], [1.14]]
-  .map(([ar], i) => { const t = new THREE.TextureLoader().load(new URL(`./holo/h${String(i).padStart(2, '0')}.webp`, import.meta.url).href); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return { t, ar }; });
-const WORK_ORDER = [19, 0, 12, 5, 21, 14, 3, 17, 8, 10, 20, 1, 15, 6, 18, 11, 4, 13, 9, 2, 16, 7];
+// animated plates: a couple of gauges, checkmarks, icon grid, research, systems, 3D, UX, UI, terminal, vector, bot, haptics, travel loader
+// (stills pulled from Zolton's Wells Fargo Figma live in ./holo/, the rest are drawn live and loop)
+const plates = PLATES.map((spec, i) => makePlate(THREE, spec, import.meta.url, i * 0.73));
 for (let i = 0; i < 26; i++) {
-  const label = i < 4 ? LABELS[i] : null; const work = label ? null : WORK[WORK_ORDER[i - 4]]; const tex = label ? holoTex(0, label) : work.t;
+  const label = i < 4 ? LABELS[i] : null; const work = label ? null : plates[i - 4]; const tex = label ? holoTex(0, label) : work.tex;
   const mat = holoCardMat(tex, rnd(), !label);
-  const w = label ? 0.62 : (work.ar < 0.9 ? 0.4 : 0.5) + Math.random() * 0.16; const geo = new THREE.PlaneGeometry(w, label ? w * 96 / 256 : w / work.ar);
+  const w = label ? 0.62 : (work.ar < 0.9 ? 0.44 : work.ar < 1.2 ? 0.54 : 0.64) + Math.random() * 0.1; const geo = new THREE.PlaneGeometry(w, label ? w * 96 / 256 : w / work.ar);
   const h = new THREE.Mesh(geo, mat); h.renderOrder = 5;
   h.userData = { ang: (i / 26) * Math.PI * 2 + rnd() * 0.4, w: 0.6 + rnd() * 0.9, tumX: (rnd() - 0.5) * 1.2, tumY: (rnd() - 0.5) * 2.4, tx: 0, ty: 0, a: 0, r: 0.95 + Math.random() * 0.9, y: -0.55 + Math.random() * 1.35, ph: Math.random() * 6,
-    on: label ? 0.40 + i * 0.012 : 0.21 + (i - 4) * 0.0055, label: !!label };
+    on: label ? 0.40 + i * 0.012 : 0.21 + (i - 4) * 0.0055, label: !!label, plate: work };
   storm.add(h); holos.push(h);
 }
 // brainstorm option: little cloud-brains drifting in the vortex (staging toggle, off by default)
@@ -313,7 +313,7 @@ const COOL = new THREE.Color(0x8fb2ff), WARM = new THREE.Color(0xffd08a);
 
 // ---------- run ----------
 let gestT = -1, gestTo = false; const gogClip = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 1e6);
-let Ps = 0, spinA = 0, struck = false, strikeT = -1, glow = 0, gogglesWas = null, exprNow = '', last = 0;
+let frameN = 0, Ps = 0, spinA = 0, struck = false, strikeT = -1, glow = 0, gogglesWas = null, exprNow = '', last = 0;
 const headW = V(), handL = V(), handR = V(), tmp = V(), bulbPos = V();
 let camBase = null;
 state.story = true;
@@ -380,7 +380,9 @@ Z.onFrame((dt, now, realDt) => {
     h.quaternion.copy(camera.quaternion); h.rotateY(Math.sin(a) * 0.35 + Math.sin(u.ty) * 0.5); h.rotateX(Math.sin(u.tx) * 0.35);
     h.scale.setScalar(Math.max(0.001, (1 - pk * 0.9) * (0.8 + 0.2 * on)));
     const ho = (on + pull * (1 - pk) * 0.8) * (1 - hush * 0.6); h.material.uniforms.uAlpha.value = ho; h.material.uniforms.uTime.value = now;
-    h.visible = ho > 0.01 && P < 0.66; }
+    h.visible = ho > 0.01 && P < 0.66;
+    if (h.visible && u.plate && ((frameN + holos.indexOf(h)) & 1) === 0) u.plate.update(now); }
+  frameN++;
 
   // glasses: on as he crosses into the storm, pushed off when the sun breaks through
   // brain clouds (toggle): drift round with the vortex, tumbling slowly
