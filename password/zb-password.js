@@ -725,6 +725,19 @@
         if (u < 2.2) { g.fillStyle = '#ffffff'; g.fillRect(50, 46, 412, 228); g.fillStyle = '#2f6cff'; g.fillRect(170, 46, 64, 228); g.fillRect(50, 128, 412, 64); return; }
         g.fillStyle = '#ffffff'; for (let k = 0; k < 5; k++) { const v = (u - 2.2) * 50 + k * 40, r = 26 + k * 6; g.globalAlpha = Math.max(0, 1 - k / 5); g.beginPath(); g.arc(256 + Math.sin(u * 2 + k) * 50, 250 - v % 220, r, 0, 6.283); g.fill(); } g.globalAlpha = 1; },
       run: x => { x.say('Moi! 🇫🇮'); x.later(2300, () => x.say('Sauna’s warm. Löyly time.')); } },
+    { id: 'merica', re: /^'?merica$|^(god bless )?america$|^usa( usa)*$/, dur: 4.5,
+      face: (g, W, H, c, t, u) => {   // a waving flag: 13 stripes, blue canton with stars, drawn in thin columns so it ripples
+        const X0 = 50, Y0 = 50, FW = 412, FH = 220, S = FH / 13, CW = FW * 0.42, CH = S * 7;
+        for (let x = 0; x < FW; x += 6) {
+          const dy = Math.sin(x * 0.03 - t * 6) * 9 * (x / FW + 0.2);
+          for (let k = 0; k < 13; k++) { g.fillStyle = k % 2 ? '#ffffff' : '#ff3b3b'; g.fillRect(X0 + x, Y0 + k * S + dy, 6, S + 0.6); }
+          if (x < CW) { g.fillStyle = '#2f5bff'; g.fillRect(X0 + x, Y0 + dy, 6, CH); }
+        }
+        g.fillStyle = '#ffffff';
+        for (let r = 0; r < 5; r++) for (let q = 0; q < 6; q++) { const sx = X0 + 14 + q * 28 + (r % 2) * 14, sy = Y0 + 12 + r * 18 + Math.sin(sx * 0.03 - t * 6) * 9 * ((sx - X0) / FW + 0.2); if (sx < X0 + CW - 8) g.fillRect(sx - 4, sy - 4, 8, 8); }
+      },
+      move: (b, h, u) => { h.rotation.x += Math.sin(clamp01(u / 1.4) * Math.PI) * 0.18; b.position.y += Math.abs(Math.sin(u * 4)) * 0.05; },
+      run: x => { x.later(300, () => burst(54, ['#ff3b3b', '#ffffff', '#2f5bff'])); x.later(1500, () => burst(40, ['#ff3b3b', '#ffffff', '#2f5bff'])); x.say('’MERICA! 🦅🇺🇸'); x.later(2400, () => x.say('Land of the free, home of the brave, birthplace of the cheeseburger.')); } },
     { id: 'cat', re: /^(cat|cats|kitty|meow)$/, dur: 3.6,
       face: (g, W, H, c, t, u) => {
         const y = 230 - Math.abs(Math.sin(u * Math.PI / 1.2)) * 150, P = 14, M = ['1000001', '1100011', '1111111', '1101011', '1111111', '0111110', '0111110', '0110110'];
