@@ -627,20 +627,21 @@ function drawEarth() {
   const dpr = Math.min(2, devicePixelRatio || 1), resized = earthCv.width !== Math.round(W * dpr); if (resized) { earthCv.width = Math.round(W * dpr); earthCv.height = Math.round(H * dpr); }
   const wr = earthWrap.getBoundingClientRect(), q = clamp(-wr.top / Math.max(1, wr.height - innerHeight)); if (!resized && Math.abs(q - earthQ) < 0.0015) return; earthQ = q;
   const g = ex; g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const hz = H * (0.34 + 0.06 * q), alt = 1.25 - q * 0.9, f = H * 0.9, cx = W / 2, sunX = W * 0.32, sunY = hz - H * 0.025;
+  // realistic parallax: we glide forward over the fields and sink a little, so near fields slide past faster than far ones
+  const hz = H * 0.36, alt = 1.0 - q * 0.35, f = H * 0.9, cx = W / 2, camZ = q * 7, camX = q * 0.8, sunX = W * 0.2, sunY = -H * 0.15;
   // sky: blue overhead, warm toward the low sun, a bright glow on the horizon
-  const sky = g.createLinearGradient(0, 0, 0, hz); sky.addColorStop(0, '#7fb6ea'); sky.addColorStop(0.6, '#bcd8ee'); sky.addColorStop(0.9, '#f6dcae'); sky.addColorStop(1, '#ffe2a8'); g.fillStyle = sky; g.fillRect(0, 0, W, hz + 2);
-  const sg = g.createRadialGradient(sunX, sunY, 0, sunX, sunY, H * 0.5); sg.addColorStop(0, 'rgba(255,250,225,1)'); sg.addColorStop(0.05, 'rgba(255,236,180,.95)'); sg.addColorStop(0.25, 'rgba(255,205,130,.35)'); sg.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = sg; g.fillRect(0, 0, W, H);
+  const sky = g.createLinearGradient(0, 0, 0, hz); sky.addColorStop(0, '#5fa6e6'); sky.addColorStop(0.55, '#9fcbef'); sky.addColorStop(0.9, '#d9e9f4'); sky.addColorStop(1, '#e8f0f4'); g.fillStyle = sky; g.fillRect(0, 0, W, hz + 2);
+  const sg = g.createRadialGradient(sunX, sunY, 0, sunX, sunY, H * 0.5); sg.addColorStop(0, 'rgba(255,253,240,.9)'); sg.addColorStop(0.25, 'rgba(255,250,230,.25)'); sg.addColorStop(1, 'rgba(255,250,230,0)'); g.fillStyle = sg; g.fillRect(0, 0, W, H);
   // a few soft clouds
   g.fillStyle = 'rgba(255,255,255,.35)'; for (const [x, y, w] of [[0.62, 0.12, 0.22], [0.8, 0.2, 0.14], [0.18, 0.08, 0.18]]) { g.beginPath(); g.ellipse(W * x, H * y * (hz / H) / 0.34, W * w, H * 0.018, -0.05, 0, 7); g.fill(); }
   // ground
-  const haze = [236, 214, 176], P2 = (X, Z) => [cx + f * X / Z, hz + f * alt / Z];
-  g.fillStyle = 'rgb(206,190,150)'; g.fillRect(0, hz, W, H - hz);
-  for (const pl of PLOTS) { const Z0 = pl.z0 + 0.2, Z1 = pl.z1 + 0.2; if (P2(0, Z0)[1] < hz - 2) continue;
+  const haze = [214, 226, 234], P2 = (X, Z) => [cx + f * (X - camX) / Z, hz + f * alt / Z];
+  g.fillStyle = 'rgb(176,190,170)'; g.fillRect(0, hz, W, H - hz);
+  for (const pl of PLOTS) { const Z0 = pl.z0 + 0.2 - camZ, Z1 = pl.z1 + 0.2 - camZ; if (Z1 < 0.05) continue; if (Z0 < 0.05) continue;
     const a = P2(pl.x0 + pl.sk * Z0, Z0), b = P2(pl.x1 + pl.sk * Z0, Z0), c = P2(pl.x1 + pl.sk * Z1, Z1), d = P2(pl.x0 + pl.sk * Z1, Z1);
     if (Math.max(a[0], b[0], c[0], d[0]) < -50 || Math.min(a[0], b[0], c[0], d[0]) > W + 50) continue;
     const zm = (Z0 + Z1) / 2, hk = 1 - Math.exp(-zm / (9 + q * 6)), [r0, g0, b0] = hexRGB(pl.c);
-    const toSun = clamp(1 - Math.abs(((a[0] + b[0]) / 2 - sunX) / W) * 1.6), warm = 0.18 + toSun * 0.25;
+    const warm = 0.06;
     const col = [r0 + (255 - r0) * warm * 0.35, g0 + (210 - g0) * warm * 0.2, b0 * (1 - warm * 0.3)].map((v, i) => Math.round(v + (haze[i] - v) * hk));
     g.fillStyle = `rgb(${col})`; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.lineTo(...c); g.lineTo(...d); g.closePath(); g.fill();
     const lw = Math.max(0.4, f * 0.006 / zm);
@@ -648,12 +649,12 @@ function drawEarth() {
     if (pl.hedge) { const hc = [46, 62, 32].map((v, i) => Math.round(v + (haze[i] - v) * hk)); g.strokeStyle = `rgb(${hc})`; g.lineWidth = lw * 1.4; g.lineCap = 'round'; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); }
     if (pl.trees && zm < 25) { let r = pl.sd; const rn = () => (r = (r * 16807) % 2147483647) / 2147483647; const n = 3 + Math.floor(rn() * 6);
       for (let k = 0; k < n; k++) { const t = rn(), x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t, rad = f * (0.012 + rn() * 0.012) / zm;
-        g.fillStyle = `rgba(30,35,20,${0.35 * (1 - hk)})`; g.beginPath(); g.ellipse(x + rad * 1.6, y + rad * 0.15, rad * 1.8, rad * 0.35, 0, 0, 7); g.fill(); // long shadow away from the sun
+        g.fillStyle = `rgba(30,35,20,${0.35 * (1 - hk)})`; g.beginPath(); g.ellipse(x + rad * 0.7, y + rad * 0.2, rad * 1.0, rad * 0.35, 0, 0, 7); g.fill(); // short midday shadow
         const tc = [58, 78, 38].map((v, i) => Math.round(v + (haze[i] - v) * hk)), tl = [150, 140, 70].map((v, i) => Math.round(v + (haze[i] - v) * hk));
         g.fillStyle = `rgb(${tc})`; g.beginPath(); g.arc(x, y - rad * 0.8, rad, 0, 7); g.fill(); g.fillStyle = `rgba(${tl},.8)`; g.beginPath(); g.arc(x - rad * 0.35, y - rad * 1.05, rad * 0.5, 0, 7); g.fill(); } } }
   // atmosphere: horizon haze band and warm raking light from the sun
-  const hb = g.createLinearGradient(0, hz - H * 0.02, 0, hz + H * 0.16); hb.addColorStop(0, 'rgba(255,226,175,.85)'); hb.addColorStop(1, 'rgba(255,226,175,0)'); g.fillStyle = hb; g.fillRect(0, hz - H * 0.02, W, H * 0.18);
-  const lr = g.createRadialGradient(sunX, hz, 0, sunX, hz, W * 0.7); lr.addColorStop(0, 'rgba(255,214,140,.45)'); lr.addColorStop(1, 'rgba(255,214,140,0)'); g.fillStyle = lr; g.fillRect(0, hz, W, H - hz);
+  const hb = g.createLinearGradient(0, hz - H * 0.02, 0, hz + H * 0.16); hb.addColorStop(0, 'rgba(226,236,242,.9)'); hb.addColorStop(1, 'rgba(226,236,242,0)'); g.fillStyle = hb; g.fillRect(0, hz - H * 0.02, W, H * 0.18);
+  const lr = g.createRadialGradient(sunX, hz, 0, sunX, hz, W * 0.7); lr.addColorStop(0, 'rgba(255,250,230,.12)'); lr.addColorStop(1, 'rgba(255,250,230,0)'); g.fillStyle = lr; g.fillRect(0, hz, W, H - hz);
 }
 (function earthLoop() { const r = earthWrap.getBoundingClientRect(); if (r.bottom > 0 && r.top < innerHeight) drawEarth(); requestAnimationFrame(earthLoop); })();
 window.__storyDebug = { P: 0 };
