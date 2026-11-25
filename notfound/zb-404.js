@@ -10,7 +10,7 @@
 (function () {
   'use strict';
   var GH = 'https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@';
-  var BOT = GH + 'b6c958b1823dcfaf27eb2df706f3642e18010f40/password/zb-password.js';   // has the 404 hooks and the Easter eggs built in
+  var BOT = GH + 'b5c7db737df6457b53dff290686f4abb3dd6f397/password/zb-password.js';   // has the 404 hooks and the Easter eggs built in
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   var de = document.documentElement;
   var night = function () { return de.classList.contains('zb-night'); };
