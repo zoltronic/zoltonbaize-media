@@ -704,6 +704,8 @@ function setExpr(name,hold=0){ if(state.intro&&name!=='happyOpen'&&hold===0) nam
 }
 function buildFaceButtons(){const row=document.getElementById('faces');
   for(const k of Object.keys(PRESETS)){const b=document.createElement('button');b.id='f-'+k;b.dataset.k=k;b.textContent=LABELS[k];b.onclick=()=>setExpr(k,6);row.appendChild(b);} }
+const FLY_SPEED=1.6;   // fly-in pace (1 = the original 3.4 s flight; 1.6 ≈ 2.1 s)
+const TURN={swing:0.85,hold:0.7};   // turnaround: seconds to swing round, seconds showing the jet pack (was 1.5 / 1.8)
 function flyIn(yoga=false){
   Object.values(actions).forEach(a=>a.stop());
   actions.fly.reset().setEffectiveWeight(1).play();
@@ -718,9 +720,9 @@ function startHover(){
 function upperAction(a,mode,expr){ if(state.mode==='flying'||state.mode==='braking') return;
   actions.hoverUp.fadeOut(0.4); actions.wave.stop(); actions.talk.stop(); a.reset().fadeIn(0.4).play();
   state.mode=mode; setStatus(mode); setExpr(expr); state.talkT=0; }
-function playIntro(){ state.intro=true; state.introStep='fly'; state.introWait=1.0; flyIn(false); setExpr('happyOpen'); setStatus('intro: flying in'); }
+function playIntro(){ state.intro=true; state.introStep='fly'; state.introWait=0.35; flyIn(false); setExpr('happyOpen'); setStatus('intro: flying in'); }
 // yoga: no fly-in. A cloud rises from below the frame, stops under him, then he settles onto it.
-function sitOnCloud(){ if(state.seated||state.cloudRise>=0) return; state.turnT=-1; state.yoga=true; state.seated=true; state.mode='yoga'; setExpr(state.intro?'happyOpen':'zen'); yogaCloud.visible=false; state.cloudK=1; yogaCloud.scale.setScalar(1); state.cloudDelay=1.3; setStatus('into yoga pose'); }
+function sitOnCloud(){ if(state.seated||state.cloudRise>=0) return; state.turnT=-1; state.yoga=true; state.seated=true; state.mode='yoga'; setExpr(state.intro?'happyOpen':'zen'); yogaCloud.visible=false; state.cloudK=1; yogaCloud.scale.setScalar(1); state.cloudDelay=state.intro?0.7:1.3; setStatus('into yoga pose'); }
 document.getElementById('b-intro').onclick=()=>{ setTest('Intro'); playIntro(); };
 document.getElementById('b-fly').onclick=()=>{ state.intro=false; setTest('Fly in'); flyIn(false); };
 document.getElementById('b-yoga').onclick=()=>{ if(state.mode==='flying'||state.mode==='braking'||state.mode==='loading') return; state.intro=false; setTest('Yoga'); sitOnCloud(); };
@@ -828,7 +830,7 @@ function frame(){
     root.position.sub(EXITOFF);
     // flight path
     if(state.mode==='flying'||state.mode==='braking'){
-      state.t+=Math.min(look==='spider'?dt:rdt,0.25); const T=2.8; const u=Math.min(state.t/T,1); const e=ease(u);
+      state.t+=Math.min(look==='spider'?dt:rdt,0.25)*FLY_SPEED; const T=2.8; const u=Math.min(state.t/T,1); const e=ease(u);
       root.position.lerpVectors(START,HOME,e); root.position.y+=Math.sin(u*Math.PI)*0.6;
       root.rotation.set(0,0,Math.sin(u*Math.PI)*-0.12);
       if(state.mode==='flying'&&state.t>1.75){ state.mode='braking'; startHover(); setExpr('surprised'); setStatus('braking'); }
@@ -869,13 +871,13 @@ function frame(){
       applyPose(POSE_SPINE,pw); applyPose(POSE_TOP,sm(pw*1.8)); applyPose(POSE_BOT,sm(pw*1.8-0.65)); const aw=Math.min(state.poseW,state.armW); applyPose(POSE_ARMS,aw); if(aw>0.01){ mudra('L',aw); mudra('R',aw);} }
 
     // intro sequencer
-    if(state.intro){ if(state.introStep==='fly'&&state.mode==='hover'){ state.introWait=(state.introWait??1.0)-dt; if(state.introWait<=0){ state.introStep='turn'; state.turnT=0; setStatus('intro: turnaround'); } }
+    if(state.intro){ if(state.introStep==='fly'&&state.mode==='hover'){ state.introWait=(state.introWait??0.35)-dt; if(state.introWait<=0){ state.introStep='turn'; state.turnT=0; setStatus('intro: turnaround'); } }
       else if(state.introStep==='cloud'){ state.introWait-=dt; if(state.introWait<=0){ state.introStep='done'; sitOnCloud(); } } }
     // turnaround: swing to the back (show the jet pack), hold, come back round
     let turnYaw=0;
-    if(state.turnT>=0){ state.turnT+=dt; const a=1.5,h=1.8,t=state.turnT;
+    if(state.turnT>=0){ state.turnT+=dt; const a=TURN.swing,h=TURN.hold,t=state.turnT;
       turnYaw = t<a? Math.PI*easeIO(t/a) : t<a+h? Math.PI : t<2*a+h? Math.PI+Math.PI*easeIO((t-a-h)/a) : 0;
-      if(t>=2*a+h){ state.turnT=-1; turnYaw=0; if(state.intro&&state.introStep==='turn'){ state.introStep='cloud'; state.introWait=0.5; } }
+      if(t>=2*a+h){ state.turnT=-1; turnYaw=0; if(state.intro&&state.introStep==='turn'){ state.introStep='cloud'; state.introWait=0.2; } }
       setStatus(state.turnT<0?(state.seated?'meditating':'hovering'):'turning'); }
 
     // pointer / idle look target
