@@ -719,7 +719,14 @@ function startHover(){
 function upperAction(a,mode,expr){ if(state.mode==='flying'||state.mode==='braking') return;
   actions.hoverUp.fadeOut(0.4); actions.wave.stop(); actions.talk.stop(); a.reset().fadeIn(0.4).play();
   state.mode=mode; setStatus(mode); setExpr(expr); state.talkT=0; }
-function playIntro(){ state.intro=false; flyIn(true); state.fast=true; setExpr('happyOpen'); setStatus('intro: flying onto his cloud'); }   /* about 1 s: flies in and settles cross-legged on the cloud in one move */
+function placeSeated(){   /* no fly-in: he is already sitting cross-legged on his cloud on the first frame */
+  Object.values(actions).forEach(a=>a.stop());
+  actions.hoverLow.reset().setEffectiveWeight(1).play(); actions.hoverUp.reset().setEffectiveWeight(1).play();
+  state.intro=false; state.fast=false; state.yoga=true; state.seated=true; state.mode='yoga'; state.t=99; state.turnT=-1;
+  state.cloudRise=-1; state.cloudDelay=0; state.cloudK=1; state.poseW=1; state.armW=1; state.thrust=0;
+  root.position.copy(HOME); root.rotation.set(0,0,0); yogaCloud.visible=true; yogaCloud.scale.setScalar(1);
+  setExpr('zen'); setStatus('meditating'); }
+function playIntro(){ placeSeated(); }
 // yoga: no fly-in. A cloud rises from below the frame, stops under him, then he settles onto it.
 function sitOnCloud(){ if(state.seated||state.cloudRise>=0) return; state.turnT=-1; state.yoga=true; state.seated=true; state.mode='yoga'; setExpr(state.intro?'happyOpen':'zen'); yogaCloud.visible=false; state.cloudK=1; yogaCloud.scale.setScalar(1); state.cloudDelay=state.intro?0.35:1.3; setStatus('into yoga pose'); }
 document.getElementById('b-intro').onclick=()=>{ setTest('Intro'); playIntro(); };
