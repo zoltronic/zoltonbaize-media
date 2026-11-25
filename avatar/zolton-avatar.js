@@ -822,7 +822,7 @@ function frame(){
     // still struggling (under ~22 fps on a phone, ~40 on desktop) -> drop the resolution a step, down to 0.75x
     if(emaDt>(TOUCH?0.045:0.025)){ slowT+=fd; if(slowT>1.5&&PR>(TOUCH?0.75:1)){ PR=Math.max(TOUCH?0.75:1,PR-0.25); renderer.setPixelRatio(PR); resize(); slowT=0; emaDt=TOUCH?1/30:1/60; } } else slowT=0; }
   lastDraw=tnow;
-  const rdt=clock.getDelta(); const realDt=Math.min(rdt,0.05); const cdt=Math.min(rdt,0.25);   // cdt: intro timers follow the clock even while the page is busy loading const now=performance.now()/1000;
+  const rdt=clock.getDelta(); const realDt=Math.min(rdt,0.05); const cdt=Math.min(rdt,0.25); /* cdt: intro timers follow the clock even while the page is busy loading */ const now=performance.now()/1000;
   // Spider-Verse: character animates "on twos" (12 fps holds); camera, flames and sky stay smooth
   let dt=realDt, step=true;
   if(look==='spider'){ twosAcc+=realDt; if(twosAcc<1/12) step=false; else { dt=Math.min(twosAcc,0.12); twosAcc=0; } } else twosAcc=0;
