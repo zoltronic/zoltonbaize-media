@@ -822,7 +822,7 @@ function frame(){
     // still struggling (under ~22 fps on a phone, ~40 on desktop) -> drop the resolution a step, down to 0.75x
     if(emaDt>(TOUCH?0.045:0.025)){ slowT+=fd; if(slowT>1.5&&PR>(TOUCH?0.75:1)){ PR=Math.max(TOUCH?0.75:1,PR-0.25); renderer.setPixelRatio(PR); resize(); slowT=0; emaDt=TOUCH?1/30:1/60; } } else slowT=0; }
   lastDraw=tnow;
-  const rdt=clock.getDelta(); const realDt=Math.min(rdt,0.05); const now=performance.now()/1000;
+  const rdt=clock.getDelta(); const realDt=Math.min(rdt,0.05); const cdt=Math.min(rdt,0.25);   // cdt: intro timers follow the clock even while the page is busy loading const now=performance.now()/1000;
   // Spider-Verse: character animates "on twos" (12 fps holds); camera, flames and sky stay smooth
   let dt=realDt, step=true;
   if(look==='spider'){ twosAcc+=realDt; if(twosAcc<1/12) step=false; else { dt=Math.min(twosAcc,0.12); twosAcc=0; } } else twosAcc=0;
@@ -858,9 +858,9 @@ function frame(){
       EXITOFF.set(f2*1.2,f2*7.5,-f2*9); root.position.add(EXITOFF);
       root.rotation.x += -0.35*Math.min(1,fly*2.2); }
     if(yogaCloud.visible&&state.mode==='yoga'&&state.cloudK<1) state.cloudK=Math.min(1,state.cloudK+dt*0.9);
-    if(state.cloudDelay>0){ state.cloudDelay-=dt; if(state.cloudDelay<=0){ state.cloudRise=0; yogaCloud.visible=true; yogaCloud.position.y=-3.6; setStatus('cloud rising'); } }
+    if(state.cloudDelay>0){ state.cloudDelay-=cdt; if(state.cloudDelay<=0){ state.cloudRise=0; yogaCloud.visible=true; yogaCloud.position.y=-3.6; setStatus('cloud rising'); } }
     if(yogaCloud.visible){ const ce=Math.max(0,Math.min(1,state.exitP/0.28)); for(const c of yogaCloud.children){ c.material.opacity=c.userData.baseOpacity*(1-ce); } }
-    if(yogaCloud.visible){ const k=state.cloudK; const sk=k<1?ease(k)*(1+0.08*Math.sin(k*Math.PI)):1; yogaCloud.scale.setScalar(Math.max(0.001,sk)); if(state.cloudRise>=0){ state.cloudRise+=dt; const u=Math.min(1,state.cloudRise/1.6), e=1-Math.pow(1-u,3); yogaCloud.position.y=-3.6+(0.8+3.6)*e; if(u>=1){ state.cloudRise=-1; setStatus('meditating'); } } else yogaCloud.position.y=0.8-Math.min(1,state.exitP/0.28)*0.7; }
+    if(yogaCloud.visible){ const k=state.cloudK; const sk=k<1?ease(k)*(1+0.08*Math.sin(k*Math.PI)):1; yogaCloud.scale.setScalar(Math.max(0.001,sk)); if(state.cloudRise>=0){ state.cloudRise+=cdt; const u=Math.min(1,state.cloudRise/1.6), e=1-Math.pow(1-u,3); yogaCloud.position.y=-3.6+(0.8+3.6)*e; if(u>=1){ state.cloudRise=-1; setStatus('meditating'); } } else yogaCloud.position.y=0.8-Math.min(1,state.exitP/0.28)*0.7; }
 
     for(const [b,q,p] of restPose){ b.quaternion.copy(q); b.position.copy(p); }
     mixer.update(dt);
@@ -871,11 +871,11 @@ function frame(){
       applyPose(POSE_SPINE,pw); applyPose(POSE_TOP,sm(pw*1.8)); applyPose(POSE_BOT,sm(pw*1.8-0.65)); const aw=Math.min(state.poseW,state.armW); applyPose(POSE_ARMS,aw); if(aw>0.01){ mudra('L',aw); mudra('R',aw);} }
 
     // intro sequencer
-    if(state.intro){ if(state.introStep==='fly'&&state.mode==='hover'){ state.introWait=(state.introWait??0.35)-dt; if(state.introWait<=0){ state.introStep='turn'; state.turnT=0; setStatus('intro: turnaround'); } }
-      else if(state.introStep==='cloud'){ state.introWait-=dt; if(state.introWait<=0){ state.introStep='done'; sitOnCloud(); } } }
+    if(state.intro){ if(state.introStep==='fly'&&state.mode==='hover'){ state.introWait=(state.introWait??0.35)-cdt; if(state.introWait<=0){ state.introStep='turn'; state.turnT=0; setStatus('intro: turnaround'); } }
+      else if(state.introStep==='cloud'){ state.introWait-=cdt; if(state.introWait<=0){ state.introStep='done'; sitOnCloud(); } } }
     // turnaround: swing to the back (show the jet pack), hold, come back round
     let turnYaw=0;
-    if(state.turnT>=0){ state.turnT+=dt; const a=TURN.swing,h=TURN.hold,t=state.turnT;
+    if(state.turnT>=0){ state.turnT+=cdt; const a=TURN.swing,h=TURN.hold,t=state.turnT;
       turnYaw = t<a? Math.PI*easeIO(t/a) : t<a+h? Math.PI : t<2*a+h? Math.PI+Math.PI*easeIO((t-a-h)/a) : 0;
       if(t>=2*a+h){ state.turnT=-1; turnYaw=0; if(state.intro&&state.introStep==='turn'){ state.introStep='cloud'; state.introWait=0.2; } }
       setStatus(state.turnT<0?(state.seated?'meditating':'hovering'):'turning'); }
