@@ -24,7 +24,8 @@ hero.classList.add('zstory');
 if (!document.getElementById('zs-fonts')) { const l = document.createElement('link'); l.id = 'zs-fonts'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=League+Spartan:wght@500;600;700&display=swap'; document.head.appendChild(l); }
 const css = document.createElement('style');
 css.textContent = `
-.about_hero.zstory{display:block!important;min-height:0!important;height:${100 + TRACK}vh;padding-top:0!important;padding-bottom:0!important}
+.about_hero.zstory{display:block!important;min-height:0!important;height:${100 + TRACK}vh;padding-top:0!important;padding-bottom:0!important;margin-bottom:-30vh!important}
+.about_hero.zstory + .about_section{position:relative;z-index:2}
 .about_hero.zstory > .w-embed{position:sticky!important;top:0!important;right:auto!important;bottom:auto!important;left:auto!important;width:100vw;margin-left:calc((100% - 100vw) / 2);height:100vh;margin-bottom:-100vh}
 .about_hero.zstory > .page_wrap{min-height:100vh;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:111px;box-sizing:border-box}
 #zs-dim,#zs-rays,#zs-flash,#zs-bloom{position:absolute;inset:0;pointer-events:none;opacity:0}
@@ -195,9 +196,9 @@ const baseMat = new THREE.MeshStandardMaterial({ color: 0xeef1f5, roughness: 0.1
 // glass edges: fresnel rim + a soft window highlight, so the clear bulb still reads as polished glass
 const glassRim = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uA: { value: 0 } },
   vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - w.xyz); gl_Position = projectionMatrix * viewMatrix * w; }',
-  fragmentShader: 'uniform float uA; varying vec3 vN; varying vec3 vV; void main(){ vec3 n = normalize(vN); float f = pow(1.0 - abs(dot(n, vV)), 3.0); vec3 L = normalize(vec3(-0.5, 0.7, 0.6)); vec3 H = normalize(L + vV); float spec = pow(max(dot(n, H), 0.0), 90.0); float a = (f * 0.55 + spec * 1.2) * uA; gl_FragColor = vec4(vec3(0.92, 0.97, 1.0) * a, a); }' });
+  fragmentShader: 'uniform float uA; varying vec3 vN; varying vec3 vV; void main(){ vec3 n = normalize(vN); float nv = dot(n, vV); if (nv < 0.0) discard; float f = pow(1.0 - nv, 4.0); vec3 L = normalize(vec3(-0.5, 0.7, 0.6)); vec3 H = normalize(L + vV); float spec = pow(max(dot(n, H), 0.0), 90.0); vec3 L2 = normalize(vec3(0.6, 0.3, 0.7)); float spec2 = pow(max(dot(n, normalize(L2 + vV)), 0.0), 40.0); float a = (f * 0.5 + spec * 1.3 + spec2 * 0.12) * uA; gl_FragColor = vec4(vec3(0.92, 0.97, 1.0) * a, a); }' });
 // real glass: physically transmissive with clearcoat, so it shows the scene through it and catches reflections
-const glassPhys = new THREE.MeshPhysicalMaterial({ color: 0xeef6ff, metalness: 0, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 0.55, specularIntensity: 1, transparent: true, opacity: 1, emissive: 0xffb43a, emissiveIntensity: 0, depthWrite: false });
+const glassPhys = new THREE.MeshPhysicalMaterial({ color: 0xf4f9ff, metalness: 0, roughness: 0.12, envMapIntensity: 0, specularIntensity: 1, transparent: true, opacity: 1, emissive: 0xffb43a, emissiveIntensity: 0, depthWrite: false });
 const screw = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.055, 0.09, 24), baseMat); screw.position.y = -0.15;
 const tip = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 8), baseMat); tip.position.y = -0.2;
 const filMat = new THREE.MeshBasicMaterial({ color: 0x8a909a, transparent: true, opacity: 1 });
@@ -223,16 +224,19 @@ if (Z.renderer) Z.renderer.localClippingEnabled = true;
 const stemMat = glassMat.clone(); stemMat.opacity = 0.08;
 const insMat = new THREE.MeshStandardMaterial({ color: 0x9aa2ae, roughness: 0.5, metalness: 0.1, transparent: true, opacity: 1 });
 for (const mm of [glassMat, baseMat, filMat]) mm.clippingPlanes = [realClip];
-const wireMat = new THREE.MeshStandardMaterial({ color: 0xd9dde3, roughness: 0.2, metalness: 1, envMapIntensity: 1.4, transparent: true, opacity: 1 });
+const wireMat = new THREE.MeshStandardMaterial({ color: 0xc9ced6, roughness: 0.35, metalness: 0.3, transparent: true, opacity: 1 });
 for (const mm of [stemMat, insMat, wireMat]) mm.clippingPlanes = [realClip];
 new GLTFLoader().load(new URL('./bulb.glb', import.meta.url).href, (g) => {
   const m = g.scene; const box = new THREE.Box3().setFromObject(m); const h = box.max.y - box.min.y; const k = 0.24 / h;
   m.scale.setScalar(k); m.position.set(-(box.min.x + box.max.x) / 2 * k, -0.12 - box.min.y * k, -(box.min.z + box.max.z) / 2 * k);
+  const glassMeshes = [];
   const MAT = { Glass: glassPhys, Stem: stemMat, Screw: baseMat, Insulator: insMat, Wire: wireMat, Filament: filMat };
   m.traverse(o => { if (!o.isMesh) return; const key = Object.keys(MAT).find(n => (o.name + ' ' + (o.parent && o.parent.name)).includes(n)); o.material = MAT[key] || baseMat;
     o.geometry.computeVertexNormals(); if (key === 'Glass' || key === 'Stem') o.renderOrder = 6;
-    if (key === 'Glass') { const rim = new THREE.Mesh(o.geometry, glassRim); rim.renderOrder = 7; o.add(rim); }
+    if (key === 'Glass') glassMeshes.push(o);
     if (key === 'Filament') { o.geometry.computeBoundingBox(); const c = o.geometry.boundingBox.getCenter(V()); o.geometry.translate(-c.x, -c.y, -c.z); o.geometry.scale(0.45, 0.45, 0.45); o.geometry.translate(c.x, c.y, c.z); } });
+  // the glass rim/highlight shell is added after the traversal, so it never gets a part material by mistake (that was the metal look)
+  for (const o of glassMeshes) { const rim = new THREE.Mesh(o.geometry, glassRim); rim.name = 'GlassRim'; rim.renderOrder = 7; o.add(rim); }
   for (const o of [glass, neck, screw, tip, fil]) o.visible = false;
   bulb.add(m);
   // the AR version: same shape as a cyan hologram (rim glow + scanlines), shown first, then 'printed' into the real bulb
@@ -320,7 +324,7 @@ new RGBELoader().load(new URL('../gold/3d/hdr/env_coin_d1_256.hdr', import.meta.
   hdr.mapping = THREE.EquirectangularReflectionMapping; const pm = new THREE.PMREMGenerator(Z.renderer); const env = pm.fromEquirectangular(hdr).texture; hdr.dispose(); pm.dispose();
   new GLTFLoader().load(new URL('../gold/3d/coin/coin_d1.glb', import.meta.url).href, (g) => {
     const m = g.scene; m.traverse(o => { if (o.isMesh) o.material = goldMat(o.material && o.material.name, env); });
-    sharedEnv = env; for (const mm of [glassPhys, baseMat, wireMat]) { mm.envMap = env; mm.needsUpdate = true; }
+    sharedEnv = env; for (const mm of [baseMat]) { mm.envMap = env; mm.needsUpdate = true; }
     // the Wells Fargo C comes off; Zolton's Z logo is embossed on both faces instead (polished top, gold walls)
     m.traverse(o => { if (o.isMesh && /Curve/.test(o.name + (o.parent ? o.parent.name : ''))) o.visible = false; });
     const zTop = new THREE.MeshPhysicalMaterial({ color: lin(1.0, 0.74, 0.36), metalness: 1, roughness: 0.1, envMap: env, envMapIntensity: 2.0, clearcoat: 0.6, clearcoatRoughness: 0.08 });
@@ -351,7 +355,19 @@ const COOL = new THREE.Color(0x8fb2ff), WARM = new THREE.Color(0xffd08a);
 let gestT = -1, gestTo = false; const gogClip = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 1e6);
 let storyReady = false, ringA = 0, frameN = 0, Ps = 0, spinA = 0, struck = false, strikeT = -1, glow = 0, gogglesWas = null, exprNow = '', last = 0;
 const headW = V(), handL = V(), handR = V(), tmp = V(), bulbPos = V();
-let camBase = null, coinHome = null; const camOff = V();
+let camBase = null, coinHome = null;
+// the coin is interactive like the one on the Gold case study: drag sideways to spin it, let go to fling, tap to see the work
+const coinSpin = { phase: 0, extra: 0, id: null, x: 0, lx: 0, lt: 0, v: 0, base: 0, moved: 0 };
+const coinHit = document.createElement('a'); coinHit.href = '/'; coinHit.setAttribute('aria-label', 'See the work'); coinHit.draggable = false;
+coinHit.style.cssText = 'position:absolute;border-radius:50%;pointer-events:none;touch-action:pan-y;cursor:grab;transform:translate(-50%,-50%);z-index:5';
+const D2R = Math.PI / 180;
+coinHit.addEventListener('pointerdown', e => { if (e.pointerType === 'touch' && !e.isPrimary) return; coinSpin.id = e.pointerId; coinSpin.x = coinSpin.lx = e.clientX; coinSpin.base = coinSpin.phase; coinSpin.lt = performance.now(); coinSpin.v = 0; coinSpin.moved = 0; coinSpin.extra = 0; coinHit.setPointerCapture?.(e.pointerId); coinHit.style.cursor = 'grabbing'; });
+coinHit.addEventListener('pointermove', e => { if (e.pointerId !== coinSpin.id) return; const k = 0.6 * D2R, t = performance.now(), dt = Math.max(8, t - coinSpin.lt) / 1000;
+  coinSpin.phase = coinSpin.base + (e.clientX - coinSpin.x) * k; const v = ((e.clientX - coinSpin.lx) * k) / dt; coinSpin.v = coinSpin.v * 0.4 + v * 0.6; coinSpin.moved = Math.max(coinSpin.moved, Math.abs(e.clientX - coinSpin.x)); coinSpin.lx = e.clientX; coinSpin.lt = t; });
+const coinUp = e => { if (e.pointerId !== coinSpin.id) return; const idle = performance.now() - coinSpin.lt > 90; coinSpin.extra = idle ? 0 : Math.max(-30, Math.min(30, coinSpin.v)); coinSpin.id = null; coinHit.style.cursor = 'grab'; if (coinSpin.moved > 6) coinSpin.suppress = performance.now(); };
+coinHit.addEventListener('pointerup', coinUp); coinHit.addEventListener('pointercancel', coinUp);
+coinHit.addEventListener('click', e => { if (performance.now() - (coinSpin.suppress || 0) < 400) e.preventDefault(); });
+coinHit.addEventListener('dragstart', e => e.preventDefault()); capsEl.appendChild(coinHit); const camOff = V();
 state.story = true;
 const setE = (n) => { if (exprNow !== n) { exprNow = n; Z.setExpr(n, 9999); } };
 
@@ -497,7 +513,7 @@ Z.onFrame((dt, now, realDt) => {
   if (struck && P < 0.69) struck = false;
   strikeT = P >= 0.715 ? clamp((P - 0.715) / 0.075) * 1.1 : -1; if (window.__strikeHold != null && strikeT >= 0) strikeT = window.__strikeHold;
   glow = strikeT >= 0 ? ramp(strikeT, 0.14, 0.45) : glow * Math.max(0, 1 - realDt * 6);
-  glassMat.emissiveIntensity = glow * 1.6; glassMat.opacity = (0.12 + glow * 0.22) * real; glassPhys.opacity = real * (0.16 + glow * 0.2); glassRim.uniforms.uA.value = real; glassPhys.emissiveIntensity = glow * 0.9; stemMat.opacity = 0.08 * real; glassMat.color.setRGB(0.93 + glow * 0.07, 0.96, 1.0 - glow * 0.25);
+  glassMat.emissiveIntensity = glow * 1.6; glassMat.opacity = (0.12 + glow * 0.22) * real; glassPhys.opacity = real * (0.1 + glow * 0.18); glassRim.uniforms.uA.value = real; glassPhys.emissiveIntensity = glow * 0.9; stemMat.opacity = 0.08 * real; glassMat.color.setRGB(0.93 + glow * 0.07, 0.96, 1.0 - glow * 0.25);
   filMat.color.setRGB(0.54 + glow * 0.8, 0.56 + glow * 0.6, 0.6 + glow * 0.2);
   haloMat.opacity = Math.min(1, glow) * 0.6 * (0.96 + 0.04 * Math.sin(now * 6)); halo.scale.setScalar(0.3 + Math.min(1.2, glow) * 0.9 + bloom * 3);
   bulbLight.intensity = glow * 1.2 + (strikeT >= 0.14 && strikeT < 0.6 ? (1 - (strikeT - 0.14) / 0.46) * 6 : 0);
@@ -537,8 +553,9 @@ Z.onFrame((dt, now, realDt) => {
     const grow = sm(ramp(exitK, 0.35, 0.9)); coin.position.lerp(tmp.set(H0.x, H0.y - 0.05, H0.z + 0.5), grow * 0.7);
     coin.position.y += Math.sin(now * 1.6) * 0.015;
     coin.scale.setScalar((0.6 + 0.4 * ramp(P, 0.9, 0.93)) * (1 + grow * 1.4));
-    if (realCoin) { realCoin.position.copy(coin.position); realCoin.rotation.set(0.12, now * 0.9, Math.sin(now * 0.7) * 0.06); realCoin.scale.copy(coin.scale); realCoin.visible = true; coin.visible = false; }
+    if (realCoin) { realCoin.position.copy(coin.position); realCoin.rotation.set(0.12, coinSpin.phase, Math.sin(now * 0.7) * 0.06); realCoin.scale.copy(coin.scale); realCoin.visible = true; coin.visible = false; }
   } else if (realCoin) realCoin.visible = false;
+  if (coinSpin.id == null) { coinSpin.phase += (0.9 + coinSpin.extra) * realDt; coinSpin.extra *= Math.exp(-realDt / 1.4); }
   coinGlow.visible = !!(realCoin && realCoin.visible); if (coinGlow.visible) { coinGlow.position.copy(realCoin.position).add(V(0, 0, -0.05)); coinGlow.scale.setScalar(0.5 * realCoin.scale.x * (1 + 0.08 * Math.sin(now * 2.2))); coinGlow.material.opacity = 0.75; }
   // glints: a star flares where the rim or face actually catches the light as it turns
   const cObj = realCoin && realCoin.visible ? realCoin : null;
@@ -581,7 +598,9 @@ Z.onFrame((dt, now, realDt) => {
   const co = ramp(P, 0.93, 0.955); cta.style.opacity = co.toFixed(3); cta.style.pointerEvents = co > 0.5 ? 'auto' : 'none';
   coach.style.opacity = 0;
   if (co > 0.01 && realCoin) { const cs = realCoin.position.clone().project(camera), cx2 = (cs.x + 1) / 2 * cw, cy2 = (1 - cs.y) / 2 * ch, rpx = 0.12 * realCoin.scale.x / Math.max(0.01, realCoin.position.distanceTo(camera.position)) * ch * 1.9;
-    cta.style.left = (cx2 + rpx + 14).toFixed(0) + 'px'; cta.style.top = (cy2 - 20 + Math.sin(now * 1.6) * 4).toFixed(0) + 'px'; }
+    cta.style.left = cx2.toFixed(0) + 'px'; cta.style.top = (cy2 + rpx + 14).toFixed(0) + 'px'; cta.style.transform = 'translateX(-50%)';
+    coinHit.style.left = cx2.toFixed(0) + 'px'; coinHit.style.top = cy2.toFixed(0) + 'px'; coinHit.style.width = coinHit.style.height = (rpx * 2.2).toFixed(0) + 'px'; }
+  coinHit.style.pointerEvents = co > 0.5 && realCoin && realCoin.visible ? 'auto' : 'none';
   if (window.__storyDebug) { window.__storyDebug.P = P; window.__storyDebug.strikeT = strikeT; window.__storyDebug.flick = flick; window.__storyDebug.gestT = gestT; }
 });
 
@@ -621,41 +640,42 @@ const PLOTS = (() => { let r = 8675309; const rn = () => (r = (r * 16807) % 2147
     z += depth; }
   return out.sort((p, q) => q.z0 - p.z0); })();
 const hexRGB = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-let earthQ = -1;
+let earthQ = -1, earthNight = null;
 function drawEarth() {
   if (!firstSec) return; const W = earthCv.clientWidth, H = earthCv.clientHeight; if (!W || !H) return;
   const dpr = Math.min(2, devicePixelRatio || 1), resized = earthCv.width !== Math.round(W * dpr); if (resized) { earthCv.width = Math.round(W * dpr); earthCv.height = Math.round(H * dpr); }
-  const wr = earthWrap.getBoundingClientRect(), q = clamp(-wr.top / Math.max(1, wr.height - innerHeight)); if (!resized && Math.abs(q - earthQ) < 0.0015) return; earthQ = q;
+  const night = document.documentElement.getAttribute('data-mode') === 'dark' || !!document.querySelector('.page_root.is-dark') || document.documentElement.classList.contains('zb-night');
+  const wr = earthWrap.getBoundingClientRect(), q = clamp(-wr.top / Math.max(1, wr.height - innerHeight)); if (!resized && Math.abs(q - earthQ) < 0.0015 && night === earthNight) return; earthQ = q; earthNight = night;
   const g = ex; g.setTransform(dpr, 0, 0, dpr, 0, 0);
   // realistic parallax: we glide forward over the fields and sink a little, so near fields slide past faster than far ones
   const hz = H * 0.36, alt = 1.0 - q * 0.35, f = H * 0.9, cx = W / 2, camZ = q * 7, camX = q * 0.8, sunX = W * 0.2, sunY = -H * 0.15;
   // sky: blue overhead, warm toward the low sun, a bright glow on the horizon
-  const sky = g.createLinearGradient(0, 0, 0, hz); sky.addColorStop(0, '#5fa6e6'); sky.addColorStop(0.55, '#9fcbef'); sky.addColorStop(0.9, '#d9e9f4'); sky.addColorStop(1, '#e8f0f4'); g.fillStyle = sky; g.fillRect(0, 0, W, hz + 2);
-  const sg = g.createRadialGradient(sunX, sunY, 0, sunX, sunY, H * 0.5); sg.addColorStop(0, 'rgba(255,253,240,.9)'); sg.addColorStop(0.25, 'rgba(255,250,230,.25)'); sg.addColorStop(1, 'rgba(255,250,230,0)'); g.fillStyle = sg; g.fillRect(0, 0, W, H);
-  // a few soft clouds
-  g.fillStyle = 'rgba(255,255,255,.35)'; for (const [x, y, w] of [[0.62, 0.12, 0.22], [0.8, 0.2, 0.14], [0.18, 0.08, 0.18]]) { g.beginPath(); g.ellipse(W * x, H * y * (hz / H) / 0.34, W * w, H * 0.018, -0.05, 0, 7); g.fill(); }
+  // the sky above the horizon is the page's own sky (left clear), so it matches the rest of the site in day and night
+  g.clearRect(0, 0, W, H);
   // ground
-  const haze = [214, 226, 234], P2 = (X, Z) => [cx + f * (X - camX) / Z, hz + f * alt / Z];
-  g.fillStyle = 'rgb(176,190,170)'; g.fillRect(0, hz, W, H - hz);
+  const haze = night ? [30, 42, 62] : [214, 226, 234], P2 = (X, Z) => [cx + f * (X - camX) / Z, hz + f * alt / Z];
+  g.fillStyle = night ? 'rgb(22,30,40)' : 'rgb(176,190,170)'; g.fillRect(0, hz, W, H - hz);
   for (const pl of PLOTS) { const Z0 = pl.z0 + 0.2 - camZ, Z1 = pl.z1 + 0.2 - camZ; if (Z1 < 0.05) continue; if (Z0 < 0.05) continue;
     const a = P2(pl.x0 + pl.sk * Z0, Z0), b = P2(pl.x1 + pl.sk * Z0, Z0), c = P2(pl.x1 + pl.sk * Z1, Z1), d = P2(pl.x0 + pl.sk * Z1, Z1);
     if (Math.max(a[0], b[0], c[0], d[0]) < -50 || Math.min(a[0], b[0], c[0], d[0]) > W + 50) continue;
     const zm = (Z0 + Z1) / 2, hk = 1 - Math.exp(-zm / (9 + q * 6)), [r0, g0, b0] = hexRGB(pl.c);
     const warm = 0.06;
-    const col = [r0 + (255 - r0) * warm * 0.35, g0 + (210 - g0) * warm * 0.2, b0 * (1 - warm * 0.3)].map((v, i) => Math.round(v + (haze[i] - v) * hk));
+    const base = night ? [r0 * 0.26 + 8, g0 * 0.28 + 13, b0 * 0.3 + 26] : [r0 + (255 - r0) * warm * 0.35, g0 + (210 - g0) * warm * 0.2, b0 * (1 - warm * 0.3)];
+    const col = base.map((v, i) => Math.round(v + (haze[i] - v) * hk));
     g.fillStyle = `rgb(${col})`; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.lineTo(...c); g.lineTo(...d); g.closePath(); g.fill();
     const lw = Math.max(0.4, f * 0.006 / zm);
     if (pl.rows && zm < 12) { g.strokeStyle = `rgba(0,0,0,${0.08 * (1 - hk)})`; g.lineWidth = Math.max(0.3, lw * 0.3); g.beginPath(); for (let k = 1; k < 6; k++) { const t = k / 6, p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], qq = [d[0] + (c[0] - d[0]) * t, d[1] + (c[1] - d[1]) * t]; g.moveTo(...p); g.lineTo(...qq); } g.stroke(); }
-    if (pl.hedge) { const hc = [46, 62, 32].map((v, i) => Math.round(v + (haze[i] - v) * hk)); g.strokeStyle = `rgb(${hc})`; g.lineWidth = lw * 1.4; g.lineCap = 'round'; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); }
+    if (pl.hedge) { const hc = (night ? [8, 12, 12] : [46, 62, 32]).map((v, i) => Math.round(v + (haze[i] - v) * hk)); g.strokeStyle = `rgb(${hc})`; g.lineWidth = lw * 1.4; g.lineCap = 'round'; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); }
     if (pl.trees && zm < 25) { let r = pl.sd; const rn = () => (r = (r * 16807) % 2147483647) / 2147483647; const n = 3 + Math.floor(rn() * 6);
       for (let k = 0; k < n; k++) { const t = rn(), x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t, rad = f * (0.012 + rn() * 0.012) / zm;
         g.fillStyle = `rgba(30,35,20,${0.35 * (1 - hk)})`; g.beginPath(); g.ellipse(x + rad * 0.7, y + rad * 0.2, rad * 1.0, rad * 0.35, 0, 0, 7); g.fill(); // short midday shadow
-        const tc = [58, 78, 38].map((v, i) => Math.round(v + (haze[i] - v) * hk)), tl = [150, 140, 70].map((v, i) => Math.round(v + (haze[i] - v) * hk));
-        g.fillStyle = `rgb(${tc})`; g.beginPath(); g.arc(x, y - rad * 0.8, rad, 0, 7); g.fill(); g.fillStyle = `rgba(${tl},.8)`; g.beginPath(); g.arc(x - rad * 0.35, y - rad * 1.05, rad * 0.5, 0, 7); g.fill(); } } }
+        const tc = (night ? [12, 18, 18] : [58, 78, 38]).map((v, i) => Math.round(v + (haze[i] - v) * hk)), tl = (night ? [60, 80, 112] : [150, 140, 70]).map((v, i) => Math.round(v + (haze[i] - v) * hk));
+        g.fillStyle = `rgb(${tc})`; g.beginPath(); g.arc(x, y - rad * 0.8, rad, 0, 7); g.fill(); g.fillStyle = `rgba(${tl},.8)`; g.beginPath(); g.arc(x - rad * 0.35, y - rad * 1.05, rad * 0.5, 0, 7); g.fill();
+        if (night && k === 0 && rn() < 0.6) { const lx = x + rad * 1.4, ly = y - rad * 0.3, lr2 = Math.max(1, rad * 0.35); const gl = g.createRadialGradient(lx, ly, 0, lx, ly, lr2 * 5); gl.addColorStop(0, `rgba(255,214,140,${0.9 * (1 - hk)})`); gl.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = gl; g.fillRect(lx - lr2 * 5, ly - lr2 * 5, lr2 * 10, lr2 * 10); } } } }
   // atmosphere: horizon haze band and warm raking light from the sun
-  const hb = g.createLinearGradient(0, hz - H * 0.02, 0, hz + H * 0.16); hb.addColorStop(0, 'rgba(226,236,242,.9)'); hb.addColorStop(1, 'rgba(226,236,242,0)'); g.fillStyle = hb; g.fillRect(0, hz - H * 0.02, W, H * 0.18);
-  const lr = g.createRadialGradient(sunX, hz, 0, sunX, hz, W * 0.7); lr.addColorStop(0, 'rgba(255,250,230,.12)'); lr.addColorStop(1, 'rgba(255,250,230,0)'); g.fillStyle = lr; g.fillRect(0, hz, W, H - hz);
+  const hzc = night ? '40,56,84' : '226,236,242', hb = g.createLinearGradient(0, hz - H * 0.05, 0, hz + H * 0.16); hb.addColorStop(0, `rgba(${hzc},0)`); hb.addColorStop(0.25, `rgba(${hzc},.9)`); hb.addColorStop(1, `rgba(${hzc},0)`); g.fillStyle = hb; g.fillRect(0, hz - H * 0.05, W, H * 0.18);
+  if (!night) { const lr = g.createRadialGradient(sunX, hz, 0, sunX, hz, W * 0.7); lr.addColorStop(0, 'rgba(255,250,230,.12)'); lr.addColorStop(1, 'rgba(255,250,230,0)'); g.fillStyle = lr; g.fillRect(0, hz, W, H - hz); }
 }
 (function earthLoop() { const r = earthWrap.getBoundingClientRect(); if (r.bottom > 0 && r.top < innerHeight) drawEarth(); requestAnimationFrame(earthLoop); })();
-window.__storyDebug = { P: 0 };
+window.__storyDebug = { P: 0 }; window.__bulbDbg = { glassPhys, glassRim, bulb, stemMat, insMat, baseMat, wireMat, filMat };
 console.log('[zolton] scroll story ready');
