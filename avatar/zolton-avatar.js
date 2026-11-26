@@ -964,9 +964,11 @@ function frame(){
   }
   for(const c of clouds){ c.position.x+=realDt*0.25; if(c.position.x>40) c.position.x=-40; }
   camera.lookAt(camNowTarget);
-  renderer.render(scene,camera); reportPins(false); requestAnimationFrame(frame);
+  if(needResize) doResize(); renderer.render(scene,camera); reportPins(false); requestAnimationFrame(frame);
 }
-function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);renderer.getDrawingBufferSize(INK_RES.value);camera.aspect=w/h;
+/* resizing wipes the canvas, so it waits for the start of the next draw (a resize between frames showed a blank frame on phones) */
+let needResize=true; function resize(){ needResize=true; }
+function doResize(){ needResize=false;const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);renderer.getDrawingBufferSize(INK_RES.value);camera.aspect=w/h;
   if(w>=900){ camera.setViewOffset(w,h,-Math.round(w*0.09),0,w,h); } else camera.setViewOffset(w,h,0,Math.round(h*0.17),w,h);
   camera.fov = w<h?32:30; camFull.pos.z = w<h?7.7:6.4; if(state.cam!=='face') camera.position.copy(camFull.pos); camera.updateProjectionMatrix();}
-addEventListener('resize',resize); try{ new ResizeObserver(resize).observe(HOST); }catch(_){} resize(); requestAnimationFrame(frame);
+addEventListener('resize',resize); try{ new ResizeObserver(resize).observe(HOST); }catch(_){} doResize(); requestAnimationFrame(frame);

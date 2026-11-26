@@ -300,9 +300,22 @@
 
     // adaptive resolution: the raymarch is heavy, so it renders below screen resolution and scales with the frame rate
     const maxScale = Math.min(devicePixelRatio || 1, 2) * (touch ? 0.5 : 0.75);
-    let scale = Math.min(maxScale, touch ? 0.4 : 0.6);
-    function resize() { renderer.setPixelRatio(scale); renderer.setSize(innerWidth, innerHeight, false); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); }
-    addEventListener('resize', resize); resize();
+    let scale = Math.min(maxScale, touch ? 0.4 : 0.6), ceil = maxScale, good = 0;
+    // Resizing a WebGL canvas wipes it, so it only ever happens at the start of a frame, right before drawing; otherwise the
+    // browser can show the wiped (black) canvas for a frame: the whole-screen flash phones were getting.
+    // Phones: the address bar showing/hiding changes the height as you scroll; the canvas keeps the tallest height it has seen
+    // for that width instead of resizing on every scroll.
+    let cw = 0, ch = 0, cs = 0, dirty = true;
+    function resize() { dirty = true; }
+    function applySize() {
+      dirty = false;
+      const w = innerWidth, h = innerHeight, keepH = touch && w === cw && h < ch;
+      const H = keepH ? ch : h;
+      if (w === cw && H === ch && scale === cs) return;
+      cw = w; ch = H; cs = scale;
+      renderer.setPixelRatio(scale); renderer.setSize(w, H, false); cam.aspect = w / H; cam.updateProjectionMatrix(); canvas.style.height = touch ? H + 'px' : '';
+    }
+    addEventListener('resize', resize); applySize();
 
     // scroll keyframes: 0 at the top of the page, 1 at the bottom
     let sp = 0;
@@ -328,13 +341,17 @@
       uniforms.uCam.value.copy(cam.position);
       uniforms.uInvVP.value.multiplyMatrices(cam.matrixWorld, cam.projectionMatrixInverse);
       uniforms.uTime.value = simT; uniforms.uFrame.value++;
+      if (dirty) applySize();
       renderer.render(scene, quadCam);
       if (!shown) { shown = true; wrap.classList.add('on'); }
       acc += dt; frames++;
       if (acc > 1) {
         const fps = frames / acc;
-        if (fps < 40 && scale > 0.3) { scale = Math.max(0.3, scale - 0.08); resize(); }
-        else if (fps > 58 && scale < maxScale) { scale = Math.min(maxScale, scale + 0.05); resize(); }
+        // quality steps down when slow; it only steps back up after 3 smooth seconds in a row, and on phones never back up
+        // past a level it had to leave, so it doesn't seesaw (each step is a resize)
+        if (fps < 40 && scale > 0.3) { ceil = scale - 0.01; scale = Math.max(0.3, scale - 0.08); good = 0; resize(); }
+        else if (fps > 58 && scale < Math.min(maxScale, touch ? ceil : maxScale)) { if (++good >= 3) { scale = Math.min(maxScale, touch ? ceil : maxScale, scale + 0.05); good = 0; resize(); } }
+        else good = 0;
         acc = 0; frames = 0;
       }
       requestAnimationFrame(frame);
