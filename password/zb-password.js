@@ -1576,8 +1576,11 @@
     }
     dock.addEventListener('pointerenter', () => { if (!bus.chatOpen) { bus.mood = 'curious'; bus.moodUntil = performance.now() / 1000 + 0.9; } });
 
-    function resize() { const s = Math.round((dock.clientWidth || 230) * OVER); renderer.setSize(s, s, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
-    resize(); addEventListener('resize', resize); new ResizeObserver(resize).observe(dock);
+    /* resizing the canvas wipes it, so only when the size really changes, and only right before a draw (phones fire resize on every scroll) */
+    let rs = 0, needRs = false;
+    function doResize() { needRs = false; const s = Math.round((dock.clientWidth || 230) * OVER); if (s === rs) return; rs = s; renderer.setSize(s, s, false); camera.aspect = 1; camera.updateProjectionMatrix(); }
+    function resize() { needRs = true; }
+    doResize(); addEventListener('resize', resize); new ResizeObserver(resize).observe(dock);
 
     // Exhaust: sparks spawn at the nozzle in world space, fall with gravity and drag, and are left behind as he flies
     const NP = 90, pPos = new Float32Array(NP * 3), pCol = new Float32Array(NP * 4), pVel = new Float32Array(NP * 3), pLife = new Float32Array(NP).fill(-1);
@@ -1722,7 +1725,7 @@
       faceLight.color.setRGB(col.r / 255, col.g / 255, col.b / 255); faceLight.intensity = 0.25 + 0.45 * nightF;
       ringMat.emissiveIntensity *= 1 + 0.3 * nightF; tipMat.emissiveIntensity = 1.1 + 0.5 * nightF + 0.3 * Math.sin(t * 2.2);
       physics(dt, t, hop >= 0 && hop < 0.3);
-      if (bus.onscreen !== false && !document.hidden) renderer.render(scene, camera);   // off screen (above the hero, below Contact): skip the draw
+      if (bus.onscreen !== false && !document.hidden) { if (needRs) doResize(); renderer.render(scene, camera); }   // off screen (above the hero, below Contact): skip the draw
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
