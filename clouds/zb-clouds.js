@@ -36,6 +36,8 @@
     '.zbs{position:absolute;left:0;top:0;right:0;z-index:-2;pointer-events:none;overflow:hidden}',
     '.zbs-c{position:absolute;will-change:transform;z-index:2}','.zbs-c.behind{z-index:0}',
     '.zbs-c img{position:absolute;inset:0;width:100%;height:100%;transition:opacity 900ms cubic-bezier(.65,0,.35,1)}',
+    /* feather the stills' outer edge: their faint edge pixels showed as a hairline frame over the video sky */
+    '.zbs-c img{-webkit-mask-image:linear-gradient(to right,transparent,#000 3%,#000 97%,transparent),linear-gradient(to bottom,transparent,#000 4%,#000 96%,transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent,#000 3%,#000 97%,transparent),linear-gradient(to bottom,transparent,#000 4%,#000 96%,transparent);mask-composite:intersect}',
     '.zbs-c img.n{opacity:0}',
     '.zbs-c.flip img{transform:scaleX(-1)}',
     'html[data-mode="dark"] .zbs-c img.d{opacity:0}',
