@@ -969,7 +969,7 @@
     let renderer;
     try { renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); } catch (e) { return; }
     renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, touch ? 1.5 : 1.75));
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, window.zbLite ? 1 : touch ? 1.5 : 1.75));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     dock.insertBefore(renderer.domElement, dock.firstChild);
     const scene = new THREE.Scene();
@@ -1393,7 +1393,15 @@
     const ease = x => x * x * (3 - 2 * x);
     let cover = 0, nextBlink = 2.5, blinkT = -1;
     const target = { r: 95, g: 244, b: 255 };
+    // weak GPU (an older Intel Mac, an older phone): step the resolution down rather than drop frames
+    let frameEma = 16.7, slowMs = 0, lastRaw = 0, prNow = renderer.getPixelRatio();
     function frame() {
+      const rawNow = performance.now(), raw = lastRaw ? rawNow - lastRaw : 16.7; lastRaw = rawNow;
+      if (bus.onscreen !== false && !document.hidden && raw < 250) {
+        frameEma += (raw - frameEma) * 0.08;
+        if (frameEma > 24 && prNow > 1) { slowMs += raw; if (slowMs > 1200) { prNow = Math.max(1, prNow - 0.25); renderer.setPixelRatio(prNow); slowMs = 0; frameEma = 16.7; } }
+        else slowMs = 0;
+      }
       const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime, now = performance.now() / 1000, m = reduce ? 0.3 : 1;
       typing = Math.max(0, typing - dt);
       // decide mood

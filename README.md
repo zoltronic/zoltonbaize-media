@@ -15,3 +15,20 @@ URL pattern: `https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@main/<path
 - `transitions/zb-spatial.js` — sky-world page transitions (cross-document View Transitions): Work center, About right, Contact further right; case studies (`/project/*`, `/gold`) push forward and pull back; unlocking a password page flies forward through the glass with an "Unlocked" note. Load in the site head without `defer`. `zb-spatial.html` is the readable source of the same CSS and JS.
 
 - `zoltbot/` — Netlify function behind the password-page chat: delivers access requests (email, phone push, saved list) and answers off-script questions with a Claude model. Setup in `zoltbot/README.md`.
+
+## Performance: pre-rendered sky, clouds and splash (Nov 2026)
+
+The heavy live shaders now play as pre-rendered video loops, so older laptops and phones scroll smoothly. The loops
+live on the orphan `media` branch (small jsDelivr package); Site settings > Head sets `window.ZB_MEDIA` to that commit.
+
+- `sky/zb-sky-video.js` — `<zb-sky>` as a video loop (load in Site settings > Head, before the footer's WebGL version,
+  which then steps aside). Also decides `window.zbLite` / `html.zb-lite` (data saver, slow connection, 2 GB memory or
+  2 cores): those visitors get stills, no live blur.
+- `clouds/zb-clouds.js` — the Work page cloud sea is now a video strip whose horizon tracks the same scroll keyframes.
+- `splash/zb-splash-video.js` — the splash as a 2 s video (skipped if it can't start within 1.5 s) and the cloud floor
+  as two baked strips. `splash/zb-splash.js` is the original 3D version, kept for re-rendering.
+- `about/zb-about-video.js` — the About sky as two loops (top / bottom of the page), crossfaded on scroll.
+  `about/zb-about.js` is the original raymarcher, kept for re-rendering.
+- Zoltbot (`password/zb-password.js`) steps his resolution down on slow GPUs.
+
+To change a look: edit the original shader script, re-render with the offline renderer, re-encode, push to `media`, bump `ZB_MEDIA`.
