@@ -685,6 +685,10 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
   window.__z={onFrame:(f)=>frameHooks.push(f),aimBoneAt,addWorldRot,setExpr,camFull,HOST,PRESETS,actions,mixer,setLook,inks,scene,camera,renderer,hand,state,bones,root,restPose,gear,yogaCloud,setCam,setLight,updateGear,setPalm:(v)=>{PALM_SIGN=v;}};
   document.getElementById('loader').hidden=true;
   buildFaceButtons(); updateGear(); setTest('Intro'); playIntro();
+  // About page: the page embed adds html.zav-lock before anything loads; it lifts as soon as he's sitting on his cloud
+  // (about a second), or after 6 s whatever happens.
+  if(document.documentElement.classList.contains('zav-lock')){ const t0=performance.now(); frameHooks.push(()=>{ const de=document.documentElement; if(!de.classList.contains('zav-lock')) return;
+    if((state.mode==='yoga'&&state.seated)||performance.now()-t0>6000){ if(window.zavUnlock) window.zavUnlock(); else de.classList.remove('zav-lock'); } }); }
   { const syncMode=()=>{ const n=document.documentElement.classList.contains('zb-night'); setLight(n?'night':'day'); if(gear.goggles){ gear.goggles.userData.on=n; gear.scarfOn=n; updateGear(); } }; syncMode();
     new MutationObserver(syncMode).observe(document.documentElement,{attributes:true,attributeFilter:['class']}); }
 },(e)=>{ if(e.total){const p=Math.round(e.loaded/e.total*100);document.getElementById('loadtxt').textContent=`Loading Zolton… ${p}%`;document.getElementById('loadbar').style.width=p+'%';}},
@@ -699,10 +703,12 @@ function setExpr(name,hold=0){ if(state.intro&&name!=='happyOpen'&&hold===0) nam
 }
 function buildFaceButtons(){const row=document.getElementById('faces');
   for(const k of Object.keys(PRESETS)){const b=document.createElement('button');b.id='f-'+k;b.dataset.k=k;b.textContent=LABELS[k];b.onclick=()=>setExpr(k,6);row.appendChild(b);} }
+const FLY_SPEED=1.6;   // fly-in pace (1 = the original 3.4 s flight; 1.6 ≈ 2.1 s)
+const TURN={swing:0.85,hold:0.7};   // turnaround: seconds to swing round, seconds showing the jet pack (was 1.5 / 1.8)
 function flyIn(yoga=false){
   Object.values(actions).forEach(a=>a.stop());
   actions.fly.reset().setEffectiveWeight(1).play();
-  state.cloudRise=-1; state.cloudDelay=0; state.mode='flying'; state.t=0; state.yoga=yoga; state.seated=false; state.poseW=0; state.armW=0; state.cloudK=0; state.turnT=-1;
+  state.cloudRise=-1; state.cloudDelay=0; state.mode='flying'; state.t=0; state.flyT0=performance.now()/1000; state.fast=false; state.yoga=yoga; state.seated=false; state.poseW=0; state.armW=0; state.cloudK=0; state.turnT=-1;
   yogaCloud.visible=false; yogaCloud.scale.setScalar(0.001);
   setStatus(yoga?'flying to the cloud':'flying in'); setExpr('determined');
 }
@@ -713,9 +719,16 @@ function startHover(){
 function upperAction(a,mode,expr){ if(state.mode==='flying'||state.mode==='braking') return;
   actions.hoverUp.fadeOut(0.4); actions.wave.stop(); actions.talk.stop(); a.reset().fadeIn(0.4).play();
   state.mode=mode; setStatus(mode); setExpr(expr); state.talkT=0; }
-function playIntro(){ state.intro=true; state.introStep='fly'; state.introWait=1.0; flyIn(false); setExpr('happyOpen'); setStatus('intro: flying in'); }
+function placeSeated(){   /* no fly-in: he is already sitting cross-legged on his cloud on the first frame */
+  Object.values(actions).forEach(a=>a.stop());
+  actions.hoverLow.reset().setEffectiveWeight(1).play(); actions.hoverUp.reset().setEffectiveWeight(1).play();
+  state.intro=false; state.fast=false; state.yoga=true; state.seated=true; state.mode='yoga'; state.t=99; state.turnT=-1;
+  state.cloudRise=-1; state.cloudDelay=0; state.cloudK=1; state.poseW=1; state.armW=1; state.thrust=0;
+  root.position.copy(HOME); root.rotation.set(0,0,0); yogaCloud.visible=true; yogaCloud.scale.setScalar(1);
+  setExpr('zen'); setStatus('meditating'); }
+function playIntro(){ placeSeated(); }
 // yoga: no fly-in. A cloud rises from below the frame, stops under him, then he settles onto it.
-function sitOnCloud(){ if(state.seated||state.cloudRise>=0) return; state.turnT=-1; state.yoga=true; state.seated=true; state.mode='yoga'; setExpr(state.intro?'happyOpen':'zen'); yogaCloud.visible=false; state.cloudK=1; yogaCloud.scale.setScalar(1); state.cloudDelay=1.3; setStatus('into yoga pose'); }
+function sitOnCloud(){ if(state.seated||state.cloudRise>=0) return; state.turnT=-1; state.yoga=true; state.seated=true; state.mode='yoga'; setExpr(state.intro?'happyOpen':'zen'); yogaCloud.visible=false; state.cloudK=1; yogaCloud.scale.setScalar(1); state.cloudDelay=state.intro?0.35:1.3; setStatus('into yoga pose'); }
 document.getElementById('b-intro').onclick=()=>{ setTest('Intro'); playIntro(); };
 document.getElementById('b-fly').onclick=()=>{ state.intro=false; setTest('Fly in'); flyIn(false); };
 document.getElementById('b-yoga').onclick=()=>{ if(state.mode==='flying'||state.mode==='braking'||state.mode==='loading') return; state.intro=false; setTest('Yoga'); sitOnCloud(); };
@@ -815,7 +828,7 @@ function frame(){
     // still struggling (under ~22 fps on a phone, ~40 on desktop) -> drop the resolution a step, down to 0.75x
     if(emaDt>(TOUCH?0.045:0.025)){ slowT+=fd; if(slowT>1.5&&PR>(TOUCH?0.75:1)){ PR=Math.max(TOUCH?0.75:1,PR-0.25); renderer.setPixelRatio(PR); resize(); slowT=0; emaDt=TOUCH?1/30:1/60; } } else slowT=0; }
   lastDraw=tnow;
-  const rdt=clock.getDelta(); const realDt=Math.min(rdt,0.05); const now=performance.now()/1000;
+  const rdt=clock.getDelta(); const realDt=Math.min(rdt,0.05); const cdt=Math.min(rdt,0.25); /* cdt: intro timers follow the clock even while the page is busy loading */ const now=performance.now()/1000;
   // Spider-Verse: character animates "on twos" (12 fps holds); camera, flames and sky stay smooth
   let dt=realDt, step=true;
   if(look==='spider'){ twosAcc+=realDt; if(twosAcc<1/12) step=false; else { dt=Math.min(twosAcc,0.12); twosAcc=0; } } else twosAcc=0;
@@ -823,12 +836,12 @@ function frame(){
     root.position.sub(EXITOFF);
     // flight path
     if(state.mode==='flying'||state.mode==='braking'){
-      state.t+=Math.min(look==='spider'?dt:rdt,0.25); const T=2.8; const u=Math.min(state.t/T,1); const e=ease(u);
+      state.t=(now-state.flyT0)*(state.fast?3.6:FLY_SPEED); /* wall clock: page-load hitches can not stretch the flight */ const T=2.8; const u=Math.min(state.t/T,1); const e=ease(u);
       root.position.lerpVectors(START,HOME,e); root.position.y+=Math.sin(u*Math.PI)*0.6;
       root.rotation.set(0,0,Math.sin(u*Math.PI)*-0.12);
       if(state.mode==='flying'&&state.t>1.75){ state.mode='braking'; startHover(); setExpr('surprised'); setStatus('braking'); }
       state.thrust = state.t<1.75?1.5:(state.t<3.2?2.3:1.0);
-      if(state.yoga){ if(state.t>1.9){ yogaCloud.visible=true; state.cloudK=Math.min(1,state.cloudK+dt*0.9); }
+      if(state.yoga){ if(state.t>1.9){ yogaCloud.visible=true; state.cloudK=Math.min(1,state.cloudK+cdt*(state.fast?3.2:0.9)); }
         if(state.t>2.6){ state.seated=true; } }
       if(state.t>T+0.6){ if(state.yoga){ state.mode='yoga'; setStatus('meditating'); setExpr('zen'); } else { state.mode='hover'; setStatus('hovering'); setExpr('happy'); } }
     } else {
@@ -839,7 +852,7 @@ function frame(){
     }
     // seat weights
     const seatTarget=state.seated?1:0, armTarget=(state.seated&&state.mode!=='waving'&&state.mode!=='talking')?1:0;
-    state.poseW+=(seatTarget-state.poseW)*Math.min(1,dt*2.4); state.armW+=(armTarget-state.armW)*Math.min(1,dt*2.4);
+    const pk=state.fast?6:2.4; state.poseW+=(seatTarget-state.poseW)*Math.min(1,cdt*pk); state.armW+=(armTarget-state.armW)*Math.min(1,cdt*pk); if(state.fast&&state.mode==='yoga'&&state.poseW>0.98&&state.cloudK>=1) state.fast=false;
     root.position.y += YOGA_DROP*state.poseW;
     // scroll exit: cloud drifts away, he unfolds out of yoga, then jets up and away (scrubbed both ways)
     if(state.story && state.storyExit==null){ state.exitP=0; } else { const r=HOST.getBoundingClientRect(); const P=Math.max(0,Math.min(1,-r.top/Math.max(1,r.height*0.75)));
@@ -850,10 +863,11 @@ function frame(){
       const fly=Math.max(0,Math.min(1,(sp-0.38)/0.62)), f2=fly*fly;
       EXITOFF.set(f2*1.2,f2*7.5,-f2*9); root.position.add(EXITOFF);
       root.rotation.x += -0.35*Math.min(1,fly*2.2); }
-    if(yogaCloud.visible&&state.mode==='yoga'&&state.cloudK<1) state.cloudK=Math.min(1,state.cloudK+dt*0.9);
-    if(state.cloudDelay>0){ state.cloudDelay-=dt; if(state.cloudDelay<=0){ state.cloudRise=0; yogaCloud.visible=true; yogaCloud.position.y=-3.6; setStatus('cloud rising'); } }
+    if(yogaCloud.visible&&state.mode==='yoga'&&state.cloudK<1) state.cloudK=Math.min(1,state.cloudK+cdt*(state.fast?3.2:0.9));
+    if(state.cloudDelay>0&&(!state.intro||state.poseW>0.96)){ state.cloudDelay-=cdt;   /* intro: the cloud waits until he's fully in the cross-legged pose */
+       if(state.cloudDelay<=0){ state.cloudRise=0; yogaCloud.visible=true; yogaCloud.position.y=-3.6; setStatus('cloud rising'); } }
     if(yogaCloud.visible){ const ce=Math.max(0,Math.min(1,state.exitP/0.28)); for(const c of yogaCloud.children){ c.material.opacity=c.userData.baseOpacity*(1-ce); } }
-    if(yogaCloud.visible){ const k=state.cloudK; const sk=k<1?ease(k)*(1+0.08*Math.sin(k*Math.PI)):1; yogaCloud.scale.setScalar(Math.max(0.001,sk)); if(state.cloudRise>=0){ state.cloudRise+=dt; const u=Math.min(1,state.cloudRise/1.6), e=1-Math.pow(1-u,3); yogaCloud.position.y=-3.6+(0.8+3.6)*e; if(u>=1){ state.cloudRise=-1; setStatus('meditating'); } } else yogaCloud.position.y=0.8-Math.min(1,state.exitP/0.28)*0.7; }
+    if(yogaCloud.visible){ const k=state.cloudK; const sk=k<1?ease(k)*(1+0.08*Math.sin(k*Math.PI)):1; yogaCloud.scale.setScalar(Math.max(0.001,sk)); if(state.cloudRise>=0){ state.cloudRise+=cdt; const u=Math.min(1,state.cloudRise/1.6), e=1-Math.pow(1-u,3); yogaCloud.position.y=-3.6+(0.8+3.6)*e; if(u>=1){ state.cloudRise=-1; setStatus('meditating'); } } else yogaCloud.position.y=0.8-Math.min(1,state.exitP/0.28)*0.7; }
 
     for(const [b,q,p] of restPose){ b.quaternion.copy(q); b.position.copy(p); }
     mixer.update(dt);
@@ -864,14 +878,17 @@ function frame(){
       applyPose(POSE_SPINE,pw); applyPose(POSE_TOP,sm(pw*1.8)); applyPose(POSE_BOT,sm(pw*1.8-0.65)); const aw=Math.min(state.poseW,state.armW); applyPose(POSE_ARMS,aw); if(aw>0.01){ mudra('L',aw); mudra('R',aw);} }
 
     // intro sequencer
-    if(state.intro){ if(state.introStep==='fly'&&state.mode==='hover'){ state.introWait=(state.introWait??1.0)-dt; if(state.introWait<=0){ state.introStep='turn'; state.turnT=0; setStatus('intro: turnaround'); } }
-      else if(state.introStep==='cloud'){ state.introWait-=dt; if(state.introWait<=0){ state.introStep='done'; sitOnCloud(); } } }
+    if(state.intro){ if(state.introStep==='fly'&&state.mode==='hover'){ state.introStep='await'; setStatus('intro: waiting for a scroll'); }
+      else if(state.introStep==='await'&&(state.scrollPoked||scrollY>8)){ state.introStep='turn'; state.turnT=0; setStatus('intro: turnaround'); if(state.lockHook){ document.documentElement.classList.add('zav-lock'); state.lockT0=performance.now(); } }   /* only the fly-in plays on load; the first scroll starts the turnaround, which flows into the yoga pose */
+      else if(state.introStep==='cloud'){ state.introWait-=cdt; if(state.introWait<=0){ state.introStep='done'; sitOnCloud(); } } }
     // turnaround: swing to the back (show the jet pack), hold, come back round
     let turnYaw=0;
-    if(state.turnT>=0){ state.turnT+=dt; const a=1.5,h=1.8,t=state.turnT;
+    if(state.turnT>=0){ state.turnT+=cdt; const a=TURN.swing,h=TURN.hold,t=state.turnT;
       turnYaw = t<a? Math.PI*easeIO(t/a) : t<a+h? Math.PI : t<2*a+h? Math.PI+Math.PI*easeIO((t-a-h)/a) : 0;
-      if(t>=2*a+h){ state.turnT=-1; turnYaw=0; if(state.intro&&state.introStep==='turn'){ state.introStep='cloud'; state.introWait=0.5; } }
+      if(t>=2*a+h){ state.turnT=-1; turnYaw=0; if(state.intro&&state.introStep==='turn'){ state.introStep='cloud'; state.introWait=0.2; } }
       setStatus(state.turnT<0?(state.seated?'meditating':'hovering'):'turning'); }
+    const exitTurn=easeIO(Math.max(0,Math.min(1,(state.exitP-0.14)/0.26)));   /* as he gets up to fly off, he turns to show the jet pack (follows the scroll) */
+    turnYaw+=Math.PI*exitTurn;
 
     // pointer / idle look target
     let tx,ty; const idle=!pointer.has||performance.now()-pointer.lastMove>4000;
@@ -884,7 +901,7 @@ function frame(){
     addWorldRot(bones.mixamorigHead,yaw*0.5,pitch*0.5);
     // body tilt toward pointer
     if(state.mode!=='flying'&&state.mode!=='braking'){
-      const tk=state.turnT>=0?0:(state.seated?0:1);
+      const tk=(state.turnT>=0?0:(state.seated?0:1))*(1-exitTurn);
       tilt.y+=(aim.x*0.28*tk-tilt.y)*Math.min(1,dt*3); tilt.x+=(-aim.y*0.06*tk-tilt.x)*Math.min(1,dt*3); tilt.z+=(-aim.x*0.07*tk-tilt.z)*Math.min(1,dt*3);
       root.rotation.set(tilt.x,tilt.y+turnYaw,tilt.z);
     }
@@ -947,9 +964,11 @@ function frame(){
   }
   for(const c of clouds){ c.position.x+=realDt*0.25; if(c.position.x>40) c.position.x=-40; }
   camera.lookAt(camNowTarget);
-  renderer.render(scene,camera); reportPins(false); requestAnimationFrame(frame);
+  if(needResize) doResize(); renderer.render(scene,camera); reportPins(false); requestAnimationFrame(frame);
 }
-function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);renderer.getDrawingBufferSize(INK_RES.value);camera.aspect=w/h;
+/* resizing wipes the canvas, so it waits for the start of the next draw (a resize between frames showed a blank frame on phones) */
+let needResize=true; function resize(){ needResize=true; }
+function doResize(){ needResize=false;const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);renderer.getDrawingBufferSize(INK_RES.value);camera.aspect=w/h;
   if(w>=900){ camera.setViewOffset(w,h,-Math.round(w*0.09),0,w,h); } else camera.setViewOffset(w,h,0,Math.round(h*0.17),w,h);
   camera.fov = w<h?32:30; camFull.pos.z = w<h?7.7:6.4; if(state.cam!=='face') camera.position.copy(camFull.pos); camera.updateProjectionMatrix();}
-addEventListener('resize',resize); try{ new ResizeObserver(resize).observe(HOST); }catch(_){} resize(); requestAnimationFrame(frame);
+addEventListener('resize',resize); try{ new ResizeObserver(resize).observe(HOST); }catch(_){} doResize(); requestAnimationFrame(frame);
