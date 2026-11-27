@@ -41,7 +41,7 @@ var sp=window.zbSp={el:el,video:v,ready:function(){return shown===1},go:function
 var js=d.createElement('script');js.src='https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@d254e1b5587d3454c6d90fd8cb165440d0b79a01/splash/zb-splash5.min.js';js.async=true;d.head.appendChild(js);
 function vstart(){if(sp.hold||sp.out||!v.parentNode)return;var p=v.play();if(p&&p.catch)p.catch(vdrop)}
 function vdrop(){if(sp.hold&&!sp.ended){sp.end();return}sp.hold=0;if(v.parentNode)v.remove()}
-v.addEventListener('canplay',vstart);v.addEventListener('playing',function(){if(sp.out)return;sp.hold=1;v.classList.add('on');setTimeout(function(){fog.style.visibility='hidden'},320)});
+v.addEventListener('canplay',vstart);v.addEventListener('playing',function(){if(sp.out)return;sp.hold=1;v.classList.add('on');var b=el.lastChild;b.style.transition='opacity .3s';b.style.opacity='0';setTimeout(function(){fog.style.visibility='hidden'},320)});
 v.addEventListener('timeupdate',function(){if(!sp.started&&v.duration&&v.currentTime>v.duration-.1)sp.end()});
 v.addEventListener('ended',function(){sp.end()});v.addEventListener('error',vdrop);v.lastChild.addEventListener('error',vdrop);
 setTimeout(function(){if(!sp.hold)vdrop()},1800);
