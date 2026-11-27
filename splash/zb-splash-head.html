@@ -1,32 +1,18 @@
-<!-- Splash (v3, Nov 2026): first page of a visit, desktop only (?splash forces it; phones, tablets, reduced motion and low-power devices skip it).
-     Code, not video, so it paints with the first byte and looks the same in every browser: the page's own sky out of focus (two tiny inlined
-     images, light and dark), the Z drawn in glass, and a bar that follows the real load (DOM, fonts, the sky's first frame; it doesn't wait for the rest).
-     When the page is ready the haze clears into the sharp sky. Never more than 3 s; a click, scroll or key skips it. -->
-<style>#zb-sp{position:fixed;inset:0;z-index:2147483000;overflow:hidden;cursor:pointer;-webkit-user-select:none;user-select:none;--zs:clamp(96px,10vw,144px)}
+<!-- Splash (v4, Nov 2026): first page of a visit, desktop only (?splash forces it; phones, tablets, reduced motion and low-power devices skip it).
+     Part 1, here: paints with the first byte (the page's own sky out of focus, two tiny inlined images, light and dark), a loading bar that
+     follows the real load (DOM, fonts, the sky's first frame), and the reveal (the haze clears into the sharp sky). Part 2, splash/zb-splash4.js:
+     clouds gather into the Z, the Z turns to refracting glass, the camera pushes through it. Never more than ~3.5 s; a click, scroll or key skips it. -->
+<style>#zb-sp{position:fixed;inset:0;z-index:2147483000;overflow:hidden;cursor:pointer;-webkit-user-select:none;user-select:none}
 #zb-sp.out{pointer-events:none}
 #zb-sp>.fog{position:absolute;inset:-6%;background:#a9d6f3 url(data:image/webp;base64,UklGRpABAABXRUJQVlA4IIQBAABwDACdASrAAGwAPpVKnU03pCmloNgJ8vASiWdu3/wF1RzOv4AFM7qq+6NuS4pMSx5rWuB45gh6V/jmqJWtvr1p87ffhVXWkCSBLnkhD/9mzNcHOTlNpoJFoPnay74676eOGrIYfX3r7MVZfIAA/ulOPu512b/5zbyscpL/hbx+4gacrqVnxA/FYfTlrWni3Uy6K3KjxUv4I5NpcHX1+lv67VHkdE7F0MG2nliFbynUzc5YyGJEE4OTZt4Fb0/643AlEaBOb2c5nkLaxKrZPr3T703yrAB+fb63NtB5Xr7MlSjNofu+ebmWDn/6kxHRVfZ+oTj8uVWhKd3G7xTo0NBbzC4/pXO7uIy8XVL2fnYKz5o/Q9L5jDV3lbIXHW9uIquypQT8DFqbwCiM+VLkJPAc5ALOFLQluto164limIuvlYKySHwfuZ4KvhINlXbAQA1KStpNC164WBYk81riq7IlBNetMBRN+o0Bq+iamG5YnhiG8BJDWIUA/PZdLmJgc7FpZYAA) center/cover;will-change:transform,opacity}
 html[data-mode=dark] #zb-sp>.fog{background:#0e1b35 url(data:image/webp;base64,UklGRgQBAABXRUJQVlA4IPgAAACwCgCdASrAAGwAPpVKnU2lpCKiIGh4sBKJaW7dXWiq4AUy1XOByCJMXlmXvPwaLdT9mzflp3wLTdoWoYtAW345T/RExx+DHEi1fP+UDYM7FMw/LGFiKMt6ICAmqX0AAP71kPhN7VX99Tuw+ukFymlLf4KF3dlCljrC5+Apq44tDyU2HL6ybdSvaoFM1l5sCZOjj6kSQwDV4CwmWJnZuwii5+B83+Q3XCka5WJHV/hUEKlIptsoMJdp8RjBbOTa6nyRziReuIfNWwEu38nXFyOYtQuI255ssTGrP/JK/FNfFQo2/gL/PiEaDOo3ahrBQslbAoOagkqAAA==) center/cover}
-#zb-sp>.mark{position:absolute;left:50%;top:44%;width:var(--zs);height:var(--zs);margin:calc(var(--zs)/-2) 0 0 calc(var(--zs)/-2);filter:drop-shadow(0 12px 24px rgba(16,66,128,.3));will-change:transform,opacity}
-html[data-mode=dark] #zb-sp>.mark{filter:drop-shadow(0 16px 34px rgba(0,0,0,.55))}
-#zb-sp svg{display:block;width:100%;height:100%;overflow:visible}
-#zb-sp .e{fill:none;stroke:#fff;stroke-width:1.5;stroke-linejoin:round;vector-effect:non-scaling-stroke;stroke-dasharray:1 1;stroke-dashoffset:1;animation:zbSpT .8s cubic-bezier(.65,0,.35,1) forwards}
-#zb-sp .e+.e{animation-delay:.1s}
-#zb-sp .d{fill:none;stroke:rgba(10,56,120,.24);stroke-width:1.5;stroke-linejoin:round;vector-effect:non-scaling-stroke;transform:translateY(1.1px)}
-html[data-mode=dark] #zb-sp .d{stroke:rgba(0,0,0,.4)}
-#zb-sp .g{opacity:0;animation:zbSpI .6s ease .4s forwards}
-html[data-mode=dark] #zb-sp .g{--o:.62}
-#zb-sp .s{animation:zbSpS .9s cubic-bezier(.45,0,.25,1) .5s both}
-@keyframes zbSpT{to{stroke-dashoffset:0}}
-@keyframes zbSpI{to{opacity:var(--o,1)}}
-@keyframes zbSpS{from{transform:translateX(-70px) skewX(-18deg)}to{transform:translateX(130px) skewX(-18deg)}}
-#zb-sp>.bar{position:absolute;left:50%;top:calc(44% + var(--zs)/2 + 46px);width:168px;margin-left:-84px;color:rgba(8,34,76,.68);font:500 10px/1 "JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.22em;text-transform:uppercase;will-change:opacity}
+#zb-sp>.bar{position:absolute;left:50%;bottom:calc(7vh + 10px);width:168px;margin-left:-84px;color:rgba(8,34,76,.68);font:500 10px/1 "JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.22em;text-transform:uppercase;will-change:opacity}
 html[data-mode=dark] #zb-sp>.bar{color:rgba(226,236,255,.78)}
 #zb-sp .bar i{position:absolute;left:0;top:0;width:100%;height:1px;background:currentColor;transform-origin:0 0}
 #zb-sp .bar .t{opacity:.24}
 #zb-sp .bar .f{transform:scaleX(0)}
 #zb-sp .bar span{display:flex;justify-content:space-between;padding-top:11px;font-variant-numeric:tabular-nums}
 #zb-sp em{font-style:normal}
-#zb-sp.out>.mark{transition:opacity .3s ease-in,transform .45s cubic-bezier(.55,0,.75,.1);opacity:0;transform:scale(1.12)}
 #zb-sp.out>.bar{transition:opacity .22s;opacity:0}
 @keyframes zbSpRise{from{transform:translate3d(0,24px,0)}to{transform:none}}
 html.zb-sp-rise .layout_hero .page_wrap>*{animation:zbSpRise 1.15s cubic-bezier(.16,1,.3,1) both}
@@ -42,8 +28,12 @@ lo=!!(window.zbLite||c.saveData||/(^|-)(2g|3g)$/.test(c.effectiveType||'')||(n.d
 if(!(f||(!s&&!lo&&!mm('(prefers-reduced-motion: reduce)')&&!mm('(pointer: coarse)'))))return;
 window.__zbSp3=1;try{sessionStorage.setItem('zbSplashSeen','1')}catch(e){}d.cookie='zbSplashSeen=1; path=/; SameSite=Lax';
 var el=d.createElement('div');el.id='zb-sp';el.setAttribute('aria-hidden','true');
-el.innerHTML='<div class="fog"></div><div class="mark"><svg viewBox="0 0 100 100"><defs><linearGradient id="zbsp-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".74"/><stop offset=".5" stop-color="#eaf6ff" stop-opacity=".24"/><stop offset="1" stop-color="#cfe8ff" stop-opacity=".46"/></linearGradient><linearGradient id="zbsp-s" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><clipPath id="zbsp-c"><path d="M53.5 11H93.5Q98 11 95.3 14.6L67.7 51.4Q65 55 61.46 52.22L12.54 13.78Q9 11 13.5 11Z"/><path d="M46.5 89H86.5Q91 89 87.43 86.26L38.57 48.74Q35 46 32.26 49.57L4.74 85.43Q2 89 6.5 89Z"/></clipPath></defs><g class="g"><path d="M53.5 11H93.5Q98 11 95.3 14.6L67.7 51.4Q65 55 61.46 52.22L12.54 13.78Q9 11 13.5 11Z" fill="url(#zbsp-g)"/><path d="M46.5 89H86.5Q91 89 87.43 86.26L38.57 48.74Q35 46 32.26 49.57L4.74 85.43Q2 89 6.5 89Z" fill="url(#zbsp-g)"/><path class="d" d="M53.5 11H93.5Q98 11 95.3 14.6L67.7 51.4Q65 55 61.46 52.22L12.54 13.78Q9 11 13.5 11Z"/><path class="d" d="M46.5 89H86.5Q91 89 87.43 86.26L38.57 48.74Q35 46 32.26 49.57L4.74 85.43Q2 89 6.5 89Z"/><g clip-path="url(#zbsp-c)"><rect class="s" x="-6" y="-12" width="18" height="124" fill="url(#zbsp-s)"/></g></g><path class="e" pathLength="1" d="M53.5 11H93.5Q98 11 95.3 14.6L67.7 51.4Q65 55 61.46 52.22L12.54 13.78Q9 11 13.5 11Z"/><path class="e" pathLength="1" d="M46.5 89H86.5Q91 89 87.43 86.26L38.57 48.74Q35 46 32.26 49.57L4.74 85.43Q2 89 6.5 89Z"/></svg></div><div class="bar"><i class="t"></i><i class="f"></i><span><em>Loading</em><em class="n">000</em></span></div>';
+el.innerHTML='<div class="fog"></div><div class="bar"><i class="t"></i><i class="f"></i><span><em>Loading</em><em class="n">000</em></span></div>';
 h.appendChild(el);
+var dk=h.getAttribute('data-mode')==='dark'||h.classList.contains('zb-night'),M='https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@876df1bb467f14ceadd18bfd4c29e0f695f048db/splash/',
+sp=window.zbSp={el:el,sheet:M+'clouds-'+(dk?'night':'day')+'.webp',ready:function(){return shown===1},go:function(x){go(x)}},
+pl=d.createElement('link');pl.rel='preload';pl.as='image';pl.href=sp.sheet;d.head.appendChild(pl);
+var js=d.createElement('script');js.src='https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@19c5ffa4a65648fbc6e0e911682f444a3abe1021/splash/zb-splash4.min.js';js.async=true;d.head.appendChild(js);
 var fog=el.firstChild,fill=el.querySelector('.f'),num=el.querySelector('.n'),
 T0=performance.now(),MIN=1050,MAX=3000,W={dom:.3,font:.3,sky:.4},got={},shown=0,out=0,zoom=1,raf,
 ok=function(k){got[k]=1};
@@ -53,17 +43,17 @@ function tick(now){var t=now-T0,tg=0,k;
  for(k in W)if(got[k])tg+=W[k];if(t>MAX)tg=1;
  shown+=(tg-shown)*.14;if(shown<tg)shown=Math.min(tg,shown+.0025);if(tg>=1&&shown>.996)shown=1;
  fill.style.transform='scaleX('+shown.toFixed(4)+')';num.textContent=('00'+Math.round(shown*100)).slice(-3);
- if(!out){zoom=1+.045*Math.min(1,t/3000);fog.style.transform='scale('+zoom.toFixed(4)+')';if(shown===1&&t>=MIN)return go(0)}
+ if(!out){zoom=1+.045*Math.min(1,t/3000);fog.style.transform='scale('+zoom.toFixed(4)+')';if(shown===1&&t>=MIN&&!sp.hold)return go(0)}
  raf=requestAnimationFrame(tick)}
-function go(fast){if(out)return;out=1;cancelAnimationFrame(raf);var D=fast?380:900;
+function go(fast){if(out)return;out=sp.out=1;cancelAnimationFrame(raf);var D=fast?380:900;
  el.classList.add('out');h.classList.add('zb-sp-rise');
  fog.style.transition='opacity '+D*.85+'ms cubic-bezier(.4,0,.2,1),transform '+D+'ms cubic-bezier(.25,.1,.25,1)';
  fog.style.opacity='0';fog.style.transform='scale('+(zoom+.2).toFixed(3)+')';
- setTimeout(function(){el.remove()},D+60);setTimeout(function(){h.classList.remove('zb-sp-rise')},D+1300);
+ setTimeout(function(){el.remove()},Math.max(D,sp.hold?820:0)+60);setTimeout(function(){h.classList.remove('zb-sp-rise')},D+1300);
  ['pointerdown','wheel','touchstart','keydown'].forEach(function(e){removeEventListener(e,skip,true)})}
-function skip(){go(1)}
+function skip(){if(sp.skip&&!out)sp.skip();else go(1)}
 ['pointerdown','wheel','touchstart','keydown'].forEach(function(e){addEventListener(e,skip,{capture:true,passive:true})});
 addEventListener('pageshow',function(e){if(e.persisted)go(1)});
-setTimeout(function(){go(0)},MAX+800);
+setTimeout(function(){if(sp.skip)sp.skip();go(0)},MAX+1500);
 raf=requestAnimationFrame(tick);
 }catch(e){var x=document.getElementById('zb-sp');if(x)x.remove()}})();</script>
