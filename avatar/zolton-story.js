@@ -598,11 +598,11 @@ Z.onFrame((dt, now, realDt) => {
   if (!camBase || P < 0.004) camBase = { pos: Z.camFull.pos.clone().sub(camOff), target: Z.camFull.target.clone().sub(camOff) };
   const push = ramp(P, 0.6, 0.7) * (1 - ramp(P, 0.88, 0.98));
   // phones: lift him in the frame so the 'No limits' title sits underneath him rather than across him
-  camOff.set(0, innerWidth < 700 ? -0.42 * (1 - push) : 0, 0);
-  const pTarget = V(headW.x - 0.05, headW.y + 0.12, headW.z), pPos = V(headW.x + 0.25, headW.y + 0.05, headW.z + 3.1);
-  Z.camFull.target.lerpVectors(camBase.target, pTarget, push * 0.85).add(camOff); Z.camFull.pos.lerpVectors(camBase.pos, pPos, push * 0.85).add(camOff);
-  // phones: step back while the holograms circle him, so the whole ring fits the narrow screen
+  // and while the holograms circle him the camera steps back (zoomOut) and rises a little, so the ring sits mid-screen
   const zoomOut = isPhone() ? 0.38 * band(P, 0.19, 0.29, 0.55, 0.63) : 0;
+  camOff.set(0, innerWidth < 700 ? -0.42 * (1 - push) + zoomOut * 1.5 : 0, 0);
+  const pTarget = V(headW.x - 0.05, headW.y + 0.12, headW.z), pPos = V(headW.x + 0.25, headW.y + 0.05, headW.z + (isPhone() ? 4.3 : 3.1));   // phones push in less, so the words fit under him
+  Z.camFull.target.lerpVectors(camBase.target, pTarget, push * 0.85).add(camOff); Z.camFull.pos.lerpVectors(camBase.pos, pPos, push * 0.85).add(camOff);
   if (zoomOut > 0.001) Z.camFull.pos.sub(Z.camFull.target).multiplyScalar(1 + zoomOut).add(Z.camFull.target);
 
   // expressions per beat
