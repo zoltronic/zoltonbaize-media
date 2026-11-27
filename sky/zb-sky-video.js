@@ -7,6 +7,7 @@
    - Portrait screens (phones) get a portrait render of the same sky.
    - Low-power visitors (data saver, slow connection, 2 GB memory or 2 cores) and reduced motion get the still only.
    - Glass panels ([data-zb-glass]) get CSS frosted glass, which blurs the video behind them.
+   - Only one background loop plays at a time (see hold() below).
    The loops are rendered offline from the original shader (same colours, sun, stars and drifting cloud rows).
    Sets window.zbLite and <html class="zb-lite"> for the other scripts (cloud sea, splash, coin, Zoltbot). */
 (function () {
@@ -166,9 +167,12 @@
     var mode = this._night ? 'night' : 'day';
     for (var k in this._layers) {
       var v = this._layers[k].video; if (!v) continue;
-      if (k === mode && !document.hidden && this._on) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
-      else v.pause();
+      if (k === mode && !document.hidden && this._on && !this._held) { if (v.paused) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } }
+      else if (!v.paused) v.pause();
     }
   };
+  // hold(true) pauses the loop on its current frame (the still stays). Chrome on a Mac drops the whole page to ~25 fps
+  // while two videos play at once, so the Work page's cloud sea holds the sky while the sea is the one on screen.
+  Sky.prototype.hold = function (on) { on = !!on; if (on !== !!this._held) { this._held = on; this._play(); } };
   customElements.define('zb-sky', Sky);
 })();

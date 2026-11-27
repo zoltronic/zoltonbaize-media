@@ -80,10 +80,10 @@
     keys.top.style.transform = 'translate3d(0,' + (-x * 4).toFixed(2) + 'vh,0) scale(' + (1 + x * 0.08).toFixed(4) + ')';
     keys.bottom.style.opacity = x.toFixed(3);
     keys.bottom.style.transform = 'translate3d(0,' + ((1 - x) * 3).toFixed(2) + 'vh,0) scale(' + (1.06 - x * 0.06).toFixed(4) + ')';
-    // only decode the loops that can be seen
+    // one loop at a time (Chrome drops the page to ~25 fps while two videos play): the one that dominates plays, the other holds a frame
     for (const id in layers) {
       const L = layers[id], v = L.video; if (!v) continue;
-      const vis = L.m === mode && !document.hidden && (L.key === 'top' ? x < 0.995 : x > 0.005);
+      const vis = L.m === mode && !document.hidden && (L.key === 'top' ? x < 0.5 : x >= 0.5);
       if (vis) { if (v.paused) { const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); } }
       else if (!v.paused) v.pause();
     }

@@ -214,11 +214,19 @@
     var pr2 = st.L ? scrollY / st.L : 0, sf = SEA.solidTo > SEA.solidFrom ? (pr2 - SEA.solidFrom) / (SEA.solidTo - SEA.solidFrom) : (pr2 >= SEA.solidFrom ? 1 : 0);
     sf = Math.max(0, Math.min(1, sf)); sf = sf * sf * (3 - 2 * sf) * SEA.solidAmount;
     sea.solid.style.opacity = sf.toFixed(3);
-    // only decode the video while the sea is actually on screen and not faded out
+    // One loop at a time: Chrome drops the whole page to ~25 fps while two videos play at once. The sky loop plays while the
+    // sky fills most of the screen; once the sea covers half of it the sea plays and the sky holds its frame; deep in the
+    // cloud (solid colour) both rest.
     var visible = y < h && y + sh > 0 && sf < 0.98 && !document.hidden;
+    var cover = (h - st.hz) / h;
+    if (sea.lead !== 'sea' && cover > 0.5 && visible) sea.lead = 'sea';
+    else if (sea.lead === 'sea' && (cover < 0.4 || !visible)) sea.lead = 'sky';
+    var seaPlays = visible && sea.lead === 'sea';
+    if (!sea.sky) sea.sky = document.querySelector('zb-sky');
+    if (sea.sky && sea.sky.hold) sea.sky.hold(seaPlays || st.hz <= 0);
     for (var k in sea.layers) {
       var v = sea.layers[k].video; if (!v) continue;
-      if (visible && k === sea.mode) { if (v.paused) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } }
+      if (seaPlays && k === sea.mode) { if (v.paused) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } }
       else if (!v.paused) v.pause();
     }
   }
