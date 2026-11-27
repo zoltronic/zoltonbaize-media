@@ -48,10 +48,9 @@ var fog=el.firstChild,fill=el.querySelector('.f'),num=el.querySelector('.n'),
 T0=performance.now(),MIN=1050,MAX=3000,W={dom:.3,font:.3,sky:.4},got={},shown=0,out=0,zoom=1,raf,
 ok=function(k){got[k]=1};
 d.addEventListener('DOMContentLoaded',function(){ok('dom');if(d.fonts&&d.fonts.ready)d.fonts.ready.then(function(){ok('font')});else ok('font')});
-addEventListener('load',function(){ok('load')});
 function tick(now){var t=now-T0,tg=0,k;
  if(!got.sky&&(d.querySelector('zb-sky img.on,zb-sky video.on')||(got.dom&&t>1800)))ok('sky');
- for(k in got)tg+=W[k];if(t>MAX)tg=1;
+ for(k in W)if(got[k])tg+=W[k];if(t>MAX)tg=1;
  shown+=(tg-shown)*.14;if(shown<tg)shown=Math.min(tg,shown+.0025);if(tg>=1&&shown>.996)shown=1;
  fill.style.transform='scaleX('+shown.toFixed(4)+')';num.textContent=('00'+Math.round(shown*100)).slice(-3);
  if(!out){zoom=1+.045*Math.min(1,t/3000);fog.style.transform='scale('+zoom.toFixed(4)+')';if(shown===1&&t>=MIN)return go(0)}
