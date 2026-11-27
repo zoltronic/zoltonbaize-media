@@ -14,3 +14,8 @@ of the first frame (shown at once, and the whole picture for phones on data save
 
 Served as `https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@<commit>/<path>`; the site reads the commit from
 `window.ZB_MEDIA` in Site settings > Head.
+
+## avatar/
+Loading stills for the About page: Zolton sitting on his cloud, rendered from the real avatar scene (zolton-avatar.js, seeded cloud)
+with a transparent background, framed exactly like the 3D. still-{day|night}-L.webp = landscape camera (fov 30), 1.5x;
+still-{day|night}-P.webp = portrait camera (fov 32), 1.5x. Placement constants are in the About page embed.
