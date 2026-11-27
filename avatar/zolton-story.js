@@ -7,18 +7,10 @@ import {GLTFLoader} from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js
 import {RGBELoader} from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/RGBELoader.js/+esm';
 import {PLATES, makePlate} from './holo-plates.js';
 
-const Z = await new Promise(res => { const t = setInterval(() => {
-  const z = window.__z; if (z && z.onFrame && z.bones && z.bones.mixamorigHead && z.HOST) { clearInterval(t); res(z); } }, 100); });
-
 const TRACK = 600;                       // extra scroll length, in vh
-const HOST = Z.HOST, embed = HOST.parentElement, hero = HOST.closest('section') || embed.parentElement;
-const { scene, camera, bones, state } = Z;
-const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
-const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
-const sm = x => { x = clamp(x); return x * x * (3 - 2 * x); };
-const ramp = (p, a, b) => sm((p - a) / (b - a));                     // 0 → 1 between a and b
-const band = (p, a, b, c, d) => ramp(p, a, b) * (1 - ramp(p, c, d)); // up a→b, down c→d
-
+// the page layout goes in before the 3D has loaded, so the hero doesn't jump (and the page doesn't grow by 600vh)
+// the moment the model arrives; the About page's loading still sits in the same sticky stage meanwhile
+const HOST0 = document.getElementById('zolton-avatar'), embed = HOST0.parentElement, hero = HOST0.closest('section') || embed.parentElement;
 // ---------- page layout: hero becomes a long track, the 3D stage sticks to the screen ----------
 hero.classList.add('zstory');
 if (!document.getElementById('zs-fonts')) { const l = document.createElement('link'); l.id = 'zs-fonts'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=League+Spartan:wght@500;600;700&display=swap'; document.head.appendChild(l); }
@@ -48,6 +40,18 @@ css.textContent = `
 @media (max-width:699px){.about_hero.zstory > .page_wrap{padding-bottom:4vh!important}.about_hero.zstory .heading-h1{font-size:15vw!important;line-height:.95!important}.about_hero.zstory .text-subhead{font-size:16px!important}}
 `;
 document.head.appendChild(css);
+
+const Z = await new Promise(res => { const t = setInterval(() => {
+  const z = window.__z; if (z && z.onFrame && z.bones && z.bones.mixamorigHead && z.HOST) { clearInterval(t); res(z); } }, 100); });
+
+const HOST = Z.HOST;
+const { scene, camera, bones, state } = Z;
+const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const sm = x => { x = clamp(x); return x * x * (3 - 2 * x); };
+const ramp = (p, a, b) => sm((p - a) / (b - a));                     // 0 → 1 between a and b
+const band = (p, a, b, c, d) => ramp(p, a, b) * (1 - ramp(p, c, d)); // up a→b, down c→d
+
 
 const canvas = HOST.querySelector('canvas');
 const mk = (id, before) => { const d = document.createElement('div'); d.id = id; before ? HOST.insertBefore(d, canvas) : HOST.appendChild(d); return d; };

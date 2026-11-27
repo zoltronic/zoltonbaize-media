@@ -140,8 +140,11 @@ const stars=(()=>{const n=500,a=new Float32Array(n*3);for(let i=0;i<n;i++){a[i*3
   const p=new THREE.Points(g,new THREE.PointsMaterial({color:0xeaf2ff,size:0.55,sizeAttenuation:true,transparent:true,opacity:0.9,depthWrite:false}));p.visible=false;scene.add(p);return p;})();
 
 // soft clouds (sprites)
+// cloud puffs come from a fixed seed, so his cloud looks the same on every visit (and matches the About page's loading still)
+let cloudSeed=0x2f6b1d; const cloudRand=()=>{cloudSeed=cloudSeed+0x6D2B79F5|0;let t=Math.imul(cloudSeed^cloudSeed>>>15,1|cloudSeed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
 function cloudTex(){const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');
- for(let i=0;i<9;i++){const x=60+Math.random()*136,y=110+Math.random()*50,r=40+Math.random()*45;const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(255,255,255,.95)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,7);g.fill();}
+ for(let i=0;i<9;i++){const x=60+cloudRand()*136,y=110+cloudRand()*50,r=40+cloudRand()*45;const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(255,255,255,.95)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,7);g.fill();}
+ g.globalCompositeOperation='destination-in';{const m=g.createLinearGradient(0,0,256,0);m.addColorStop(0,'rgba(0,0,0,0)');m.addColorStop(.12,'#000');m.addColorStop(.88,'#000');m.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=m;g.fillRect(0,0,256,256);}g.globalCompositeOperation='source-over';
  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
 function comicCloudTex(){const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');
  const lobes=[];for(let i=0;i<7;i++)lobes.push([55+Math.random()*146,118+Math.random()*34,26+Math.random()*30]);for(let x=70;x<=186;x+=29)lobes.push([x,150,24]);
