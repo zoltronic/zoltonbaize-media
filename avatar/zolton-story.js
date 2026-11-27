@@ -173,12 +173,17 @@ const NH = 4 + plates.length; for (let i = 0; i < NH; i++) {
   storm.add(h); holos.push(h);
 }
 // brainstorm option: little cloud-brains drifting in the vortex (staging toggle, off by default)
-let brainOn = /[?&]brain=1\b/.test(location.search); try { if (localStorage.getItem('zstory.brain') === '1') brainOn = true; } catch (e) {}
-const brainBtn = document.createElement('button'); brainBtn.id = 'zs-brain'; document.body.appendChild(brainBtn);
+// The toggle button only shows on the staging address (or with ?tune); visitors never see it, and the brain model only
+// downloads once brain clouds are switched on.
+const STORY_TUNE = /\.webflow\.io$/.test(location.hostname) || /[?&]tune\b/.test(location.search);
+let brainOn = /[?&]brain=1\b/.test(location.search); if (STORY_TUNE) { try { if (localStorage.getItem('zstory.brain') === '1') brainOn = true; } catch (e) {} }
+const brainBtn = document.createElement('button'); brainBtn.id = 'zs-brain'; if (STORY_TUNE) document.body.appendChild(brainBtn);
 const setBrainLabel = () => { brainBtn.textContent = 'Brain clouds: ' + (brainOn ? 'On' : 'Off'); }; setBrainLabel();
-brainBtn.onclick = () => { brainOn = !brainOn; setBrainLabel(); try { localStorage.setItem('zstory.brain', brainOn ? '1' : '0'); } catch (e) {} };
+brainBtn.onclick = () => { brainOn = !brainOn; setBrainLabel(); if (brainOn) loadBrains(); try { localStorage.setItem('zstory.brain', brainOn ? '1' : '0'); } catch (e) {} };
 const brainMat = new THREE.MeshToonMaterial({ color: 0xf2f5ff, emissive: 0x7d8fb2, emissiveIntensity: 0.45 });
 const brains = [];
+let brainsAsked = false;
+function loadBrains() { if (brainsAsked) return; brainsAsked = true;
 new GLTFLoader().load(new URL('./brain.glb', import.meta.url).href, (g) => {
   let geo = null; g.scene.traverse(o => { if (o.isMesh && !geo) { o.updateWorldMatrix(true, false); geo = o.geometry.clone().applyMatrix4(o.matrixWorld); } });
   if (!geo) return; geo.computeVertexNormals(); geo.center();
@@ -187,6 +192,8 @@ new GLTFLoader().load(new URL('./brain.glb', import.meta.url).href, (g) => {
     m.visible = false; storm.add(m); brains.push(m); }
   console.log('[zolton] brain clouds ready');
 });
+}
+if (brainOn) loadBrains();
 // the bulb: dark glass that ignites gold
 const bulb = new THREE.Group(); bulb.name = 'StoryBulb'; scene.add(bulb);
 const glassMat = new THREE.MeshStandardMaterial({ color: 0xeef6ff, roughness: 0.05, metalness: 0.0, transparent: true, opacity: 0.12, emissive: 0xffb43a, emissiveIntensity: 0, depthWrite: false });
@@ -264,10 +271,15 @@ function makeBolt2d(bx, by) { const W = HOST.clientWidth, H = HOST.clientHeight,
   for (let k = 0; k < 8; k++) { const i = 10 + Math.floor(Math.random() * main.length * 0.65), a = main[i], dir = Math.random() < 0.5 ? -1 : 1, L = H * (0.06 + Math.random() * 0.14);
     br.push({ pts: frac2(a, [a[0] + dir * L * (0.5 + Math.random()), a[1] + L], 5, 0.6), at: i / main.length, w: 0.55 }); }
   bolt2d = { main, br }; }
+// the two full-screen 2D bolt layers are only touched while a bolt shows (and once more to wipe it): clearing them every
+// frame made the browser re-upload two screen-sized layers each frame, which older laptops felt
+let boltDirty = true, bgDirty = true;
 function drawBolt2d(t) { const dpr = Math.min(2, devicePixelRatio || 1), W = HOST.clientWidth, H = HOST.clientHeight;
+  const show = !!bolt2d && t >= 0 && t < 1.0;
+  if (!show && !boltDirty) return;
   if (boltCv.width !== Math.round(W * dpr)) { boltCv.width = Math.round(W * dpr); boltCv.height = Math.round(H * dpr); }
-  bctx.setTransform(dpr, 0, 0, dpr, 0, 0); bctx.clearRect(0, 0, W, H);
-  if (!bolt2d || t < 0 || t >= 1.0) return;
+  bctx.setTransform(dpr, 0, 0, dpr, 0, 0); bctx.clearRect(0, 0, W, H); boltDirty = show;
+  if (!show) return;
   const grow = clamp(t / 0.14), fade = 1 - ramp(t, 0.7, 1.0);
   const path = (pts, k) => { const n = Math.max(2, Math.floor(pts.length * k)); bctx.beginPath(); bctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < n; i++) bctx.lineTo(pts[i][0], pts[i][1]); };
   const strokeAll = (lw, col, blur, alpha) => { bctx.globalAlpha = alpha * fade; bctx.lineWidth = lw; bctx.strokeStyle = col; bctx.shadowColor = 'rgba(120,170,255,.9)'; bctx.shadowBlur = blur;
@@ -419,13 +431,14 @@ Z.onFrame((dt, now, realDt) => {
     bgBolt = { main, br }; }
   if (flickT >= 0) { flickT += realDt; const t = flickT; flick = (t < 0.06 ? 1 : t < 0.12 ? 0.25 : t < 0.18 ? 0.85 : Math.max(0, 0.7 - (t - 0.18) * 3)) * flickOn; if (t > 0.45) { flickT = -1; flick = 0; } }
   cloudFlash.intensity = flick * 60;
-  { const dpr = Math.min(2, devicePixelRatio || 1), W = HOST.clientWidth, Hh = HOST.clientHeight; if (bgCv.width !== Math.round(W * dpr)) { bgCv.width = Math.round(W * dpr); bgCv.height = Math.round(Hh * dpr); }
-    bgx.setTransform(dpr, 0, 0, dpr, 0, 0); bgx.clearRect(0, 0, W, Hh);
-    if (bgBolt && flickT >= 0 && flick > 0.05) { const grow = clamp(flickT / 0.07); bgx.lineCap = 'round';
+  { const bgShow = !!bgBolt && flickT >= 0 && flick > 0.05;
+    if (bgShow || bgDirty) { const dpr = Math.min(2, devicePixelRatio || 1), W = HOST.clientWidth, Hh = HOST.clientHeight; if (bgCv.width !== Math.round(W * dpr)) { bgCv.width = Math.round(W * dpr); bgCv.height = Math.round(Hh * dpr); }
+    bgx.setTransform(dpr, 0, 0, dpr, 0, 0); bgx.clearRect(0, 0, W, Hh); bgDirty = bgShow;
+    if (bgShow) { const grow = clamp(flickT / 0.07); bgx.lineCap = 'round';
       const path = (pts, k) => { const n = Math.max(2, Math.floor(pts.length * k)); bgx.beginPath(); bgx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < n; i++) bgx.lineTo(pts[i][0], pts[i][1]); };
       for (const [lw, col, blur, al] of [[9, 'rgba(120,165,255,.3)', 22, 1], [3.5, '#a9c8ff', 10, 0.9], [1.4, '#ffffff', 4, 1]]) { bgx.globalAlpha = al * flick; bgx.lineWidth = lw; bgx.strokeStyle = col; bgx.shadowColor = 'rgba(140,180,255,.9)'; bgx.shadowBlur = blur;
         path(bgBolt.main, grow); bgx.stroke(); for (const b of bgBolt.br) { const k = clamp((grow - b.at) / Math.max(0.05, 1 - b.at)); if (k > 0) { bgx.lineWidth = lw * b.w; path(b.pts, k); bgx.stroke(); } } }
-      bgx.globalAlpha = 1; bgx.shadowBlur = 0; } }
+      bgx.globalAlpha = 1; bgx.shadowBlur = 0; } } }
 
   // rain: starts as the clouds gather, freezes mid-air in the hush, stops when the sun breaks through
   const rainK = ramp(P, 0.16, 0.32) * (1 - ramp(P, 0.72, 0.77)) * (1 - bloom);
