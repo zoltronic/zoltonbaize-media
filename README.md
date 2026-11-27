@@ -25,8 +25,14 @@ live on the orphan `media` branch (small jsDelivr package); Site settings > Head
   which then steps aside). Also decides `window.zbLite` / `html.zb-lite` (data saver, slow connection, 2 GB memory or
   2 cores): those visitors get stills, no live blur.
 - `clouds/zb-clouds.js` — the Work page cloud sea is now a video strip whose horizon tracks the same scroll keyframes.
-- `splash/zb-splash-video.js` — the splash as a 2 s video (skipped if it can't start within 1.5 s) and the cloud floor
-  as two baked strips. `splash/zb-splash.js` is the original 3D version, kept for re-rendering.
+- `splash/zb-splash-head.html` — the splash since late Nov 2026 (v3), pasted into the Work page's head code: built in code
+  so it paints with the first byte (the page's sky out of focus as two tiny inlined images, light and dark; the Z traced in
+  glass; a mono loading bar that follows DOM, fonts and the sky's first frame), then the haze clears into the sharp sky.
+  `splash/zb-splash-video.js` now only runs the cloud floor (two baked strips) and stands down for the splash;
+  the video splash and `splash/zb-splash.js` (the original 3D version) are kept for reference.
+- `avatar/about-embed.html` — the About page's code embed: a still of Zolton on his cloud (rendered from the real scene,
+  media branch `avatar/still-*.webp`) with a loading bar under the cloud that counts the model download, handed over to
+  the 3D in place once it draws. The seat cloud is seeded in `zolton-avatar.js` so the still and the 3D match.
 - `about/zb-about-video.js` — the About sky as two loops (top / bottom of the page), crossfaded on scroll.
   `about/zb-about.js` is the original raymarcher, kept for re-rendering.
 - Zoltbot (`password/zb-password.js`) steps his resolution down on slow GPUs.

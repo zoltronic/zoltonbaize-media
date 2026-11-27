@@ -1,0 +1,65 @@
+<style>
+.about_hero:has(#zolton-avatar){position:relative;min-height:100vh}
+.about_hero:has(#zolton-avatar) > .w-embed{position:absolute;inset:0;z-index:0}
+.about_hero:has(#zolton-avatar) > :not(.w-embed){position:relative;z-index:1;pointer-events:none}
+/* loading still: Zolton on his cloud straight away (a still rendered from the 3D scene, framed the same way), with a loading
+   bar under the cloud that follows the model download; the 3D fades in over it when he's ready */
+#zolton-avatar #loader{display:none!important}
+#zolton-avatar>canvas{transition:opacity .35s ease}
+html.zav-wait #zolton-avatar>canvas{opacity:0}
+#zav-still{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:1;transition:opacity .5s ease}
+#zav-still .zb{position:absolute;left:0;top:0;animation:zavBob 2.85s ease-in-out infinite alternate}
+#zav-still img{position:absolute;left:0;top:0;max-width:none;opacity:0;transition:opacity .3s ease}
+#zav-still img.on{opacity:1}
+@keyframes zavBob{from{transform:translateY(var(--b0,0))}to{transform:translateY(var(--b1,0))}}
+#zav-load{position:absolute;width:132px;margin-left:-66px;color:rgba(8,34,76,.62);font:500 10px/1 "JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.22em;text-transform:uppercase;transition:opacity .3s}
+html.zb-night #zav-load,html[data-mode=dark] #zav-load{color:rgba(226,236,255,.74)}
+#zav-load i{position:absolute;left:0;top:0;width:100%;height:1px;background:currentColor;transform-origin:0 0}
+#zav-load i:first-child{opacity:.24}
+#zav-load i+i{transform:scaleX(0);transition:transform .25s linear}
+#zav-load span{display:flex;justify-content:space-between;padding-top:10px;font-variant-numeric:tabular-nums}
+#zav-load em{font-style:normal}
+@media (prefers-reduced-motion:reduce){#zav-still .zb{animation:none}}
+</style>
+<div id="zolton-avatar" data-controls="off" style="position:absolute;inset:0;width:auto;height:auto;min-height:0;background:transparent"></div>
+<div id="zav-still"><div class="zb"><img alt="" decoding="async" fetchpriority="high"></div><div id="zav-load" role="status" aria-label="Loading the 3D avatar"><i></i><i></i><span><em>Loading</em><em>000</em></span></div></div>
+<script>(function(){try{
+var M='https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@2f19181746a0d5125764fad6c1e942daccc17a7f/avatar/',
+de=document.documentElement,host=document.getElementById('zolton-avatar'),box=document.getElementById('zav-still');if(!host||!box)return;
+var bob=box.firstChild,img=bob.firstChild,ld=document.getElementById('zav-load'),fill=ld.children[1],num=ld.querySelector('em+em');
+de.classList.add('zav-wait');
+/* where the 3D draws him (same camera rules as zolton-avatar.js doResize), measured from the renders: k = cloud anchor below the
+   view centre, in screen heights; b0/b1 = how far he floats, from the still's pose */
+var F={L:{w:1199,h:732,ax:587.7,ay:473.4,cb:702,vh:1000,r:1.5,k:.1636,kx:-.0007,b0:-.00187,b1:.01567},
+       P:{w:801,h:492,ax:393.4,ay:317.2,cb:465,vh:844,r:1.5,k:.12753,kx:-.0004,b0:-.00146,b1:.01221}},
+cur='',live=null,TOT=10188122,got=0,of=window.fetch,wf=null;
+function dark(){return de.classList.contains('zb-night')||de.getAttribute('data-mode')==='dark'}
+function place(){var w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;
+ var v=w<h?'P':'L',f=F[v],s=M+'still-'+(dark()?'night':'day')+'-'+v+'.webp';
+ if(s!==cur){cur=s;img.classList.remove('on');img.src=s}
+ var sc=h/(f.vh*f.r),ax=w/2+(w>=900?.09*w:0)+f.kx*h,ay=h/2-(w>=900?0:.17*h)+f.k*h;
+ if(live){ax=live[0];ay=live[1]}
+ img.style.width=f.w*sc+'px';img.style.height=f.h*sc+'px';
+ img.style.transform='translate('+(ax-f.ax*sc).toFixed(1)+'px,'+(ay-f.ay*sc).toFixed(1)+'px)';
+ bob.style.setProperty('--b0',(f.b0*h).toFixed(2)+'px');bob.style.setProperty('--b1',(f.b1*h).toFixed(2)+'px');
+ ld.style.left=ax.toFixed(1)+'px';ld.style.top=(ay+(f.cb-f.ay)*sc+16).toFixed(1)+'px'}
+img.onload=function(){img.classList.add('on')};
+place();addEventListener('resize',place);try{new ResizeObserver(place).observe(host)}catch(e){}
+new MutationObserver(place).observe(de,{attributes:true,attributeFilter:['class','data-mode']});
+function prog(p){fill.style.transform='scaleX('+p.toFixed(3)+')';num.textContent=('00'+Math.floor(p*100)).slice(-3)}
+/* progress: count the model's bytes (zolton.json + its 9.8 MB buffer) as they stream in */
+if(of&&window.ReadableStream){wf=function(input){var u=typeof input==='string'?input:(input&&input.url)||'',p=of.apply(window,arguments);
+ if(!/\/avatar\/zolton(-mesh\.wasm|\.json)(\?|$)/.test(u))return p;
+ return p.then(function(r){if(!r.ok||!r.body||!r.body.getReader)return r;var rd=r.body.getReader();
+  return new Response(new ReadableStream({pull:function(c){return rd.read().then(function(x){if(x.done){c.close();return}got+=x.value.byteLength;prog(Math.min(.99,got/TOT));c.enqueue(x.value)})},cancel:function(e){return rd.cancel(e)}}),{status:r.status,statusText:r.statusText,headers:r.headers})})};
+ window.fetch=wf}
+/* hand over: once the 3D is drawing, pin the still to where the 3D draws his cloud, fade the 3D in under it, then fade the still out */
+var t0=Date.now(),iv=setInterval(function(){var Z=window.__z;
+ if(Z&&Z.onFrame&&Z.yogaCloud&&Z.camera){clearInterval(iv);var n=0,done=0,V=new Z.camera.position.constructor();bob.style.animation='none';
+  Z.onFrame(function(){if(done)return;var w=host.clientWidth,h=host.clientHeight;Z.yogaCloud.getWorldPosition(V);V.project(Z.camera);live=[(V.x+1)/2*w,(1-V.y)/2*h];place();
+   if(++n===3){prog(1);de.classList.remove('zav-wait');setTimeout(function(){box.style.opacity=0},350);
+    setTimeout(function(){done=1;box.remove();if(window.fetch===wf)window.fetch=of},900)}})}
+ else if(Date.now()-t0>120000){clearInterval(iv);ld.style.opacity=0}},100);
+}catch(e){document.documentElement.classList.remove('zav-wait')}})();</script>
+<script type="module" src="https://rawcdn.githack.com/zoltronic/zoltonbaize-media/9bfdd3e17c2ea9a156f8dad542a8141005fc9ea1/avatar/zolton-avatar.js"></script>
+<script type="module">/* scroll story: live for every visitor (Nov 2026; it was staging-only). The brain-clouds toggle still only shows on staging or with ?tune. */ import('https://rawcdn.githack.com/zoltronic/zoltonbaize-media/9bfdd3e17c2ea9a156f8dad542a8141005fc9ea1/avatar/zolton-story.js');</script>
