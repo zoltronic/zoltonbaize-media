@@ -33,11 +33,13 @@
   var css = d.createElement('style');
   css.textContent = [
     '#zb-sp .zg{position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none;opacity:0;will-change:transform,opacity}',
-    '#zb-sp .zg .lens{position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.03) 55%,rgba(255,255,255,.09))}',
-    'html[data-mode=dark] #zb-sp .zg .lens{background:linear-gradient(160deg,rgba(190,215,255,.1),rgba(150,190,240,.02) 55%,rgba(170,200,255,.07))}',
+    '#zb-sp .zg .lens{position:absolute;inset:0;background:linear-gradient(160deg,rgba(150,228,255,.34),rgba(80,196,226,.14) 55%,rgba(140,226,250,.3))}',
+    'html[data-mode=dark] #zb-sp .zg .lens{background:linear-gradient(160deg,rgba(120,200,255,.22),rgba(60,150,210,.08) 55%,rgba(110,190,240,.18))}',
     '#zb-sp .zg svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}',
     '#zb-sp .zg .e{fill:none;stroke:rgba(255,255,255,.95);stroke-width:1.3;stroke-linejoin:round;vector-effect:non-scaling-stroke;stroke-dasharray:1 1;stroke-dashoffset:1}',
-    '#zb-sp .zg .rim{fill:none;stroke:rgba(255,255,255,.32);stroke-width:5;stroke-linejoin:round}',
+    '#zb-sp .zg .rim{fill:none;stroke:rgba(225,250,255,.42);stroke-width:5;stroke-linejoin:round}',
+    '#zb-sp .zg .dp{fill:none;stroke:rgba(16,84,130,.3);stroke-width:1.3;stroke-linejoin:round;vector-effect:non-scaling-stroke;transform:translateY(1.2px)}',
+    'html[data-mode=dark] #zb-sp .zg .dp{stroke:rgba(0,0,0,.45)}',
     'html[data-mode=dark] #zb-sp .zg .rim{stroke:rgba(200,225,255,.2)}',
     '#zb-sp .zg.on .e{animation:zbSpT5 .5s cubic-bezier(.65,0,.35,1) forwards}',
     '#zb-sp .zg.on .e+.e{animation-delay:.06s}',
@@ -50,7 +52,7 @@
   var zg = d.createElement('div'); zg.className = 'zg';
   zg.innerHTML = '<div class="lens"></div><svg viewBox="0 0 100 100" preserveAspectRatio="none"><defs><clipPath id="zbsp5-c"><path d="' + PATH + '"/></clipPath>' +
     '<linearGradient id="zbsp5-s" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>' +
-    '<g clip-path="url(#zbsp5-c)"><path class="rim" d="' + PATH + '"/><rect class="s" x="-6" y="-12" width="16" height="124" fill="url(#zbsp5-s)"/></g>' +
+    '<g clip-path="url(#zbsp5-c)"><path class="rim" d="' + PATH + '"/><rect class="s" x="-6" y="-12" width="16" height="124" fill="url(#zbsp5-s)"/></g><path class="dp" d="' + PATH + '"/>' +
     '<path class="e" pathLength="1" d="M53.5 11H93.5Q98 11 95.3 14.6L67.7 51.4Q65 55 61.46 52.22L12.54 13.78Q9 11 13.5 11Z"/>' +
     '<path class="e" pathLength="1" d="M46.5 89H86.5Q91 89 87.43 86.26L38.57 48.74Q35 46 32.26 49.57L4.74 85.43Q2 89 6.5 89Z"/></svg>';
   el.insertBefore(zg, video.nextSibling);
