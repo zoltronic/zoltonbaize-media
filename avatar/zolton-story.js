@@ -37,7 +37,7 @@ css.textContent = `
 #zs-cta{position:absolute;pointer-events:auto;opacity:0;display:inline-flex;align-items:center;gap:.4em;padding:.55em 1em;font:600 14px/1 'League Spartan',system-ui,sans-serif;white-space:nowrap;border-radius:999px;
   background:linear-gradient(180deg,#ffe08a,#f1b53b);color:#3a2300;font-weight:600;text-decoration:none;box-shadow:0 8px 30px rgba(240,170,40,.45);z-index:4}
 @media (max-width:899px){#zs-caps .zc{bottom:4vh;font-size:22px}#zs-caps .zc.side{left:50%;right:auto;top:auto;bottom:4vh;width:88vw;margin-left:-44vw;text-align:center}#zs-brain{bottom:auto;top:76px}}
-@media (max-width:699px){.about_hero.zstory > .page_wrap{justify-content:flex-start!important;padding-top:calc(var(--zs-cb,45vh) + 34px)!important;padding-bottom:0!important}#zs-caps .zc,#zs-caps .zc.side{top:52vh;bottom:auto}.about_hero.zstory .heading-h1{font-size:15vw!important;line-height:.95!important}.about_hero.zstory .text-subhead{font-size:16px!important}}
+@media (max-width:699px){.about_hero.zstory > .page_wrap{justify-content:flex-start!important;padding-top:calc(var(--zs-cb,45vh) + 34px)!important;padding-bottom:0!important}#zs-caps .zc,#zs-caps .zc.side{top:52vh;bottom:auto}#zs-caps .zc b{text-shadow:0 1px 3px rgba(0,16,40,.9),0 0 16px rgba(0,10,30,.75)}.about_hero.zstory .heading-h1{font-size:15vw!important;line-height:.95!important}.about_hero.zstory .text-subhead{font-size:16px!important}}
 `;
 document.head.appendChild(css);
 
