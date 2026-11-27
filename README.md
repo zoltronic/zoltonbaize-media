@@ -25,11 +25,16 @@ live on the orphan `media` branch (small jsDelivr package); Site settings > Head
   which then steps aside). Also decides `window.zbLite` / `html.zb-lite` (data saver, slow connection, 2 GB memory or
   2 cores): those visitors get stills, no live blur.
 - `clouds/zb-clouds.js` — the Work page cloud sea is now a video strip whose horizon tracks the same scroll keyframes.
-- `splash/zb-splash-head.html` — the splash since late Nov 2026 (v3), pasted into the Work page's head code: built in code
-  so it paints with the first byte (the page's sky out of focus as two tiny inlined images, light and dark; the Z traced in
-  glass; a mono loading bar that follows DOM, fonts and the sky's first frame), then the haze clears into the sharp sky.
-  `splash/zb-splash-video.js` now only runs the cloud floor (two baked strips) and stands down for the splash;
-  the video splash and `splash/zb-splash.js` (the original 3D version) are kept for reference.
+- `splash/zb-splash-head.html` + `splash/zb-splash5.js` — the splash since 27 Nov 2026 (v5). The original 3D shot (low over
+  the cloud sea, the clouds gather into the Z, through it to the page) re-rendered offline from `zb-splash.js` as a ~2 s
+  video (media branch `splash/v5-{day,night}` as HEVC / VP9 / H.264, 150–300 KB; night re-lit to moonlight). Part 1, pasted
+  into the Work page's head code, paints the first frame out of focus (inlined) and a mono loading bar with the first byte,
+  starts the video and runs the reveal. Part 2 is the glass Z: live code, cyan-tinted and refracting the video through the
+  same SVG displacement trick as the nav bar's liquid glass, pinned to the video frame by frame with a homography from the
+  camera track baked at render time; at the end the Z's two holes open as a clip-path portal onto the page.
+  The gold coin waits for the splash to finish before starting three.js. `splash/zb-splash-video.js` only runs the cloud
+  floor now and stands down for the splash. v3 (code fog), v4 (cloud sprites) and `splash/zb-splash.js` (the original
+  real-time 3D) are kept for reference.
 - `avatar/about-embed.html` — the About page's code embed: a still of Zolton on his cloud (rendered from the real scene,
   media branch `avatar/still-*.webp`) with a loading bar under the cloud that counts the model download, handed over to
   the 3D in place once it draws. The seat cloud is seeded in `zolton-avatar.js` so the still and the 3D match.
