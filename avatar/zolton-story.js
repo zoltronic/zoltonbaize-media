@@ -696,3 +696,32 @@ function drawEarth() {
 (function earthLoop() { const r = earthWrap.getBoundingClientRect(); if (r.bottom > 0 && r.top < innerHeight) drawEarth(); requestAnimationFrame(earthLoop); })();
 window.__storyDebug = { P: 0 }; window.__bulbDbg = { glassPhys, glassRim, bulb, stemMat, insMat, baseMat, wireMat, filMat };
 console.log('[zolton] scroll story ready');
+
+// Warm-up: every story material that isn't on screen yet (storm, rain, holograms, bulb, coin) is compiled in the background
+// once the page has settled, so the storm doesn't freeze for most of a second the first time it scrolls in.
+// (three.js only compiles what's visible, so stand-in copies of the hidden objects go in a throwaway scene.)
+(function warmStory() {
+  const R = Z.renderer; if (!R || !R.compileAsync) return;
+  let tries = 0;
+  const go = () => {
+    const ws = new THREE.Scene();
+    Z.scene.traverse(o => {
+      if (!o.material || o.isSkinnedMesh) return;
+      let shown = true; for (let p = o; p; p = p.parent) if (!p.visible) { shown = false; break; }
+      if (shown) return;
+      let m = null;
+      if (o.isInstancedMesh) m = new THREE.InstancedMesh(o.geometry, o.material, 1);
+      else if (o.isPoints) m = new THREE.Points(o.geometry, o.material);
+      else if (o.isLineSegments) m = new THREE.LineSegments(o.geometry, o.material);
+      else if (o.isLine) m = new THREE.Line(o.geometry, o.material);
+      else if (o.isSprite) m = new THREE.Sprite(o.material);
+      else if (o.isMesh) m = new THREE.Mesh(o.geometry, o.material);
+      if (m) { m.frustumCulled = false; m.renderOrder = o.renderOrder; ws.add(m); }
+    });
+    if (ws.children.length) R.compileAsync(ws, Z.camera, Z.scene).catch(() => {});
+    // the bulb and coin models arrive later: one more pass picks them up
+    if (++tries < 2) setTimeout(() => (window.requestIdleCallback || setTimeout)(go, { timeout: 2000 }), 4000);
+  };
+  const start = () => setTimeout(() => (window.requestIdleCallback || setTimeout)(go, { timeout: 2000 }), 2500);
+  if (document.readyState === 'complete') start(); else addEventListener('load', start, { once: true });
+})();
