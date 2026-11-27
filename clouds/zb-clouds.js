@@ -277,15 +277,22 @@
     seaFrame();
   }
   function ask() { if (!q) { q = true; requestAnimationFrame(run); } }
-  function rebuild() { if (scene) scene.remove(); build(); run(); }
+  // rebuild when the page has changed size; re-inserting the clouds when nothing moved only made the browser re-paint them
+  var builtH = 0, builtW = 0;
+  function rebuild(force) {
+    var r = (document.querySelector('.page_root') || document.body).getBoundingClientRect();
+    if (force !== true && scene && Math.abs(r.height - builtH) < 4 && Math.abs(r.width - builtW) < 4) { run(); return; }
+    builtH = r.height; builtW = r.width;
+    if (scene) scene.remove(); build(); run();
+  }
   function init() {
     seaInit();
     rebuild();
     if (!reduce) { try { findDrift(); } catch (e) {} run(); }
     if (!reduce) addEventListener('scroll', ask, { passive: true });
-    var lw = innerWidth; addEventListener('resize', function () { if (Math.abs(innerWidth - lw) > 40) { lw = innerWidth; rebuild(); } else ask(); });
+    var lw = innerWidth; addEventListener('resize', function () { if (Math.abs(innerWidth - lw) > 40) { lw = innerWidth; rebuild(true); } else ask(); });
     setTimeout(rebuild, 2500);   // the page grows as embeds load (logo strip, Lottie): rebuild once it settles
   }
-  window.zbScene = { scene: SCENE, anchors: ANCHORS, rebuild: rebuild };
+  window.zbScene = { scene: SCENE, anchors: ANCHORS, rebuild: function () { rebuild(true); } };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
