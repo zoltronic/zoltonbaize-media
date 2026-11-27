@@ -633,7 +633,7 @@ body.zs-on .zs-photo.has-img{border:0;padding:0;margin:0;overflow:hidden;backgro
 body.zs-on .zs-photo.has-img img{width:100%;height:100%;object-fit:cover;object-position:50% 20%;display:block}
 @media (max-width:899px){body.zs-on .about_panel{grid-template-columns:1fr;padding:8vw!important}body.zs-on .about_panel > *{grid-column:1!important}body.zs-on .zs-photo{grid-row:auto;max-width:320px;width:70%;justify-self:center}}
 #zs-earth{position:absolute;left:0;right:0;z-index:0;pointer-events:none}
-body.zs-on .page_root > :last-child, body.zs-on footer, body.zs-on .footer{position:relative;z-index:1;background:transparent!important}
+body.zs-on .zs-lift, body.zs-on footer, body.zs-on .footer{position:relative;z-index:1;background:transparent!important}
 #zs-earth canvas{position:sticky;top:0;width:100%;height:100vh;display:block}
 `;
 document.head.appendChild(css2);
@@ -641,6 +641,11 @@ const panel = document.querySelector('.about_panel');
 if (panel && !panel.querySelector('.zs-photo')) { const ph = document.createElement('figure'); ph.className = 'zs-photo has-img'; const im = document.createElement('img'); im.src = new URL('./about/zolton-ggb.webp', import.meta.url).href; im.alt = 'Zolton at the Golden Gate Bridge'; im.loading = 'lazy'; im.decoding = 'async'; ph.appendChild(im); panel.prepend(ph); }
 const earthWrap = document.createElement('div'); earthWrap.id = 'zs-earth'; const earthCv = document.createElement('canvas'); earthWrap.appendChild(earthCv);
 const root = document.querySelector('.page_root') || document.body; root.prepend(earthWrap);
+// lift the page's own footer above the ground. This used to be ".page_root > :last-child", which also caught Zoltbot's chat
+// (it lives in .page_root and is appended last when it opens): the chat turned position:relative, dropped into the page flow,
+// grew the page by its height and scrolled past the end of the story, showing the sky under the ground.
+{ const lift = root.querySelector(':scope > .page_footer') || [...root.children].reverse().find(el => el !== earthWrap && !/(^|\s)zb-/.test(el.className) && !/^(SCRIPT|STYLE|LINK|NOSCRIPT)$/.test(el.tagName) && getComputedStyle(el).position !== 'fixed');
+  if (lift) lift.classList.add('zs-lift'); }
 const firstSec = document.querySelector('.about_section'), foot = [...document.querySelectorAll('.about_section')].pop();
 function placeEarth() { if (!firstSec) return; const rr = root.getBoundingClientRect(), a = firstSec.getBoundingClientRect();
   earthWrap.style.top = (a.top - rr.top) + 'px'; earthWrap.style.height = (rr.height - (a.top - rr.top)) + 'px'; }
