@@ -1,6 +1,6 @@
 <!-- Splash (v3, Nov 2026): first page of a visit, desktop only (?splash forces it; phones, tablets, reduced motion and low-power devices skip it).
      Code, not video, so it paints with the first byte and looks the same in every browser: the page's own sky out of focus (two tiny inlined
-     images, light and dark), the Z drawn in glass, and a bar that follows the real load (DOM, fonts, the sky's first frame, the rest).
+     images, light and dark), the Z drawn in glass, and a bar that follows the real load (DOM, fonts, the sky's first frame; it doesn't wait for the rest).
      When the page is ready the haze clears into the sharp sky. Never more than 3 s; a click, scroll or key skips it. -->
 <style>#zb-sp{position:fixed;inset:0;z-index:2147483000;overflow:hidden;cursor:pointer;-webkit-user-select:none;user-select:none;--zs:clamp(96px,10vw,144px)}
 #zb-sp.out{pointer-events:none}
@@ -45,12 +45,12 @@ var el=d.createElement('div');el.id='zb-sp';el.setAttribute('aria-hidden','true'
 el.innerHTML='<div class="fog"></div><div class="mark"><svg viewBox="0 0 100 100"><defs><linearGradient id="zbsp-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".74"/><stop offset=".5" stop-color="#eaf6ff" stop-opacity=".24"/><stop offset="1" stop-color="#cfe8ff" stop-opacity=".46"/></linearGradient><linearGradient id="zbsp-s" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><clipPath id="zbsp-c"><path d="M53.5 11H93.5Q98 11 95.3 14.6L67.7 51.4Q65 55 61.46 52.22L12.54 13.78Q9 11 13.5 11Z"/><path d="M46.5 89H86.5Q91 89 87.43 86.26L38.57 48.74Q35 46 32.26 49.57L4.74 85.43Q2 89 6.5 89Z"/></clipPath></defs><g class="g"><path d="M53.5 11H93.5Q98 11 95.3 14.6L67.7 51.4Q65 55 61.46 52.22L12.54 13.78Q9 11 13.5 11Z" fill="url(#zbsp-g)"/><path d="M46.5 89H86.5Q91 89 87.43 86.26L38.57 48.74Q35 46 32.26 49.57L4.74 85.43Q2 89 6.5 89Z" fill="url(#zbsp-g)"/><path class="d" d="M53.5 11H93.5Q98 11 95.3 14.6L67.7 51.4Q65 55 61.46 52.22L12.54 13.78Q9 11 13.5 11Z"/><path class="d" d="M46.5 89H86.5Q91 89 87.43 86.26L38.57 48.74Q35 46 32.26 49.57L4.74 85.43Q2 89 6.5 89Z"/><g clip-path="url(#zbsp-c)"><rect class="s" x="-6" y="-12" width="18" height="124" fill="url(#zbsp-s)"/></g></g><path class="e" pathLength="1" d="M53.5 11H93.5Q98 11 95.3 14.6L67.7 51.4Q65 55 61.46 52.22L12.54 13.78Q9 11 13.5 11Z"/><path class="e" pathLength="1" d="M46.5 89H86.5Q91 89 87.43 86.26L38.57 48.74Q35 46 32.26 49.57L4.74 85.43Q2 89 6.5 89Z"/></svg></div><div class="bar"><i class="t"></i><i class="f"></i><span><em>Loading</em><em class="n">000</em></span></div>';
 h.appendChild(el);
 var fog=el.firstChild,fill=el.querySelector('.f'),num=el.querySelector('.n'),
-T0=performance.now(),MIN=1050,MAX=3000,W={dom:.25,font:.2,sky:.3,load:.25},got={},shown=0,out=0,zoom=1,raf,
+T0=performance.now(),MIN=1050,MAX=3000,W={dom:.3,font:.3,sky:.4},got={},shown=0,out=0,zoom=1,raf,
 ok=function(k){got[k]=1};
 d.addEventListener('DOMContentLoaded',function(){ok('dom');if(d.fonts&&d.fonts.ready)d.fonts.ready.then(function(){ok('font')});else ok('font')});
 addEventListener('load',function(){ok('load')});
 function tick(now){var t=now-T0,tg=0,k;
- if(!got.sky&&(d.querySelector('zb-sky img.on,zb-sky video.on')||(got.load&&t>1800)))ok('sky');
+ if(!got.sky&&(d.querySelector('zb-sky img.on,zb-sky video.on')||(got.dom&&t>1800)))ok('sky');
  for(k in got)tg+=W[k];if(t>MAX)tg=1;
  shown+=(tg-shown)*.14;if(shown<tg)shown=Math.min(tg,shown+.0025);if(tg>=1&&shown>.996)shown=1;
  fill.style.transform='scaleX('+shown.toFixed(4)+')';num.textContent=('00'+Math.round(shown*100)).slice(-3);
