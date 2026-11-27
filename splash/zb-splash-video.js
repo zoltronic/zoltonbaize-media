@@ -107,7 +107,8 @@
   deckAsk();
 
   // ---------- Splash ----------
-  if (!wantSplash) { clearCover(); return; }
+  // since Nov 2026 the splash itself is code in the Work page head (window.__zbSp3); this file still owns the cloud floor
+  if (!wantSplash || window.__zbSp3) { clearCover(); return; }
   const night = isDark();
   const splash = document.createElement('div');
   splash.id = 'zb-splash'; splash.setAttribute('role', 'presentation');
