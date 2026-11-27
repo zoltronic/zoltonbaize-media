@@ -25,15 +25,19 @@ renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0
 let look='cartoon', lightName='day'; const backings=[]; const swaps=[], inks=[], misprints=[];
 // ink outline: back-face hull pushed out in screen space by a fixed pixel width; follows skinning + face morphs
 const INK_RES={value:new THREE.Vector2(1,1)};
+// outline widths are in CSS pixels; INK_K turns them into drawing-buffer pixels and follows the render resolution, so the
+// line keeps its width when a phone renders at 1.5x or drops to 0.75x (it used to assume the screen's full pixel ratio,
+// which drew it up to 2.7x too thick and blocky once a phone had stepped its resolution down)
+const INK_K={value:PR};
 function inkMaterial(px,col=0x0b0814,off=[0,0]){
   const m=new THREE.MeshLambertMaterial({color:0x000000,emissive:col,side:THREE.BackSide});
-  m.onBeforeCompile=(sh)=>{ sh.uniforms.uRes=INK_RES; sh.uniforms.uPx={value:px}; sh.uniforms.uOff={value:new THREE.Vector2(off[0],off[1])};
-    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform vec2 uRes; uniform float uPx; uniform vec2 uOff;')
+  m.onBeforeCompile=(sh)=>{ sh.uniforms.uRes=INK_RES; sh.uniforms.uK=INK_K; sh.uniforms.uPx={value:px}; sh.uniforms.uOff={value:new THREE.Vector2(off[0],off[1])};
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform vec2 uRes; uniform float uPx; uniform float uK; uniform vec2 uOff;')
     .replace('#include <project_vertex>',`#include <project_vertex>
       vec3 nV=normalize(normalMatrix*objectNormal);
       vec2 nc=(projectionMatrix*vec4(nV,0.0)).xy*uRes; float ln=length(nc);
-      if(ln>1e-5) gl_Position.xy+=(nc/ln)*(uPx*2.0/uRes)*gl_Position.w;
-      gl_Position.xy+=uOff*2.0/uRes*gl_Position.w;
+      if(ln>1e-5) gl_Position.xy+=(nc/ln)*(uPx*uK*2.0/uRes)*gl_Position.w;
+      gl_Position.xy+=uOff*uK/uRes*gl_Position.w;
       gl_Position.z+=0.0004*gl_Position.w;`); };
   m.customProgramCacheKey=()=>'ink'+px+'_'+off.join('_'); return m;
 }
@@ -634,13 +638,13 @@ new GLTFLoader().load(BASE+'zolton.json',(gltf)=>{
     const isHead=/d58e4479|Head_LOD_mesh/.test(o.name);
     const px = isHead?1.3 : /GlassLens|GlassGlow|GlassHalo|CapSeam|CapEyelet|NeckFill/.test(o.name)?0 : /Strap|Buckle|Ring|Glass|Cap/.test(o.name)?1.3 : /PalmRing/.test(o.name)?0 : 2.2;
     if(px>0){
-      const inkM=inkMaterial(px*Math.min(devicePixelRatio,2));
+      const inkM=inkMaterial(px);
       const ink = o.isSkinnedMesh ? new THREE.SkinnedMesh(o.geometry,inkM) : new THREE.Mesh(o.geometry,inkM);
       if(o.isSkinnedMesh){ ink.bind(o.skeleton,o.bindMatrix); }
       if(o.morphTargetInfluences){ ink.morphTargetInfluences=o.morphTargetInfluences; ink.morphTargetDictionary=o.morphTargetDictionary; }
       ink.frustumCulled=false; ink.renderOrder=-1; o.add(ink); inks.push(ink);
       if(!isHead && !/Strap|Buckle|Ring|Palm|Glass|Cap/.test(o.name)){ // Spider-Verse misprint: offset colour ghost behind the ink line
-        const mm=inkMaterial(px*Math.min(devicePixelRatio,2)+0.6,0xff2f7d,[3.2,-2.2]);
+        const mm=inkMaterial(px+0.3,0xff2f7d,[3.2,-2.2]);
         const mp = o.isSkinnedMesh ? new THREE.SkinnedMesh(o.geometry,mm) : new THREE.Mesh(o.geometry,mm);
         if(o.isSkinnedMesh){ mp.bind(o.skeleton,o.bindMatrix); }
         if(o.morphTargetInfluences){ mp.morphTargetInfluences=o.morphTargetInfluences; mp.morphTargetDictionary=o.morphTargetDictionary; }
@@ -829,7 +833,7 @@ function frame(){
   if(!onScreen||document.hidden||(TOUCH&&tnow-lastDraw<31)){ requestAnimationFrame(frame); if(!onScreen||document.hidden) clock.getDelta(); return; }
   if(lastDraw){ const fd=(tnow-lastDraw)/1000; emaDt+=(fd-emaDt)*0.1;
     // still struggling (under ~22 fps on a phone, ~40 on desktop) -> drop the resolution a step, down to 0.75x
-    if(emaDt>(TOUCH?0.045:0.025)){ slowT+=fd; if(slowT>1.5&&PR>(TOUCH?0.75:1)){ PR=Math.max(TOUCH?0.75:1,PR-0.25); renderer.setPixelRatio(PR); resize(); slowT=0; emaDt=TOUCH?1/30:1/60; } } else slowT=0; }
+    if(emaDt>(TOUCH?0.045:0.025)){ slowT+=fd; if(slowT>1.5&&PR>(TOUCH?0.75:1)){ PR=Math.max(TOUCH?0.75:1,PR-0.25); renderer.setPixelRatio(PR); INK_K.value=PR; resize(); slowT=0; emaDt=TOUCH?1/30:1/60; } } else slowT=0; }
   lastDraw=tnow;
   const rdt=clock.getDelta(); const realDt=Math.min(rdt,0.05); const cdt=Math.min(rdt,0.25); /* cdt: intro timers follow the clock even while the page is busy loading */ const now=performance.now()/1000;
   // Spider-Verse: character animates "on twos" (12 fps holds); camera, flames and sky stay smooth

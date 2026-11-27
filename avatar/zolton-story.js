@@ -37,7 +37,7 @@ css.textContent = `
 #zs-cta{position:absolute;pointer-events:auto;opacity:0;display:inline-flex;align-items:center;gap:.4em;padding:.55em 1em;font:600 14px/1 'League Spartan',system-ui,sans-serif;white-space:nowrap;border-radius:999px;
   background:linear-gradient(180deg,#ffe08a,#f1b53b);color:#3a2300;font-weight:600;text-decoration:none;box-shadow:0 8px 30px rgba(240,170,40,.45);z-index:4}
 @media (max-width:899px){#zs-caps .zc{bottom:4vh;font-size:22px}#zs-caps .zc.side{left:50%;right:auto;top:auto;bottom:4vh;width:88vw;margin-left:-44vw;text-align:center}#zs-brain{bottom:auto;top:76px}}
-@media (max-width:699px){.about_hero.zstory > .page_wrap{padding-bottom:4vh!important}.about_hero.zstory .heading-h1{font-size:15vw!important;line-height:.95!important}.about_hero.zstory .text-subhead{font-size:16px!important}}
+@media (max-width:699px){.about_hero.zstory > .page_wrap{justify-content:flex-start!important;padding-top:calc(var(--zs-cb,45vh) + 34px)!important;padding-bottom:0!important}#zs-caps .zc,#zs-caps .zc.side{top:52vh;bottom:auto}.about_hero.zstory .heading-h1{font-size:15vw!important;line-height:.95!important}.about_hero.zstory .text-subhead{font-size:16px!important}}
 `;
 document.head.appendChild(css);
 
@@ -384,6 +384,12 @@ const coinUp = e => { if (e.pointerId !== coinSpin.id) return; const idle = perf
 coinHit.addEventListener('pointerup', coinUp); coinHit.addEventListener('pointercancel', coinUp);
 coinHit.addEventListener('click', e => { if (performance.now() - (coinSpin.suppress || 0) < 400) e.preventDefault(); });
 coinHit.addEventListener('dragstart', e => e.preventDefault()); capsEl.appendChild(coinHit); const camOff = V();
+// phones: the words go just under his cloud and stay clear of the bottom nav, wherever the camera has him
+const isPhone = () => innerWidth < 700;
+const cbW = V(); let navTopPx = 0, capHs = [], phoneMeasured = -9;
+function measurePhone(now) { phoneMeasured = now; const n = document.querySelector('.nav_thumb'); const r = n && n.getBoundingClientRect();
+  navTopPx = r && r.height ? r.top : innerHeight - 96; capHs = capEls.map(e => e.offsetHeight); }
+addEventListener('resize', () => { phoneMeasured = -9; });
 state.story = true;
 const setE = (n) => { if (exprNow !== n) { exprNow = n; Z.setExpr(n, 9999); } };
 
@@ -456,13 +462,13 @@ Z.onFrame((dt, now, realDt) => {
     rainGeo.attributes.position.needsUpdate = true; }
 
   // holograms: appear once the glasses are on, orbit with the storm, then get pulled into the bulb
-  const uni = ramp(P, 0.44, 0.56); ringA += speed * 1.9 * realDt;
+  const uni = ramp(P, 0.44, 0.56); ringA += speed * 1.9 * realDt; const phone = isPhone();
   for (const h of holos) { const u = h.userData; const on = ramp(P, u.on, u.on + 0.03) * (1 - pull);
     u.ang += speed * u.w * 1.9 * (1.3 / u.r) * realDt; u.tx += u.tumX * speed * realDt; u.ty += u.tumY * speed * realDt;
     const slot = ringA + holos.indexOf(h) / holos.length * Math.PI * 2; let da = ((slot - u.ang) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
     const a = u.ang + da * uni, rr = (u.r + (1.35 - u.r) * uni) * (1 + stormK * 0.25), yy = u.y + (0.25 - u.y) * uni;
     if (uni > 0.98) u.ang = a;
-    const orbit = V(center.x + Math.cos(a) * rr * 1.25, center.y + yy + Math.sin(now * 1.3 + u.ph) * 0.05 * (1 - uni), center.z + Math.sin(a) * rr * 0.55 - 0.2);
+    const orbit = V(center.x + Math.cos(a) * rr * (phone ? 0.92 : 1.25), center.y + yy + Math.sin(now * 1.3 + u.ph) * 0.05 * (1 - uni), center.z + Math.sin(a) * rr * 0.55 - 0.2);
     const pk = Math.pow(pull, 1.6); h.position.lerpVectors(orbit, tmp.set(headW.x, headW.y + 0.06, headW.z), pk);
     h.quaternion.copy(camera.quaternion); h.rotateY(Math.sin(a) * 0.35 + Math.sin(u.ty) * 0.5 * (1 - uni)); h.rotateX(Math.sin(u.tx) * 0.35 * (1 - uni));
     h.scale.setScalar(Math.max(0.001, (1 - pk * 0.9) * (0.8 + 0.2 * on)));
@@ -595,6 +601,9 @@ Z.onFrame((dt, now, realDt) => {
   camOff.set(0, innerWidth < 700 ? -0.42 * (1 - push) : 0, 0);
   const pTarget = V(headW.x - 0.05, headW.y + 0.12, headW.z), pPos = V(headW.x + 0.25, headW.y + 0.05, headW.z + 3.1);
   Z.camFull.target.lerpVectors(camBase.target, pTarget, push * 0.85).add(camOff); Z.camFull.pos.lerpVectors(camBase.pos, pPos, push * 0.85).add(camOff);
+  // phones: step back while the holograms circle him, so the whole ring fits the narrow screen
+  const zoomOut = isPhone() ? 0.38 * band(P, 0.19, 0.29, 0.55, 0.63) : 0;
+  if (zoomOut > 0.001) Z.camFull.pos.sub(Z.camFull.target).multiplyScalar(1 + zoomOut).add(Z.camFull.target);
 
   // expressions per beat
   // he keeps the same calm, concentrating face throughout (no expression changes)
@@ -612,6 +621,10 @@ Z.onFrame((dt, now, realDt) => {
   bloomEl.style.background = `radial-gradient(90% 90% at ${bx}px ${by}px, rgba(255,252,238,1) 0%, rgba(255,240,205,.97) 35%, rgba(255,226,170,.9) 100%)`;
   bloomEl.style.opacity = (bloom * 0.72).toFixed(3);
   CAPS.forEach((c, i) => { const o = band(P, c[0], c[1], c[2], c[3]); capEls[i].style.opacity = o.toFixed(3); capEls[i].style.transform = `translateY(${((1 - o) * 12).toFixed(1)}px)`; });
+  if (isPhone()) { if (now - phoneMeasured > 1) measurePhone(now);   // re-read now and then: Safari's toolbar moves the nav
+    Z.yogaCloud.getWorldPosition(cbW); cbW.y -= 0.36 * Math.max(0.3, Z.yogaCloud.scale.y); cbW.project(camera);
+    const under = (1 - cbW.y) / 2 * ch + 22;
+    CAPS.forEach((c, i) => { if (+capEls[i].style.opacity > 0.001) capEls[i].style.top = Math.max(84, Math.min(under, navTopPx - capHs[i] - 18)).toFixed(0) + 'px'; }); }
   const co = ramp(P, 0.93, 0.955); cta.style.opacity = co.toFixed(3); cta.style.pointerEvents = co > 0.5 ? 'auto' : 'none';
   coach.style.opacity = 0;
   if (co > 0.01 && realCoin) { const cs = realCoin.position.clone().project(camera), cx2 = (cs.x + 1) / 2 * cw, cy2 = (1 - cs.y) / 2 * ch, rpx = 0.12 * realCoin.scale.x / Math.max(0.01, realCoin.position.distanceTo(camera.position)) * ch * 1.9;

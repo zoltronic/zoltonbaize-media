@@ -37,12 +37,15 @@ function dark(){return de.classList.contains('zb-night')||de.getAttribute('data-
 function place(){var w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;
  var v=w<h?'P':'L',f=F[v],s=M+'still-'+(dark()?'night':'day')+'-'+v+'.webp';
  if(s!==cur){cur=s;img.classList.remove('on');img.src=s}
- var sc=h/(f.vh*f.r),ax=w/2+(w>=900?.09*w:0)+f.kx*h,ay=h/2-(w>=900?0:.17*h)+f.k*h;
+ /* phones: the story lifts him a further .085 screen heights so the words fit underneath; --zs-cb (where his cloud ends)
+    places the 'No limits' title just under it */
+ var sc=h/(f.vh*f.r),ax=w/2+(w>=900?.09*w:0)+f.kx*h,ay=h/2-(w>=900?0:.17*h)+f.k*h-(w<700?.0849*h:0);
+ if(w<700)de.style.setProperty('--zs-cb',(ay+.082*h).toFixed(0)+'px');
  if(live){ax=live[0];ay=live[1]}
  img.style.width=f.w*sc+'px';img.style.height=f.h*sc+'px';
  img.style.transform='translate('+(ax-f.ax*sc).toFixed(1)+'px,'+(ay-f.ay*sc).toFixed(1)+'px)';
  bob.style.setProperty('--b0',(f.b0*h).toFixed(2)+'px');bob.style.setProperty('--b1',(f.b1*h).toFixed(2)+'px');
- ld.style.left=ax.toFixed(1)+'px';ld.style.top=(ay+(f.cb-f.ay)*sc+16).toFixed(1)+'px'}
+ ld.style.left=ax.toFixed(1)+'px';ld.style.top=(w<700?ay+.082*h+4:ay+(f.cb-f.ay)*sc+16).toFixed(1)+'px'}
 img.onload=function(){img.classList.add('on')};
 place();addEventListener('resize',place);try{new ResizeObserver(place).observe(host)}catch(e){}
 new MutationObserver(place).observe(de,{attributes:true,attributeFilter:['class','data-mode']});
