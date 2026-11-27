@@ -11,7 +11,7 @@
   'use strict';
   if (window.__zbSplash) return; window.__zbSplash = true;
   const html = document.documentElement;
-  const MEDIA = window.ZB_MEDIA || 'https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@bcece79874d7c27ac7f221dccf7a2aab0e35316b/';
+  const MEDIA = window.ZB_MEDIA || 'https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@0e10c429f89287c3916d1716c121235eda8ebc2e/';
   const SEEN_KEY = 'zbSplashSeen';
   const force = /[?&]splash\b/.test(location.search);
   let seen = /(?:^|;\s*)zbSplashSeen=1/.test(document.cookie);

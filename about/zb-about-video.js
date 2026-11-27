@@ -8,7 +8,7 @@
   'use strict';
   if (window.__zbAbout) return; window.__zbAbout = true;
   const html = document.documentElement;
-  const MEDIA = window.ZB_MEDIA || 'https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@bcece79874d7c27ac7f221dccf7a2aab0e35316b/';
+  const MEDIA = window.ZB_MEDIA || 'https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@0e10c429f89287c3916d1716c121235eda8ebc2e/';
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const still = reduce || !!window.zbLite;
   const css = document.createElement('style');

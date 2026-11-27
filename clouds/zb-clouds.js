@@ -140,7 +140,7 @@
   window.ZB_AI_REPLIES = SEA.aiReplies;
   window.ZB_BOT_SIZE = SEA.botSize;
   window.ZB_BOT_LATE = SEA.botLate * 1000;   // read by Zoltbot (password/zb-password.js, late mode)
-  var MEDIA = window.ZB_MEDIA || 'https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@bcece79874d7c27ac7f221dccf7a2aab0e35316b/';
+  var MEDIA = window.ZB_MEDIA || 'https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@0e10c429f89287c3916d1716c121235eda8ebc2e/';
   var touch = matchMedia('(pointer: coarse)').matches;
   var seaStill = reduce || touch || !!window.zbLite || /zbstill/.test(location.search);
   var HZ = 200 / 900, ASPECT = 1280 / 800;    // the loop's horizon sits 22% down its frame; the frame is 16:10

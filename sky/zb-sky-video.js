@@ -13,7 +13,7 @@
 (function () {
   'use strict';
   var de = document.documentElement;
-  var MEDIA = window.ZB_MEDIA || 'https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@bcece79874d7c27ac7f221dccf7a2aab0e35316b/';
+  var MEDIA = window.ZB_MEDIA || 'https://cdn.jsdelivr.net/gh/zoltronic/zoltonbaize-media@0e10c429f89287c3916d1716c121235eda8ebc2e/';
   window.ZB_MEDIA = MEDIA;
   function mq(q) { try { return matchMedia(q).matches; } catch (e) { return false; } }
 
